@@ -1,0 +1,110 @@
+{
+  "user_id": "usr_000943",
+  "summary_zh": "用戶 usr_000943 目前風險等級為 high，風險分數 64.3。主要原因包含 fast_cash_out_2h, shared_device_ring。",
+  "risk_summary": {
+    "risk_score": 64.34714936343148,
+    "risk_level": "high",
+    "prediction_time": "2026-03-07 13:56:59.957685+08:00"
+  },
+  "shap_top_factors": [
+    {
+      "feature": "monthly_income_twd",
+      "feature_zh": "monthly_income_twd",
+      "value": 76610.0,
+      "impact": 3.6586088892770023
+    },
+    {
+      "feature": "expected_monthly_volume_twd",
+      "feature_zh": "expected_monthly_volume_twd",
+      "value": 87128.24,
+      "impact": 2.2871632465682072
+    },
+    {
+      "feature": "declared_source_of_funds_business_income",
+      "feature_zh": "declared_source_of_funds_business_income",
+      "value": true,
+      "impact": 1.4330333854136843
+    },
+    {
+      "feature": "occupation_operations",
+      "feature_zh": "occupation_operations",
+      "value": true,
+      "impact": 1.3497431739741952
+    },
+    {
+      "feature": "actual_fiat_income_ratio",
+      "feature_zh": "actual_fiat_income_ratio",
+      "value": 1.54821877039551,
+      "impact": 0.8714343855507937
+    }
+  ],
+  "rule_hits": [
+    "fast_cash_out_2h",
+    "shared_device_ring"
+  ],
+  "graph_evidence": {
+    "shared_device_count": 4,
+    "shared_bank_count": 4,
+    "shared_wallet_count": 4,
+    "blacklist_1hop_count": 2,
+    "blacklist_2hop_count": 0,
+    "component_size": 71
+  },
+  "timeline_summary": [
+    {
+      "time": "2026-01-30T08:25:00+00:00",
+      "type": "crypto",
+      "amount": 65436.78
+    },
+    {
+      "time": "2026-01-30T07:21:00+00:00",
+      "type": "trade",
+      "amount": 66089.5
+    },
+    {
+      "time": "2026-01-30T06:27:00+00:00",
+      "type": "login",
+      "amount": null
+    },
+    {
+      "time": "2026-01-25T08:13:31+00:00",
+      "type": "login",
+      "amount": null
+    },
+    {
+      "time": "2026-01-25T05:13:44+00:00",
+      "type": "login",
+      "amount": null
+    },
+    {
+      "time": "2026-01-24T15:29:38+00:00",
+      "type": "login",
+      "amount": null
+    },
+    {
+      "time": "2026-01-24T04:42:48+00:00",
+      "type": "login",
+      "amount": null
+    }
+  ],
+  "recommended_action": "manual_review",
+  "alert": {
+    "alert_id": "alert_67a859020429",
+    "status": "open",
+    "risk_level": "high",
+    "created_at": "2026-03-07T13:57:00.104446+08:00"
+  },
+  "case": {
+    "case_id": "case_cd4a792c97b0",
+    "status": "open",
+    "latest_decision": null,
+    "created_at": "2026-03-07T13:57:00.104448+08:00"
+  },
+  "case_actions": [],
+  "allowed_decisions": [
+    "confirm_suspicious",
+    "dismiss_false_positive",
+    "escalate",
+    "request_monitoring"
+  ]
+}

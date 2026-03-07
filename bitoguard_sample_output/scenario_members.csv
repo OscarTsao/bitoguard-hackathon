@@ -1,0 +1,13 @@
+scenario_id,entity_type,entity_id,role
+scn_000001,user,usr_000016,feeder_4
+scn_000001,user,usr_000021,feeder_3
+scn_000001,user,usr_000042,feeder_2
+scn_000001,user,usr_000081,hub
+scn_000001,user,usr_000107,feeder_1
+scn_000001,wallet,wal_000909,shared_cluster
+scn_000002,user,usr_000129,mule
+scn_000002,wallet,wal_000910,cashout_cluster
+scn_000003,user,usr_000170,mule
+scn_000003,wallet,wal_000911,cashout_cluster
+scn_000004,user,usr_000184,mule
+scn_000004,wallet,wal_000912,cashout_cluster

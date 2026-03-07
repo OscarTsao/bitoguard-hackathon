@@ -1,0 +1,12 @@
+{
+  "n_users": 200,
+  "start_date": "2026-01-01",
+  "days": 30,
+  "injection_window_days": 3,
+  "suspicious_user_ratio": 0.03,
+  "grey_user_ratio": 0.08,
+  "observed_blacklist_ratio": 0.35,
+  "locale": "zh_TW",
+  "seed": 42,
+  "output_dir": "/mnt/data/bitoguard_sample_output"
+}

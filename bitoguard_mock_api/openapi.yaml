@@ -1,0 +1,1844 @@
+openapi: 3.1.0
+info:
+  title: BitoGuard v1 Mock API
+  description: Source-facing, read-only mock API built from BitoGuard pseudo data.
+  version: 1.0.0
+paths:
+  /healthz:
+    get:
+      summary: Healthcheck
+      operationId: healthcheck_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Healthcheck Healthz Get
+  /v1/users:
+    get:
+      summary: List Users
+      operationId: list_users_v1_users_get
+      parameters:
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+      - name: start_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Time
+      - name: end_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Time
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Page Size
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersPage'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/login-events:
+    get:
+      summary: List Login Events
+      operationId: list_login_events_v1_login_events_get
+      parameters:
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+      - name: device_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Device Id
+      - name: success
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Success
+      - name: start_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Time
+      - name: end_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Time
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Page Size
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginEventsPage'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/fiat-transactions:
+    get:
+      summary: List Fiat Transactions
+      operationId: list_fiat_transactions_v1_fiat_transactions_get
+      parameters:
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+      - name: bank_account_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Bank Account Id
+      - name: direction
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Direction
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: start_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Time
+      - name: end_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Time
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Page Size
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FiatTransactionsPage'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/trade-orders:
+    get:
+      summary: List Trade Orders
+      operationId: list_trade_orders_v1_trade_orders_get
+      parameters:
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+      - name: side
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Side
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: base_asset
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Base Asset
+      - name: quote_asset
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Quote Asset
+      - name: start_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Time
+      - name: end_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Time
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Page Size
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradeOrdersPage'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/crypto-transactions:
+    get:
+      summary: List Crypto Transactions
+      operationId: list_crypto_transactions_v1_crypto_transactions_get
+      parameters:
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+      - name: wallet_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Wallet Id
+      - name: counterparty_wallet_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Counterparty Wallet Id
+      - name: direction
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Direction
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: asset
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Asset
+      - name: network
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Network
+      - name: start_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Time
+      - name: end_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Time
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Page Size
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CryptoTransactionsPage'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/known-blacklist-users:
+    get:
+      summary: List Known Blacklist Users
+      operationId: list_known_blacklist_users_v1_known_blacklist_users_get
+      parameters:
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+      - name: is_active
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Active
+      - name: start_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Time
+      - name: end_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Time
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Page Size
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnownBlacklistUsersPage'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/devices:
+    get:
+      summary: List Devices
+      operationId: list_devices_v1_devices_get
+      parameters:
+      - name: device_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Device Id
+      - name: start_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Time
+      - name: end_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Time
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Page Size
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevicesPage'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/user-device-links:
+    get:
+      summary: List User Device Links
+      operationId: list_user_device_links_v1_user_device_links_get
+      parameters:
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+      - name: device_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Device Id
+      - name: is_primary
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Primary
+      - name: start_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Time
+      - name: end_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Time
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Page Size
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDeviceLinksPage'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/bank-accounts:
+    get:
+      summary: List Bank Accounts
+      operationId: list_bank_accounts_v1_bank_accounts_get
+      parameters:
+      - name: bank_account_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Bank Account Id
+      - name: country
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Country
+      - name: currency
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Currency
+      - name: start_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Time
+      - name: end_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Time
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Page Size
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BankAccountsPage'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/user-bank-links:
+    get:
+      summary: List User Bank Links
+      operationId: list_user_bank_links_v1_user_bank_links_get
+      parameters:
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+      - name: bank_account_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Bank Account Id
+      - name: is_primary
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Primary
+      - name: start_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Time
+      - name: end_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Time
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Page Size
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserBankLinksPage'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/crypto-wallets:
+    get:
+      summary: List Crypto Wallets
+      operationId: list_crypto_wallets_v1_crypto_wallets_get
+      parameters:
+      - name: wallet_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Wallet Id
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+      - name: wallet_kind
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Wallet Kind
+      - name: asset
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Asset
+      - name: network
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Network
+      - name: start_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Time
+      - name: end_time
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Time
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Page Size
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CryptoWalletsPage'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Request
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    BankAccountRecord:
+      properties:
+        bank_account_id:
+          type: string
+          title: Bank Account Id
+        bank_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Bank Code
+        bank_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Bank Name
+        country:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Country
+        currency:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Currency
+        opened_at:
+          type: string
+          title: Opened At
+      type: object
+      required:
+      - bank_account_id
+      - bank_code
+      - bank_name
+      - country
+      - currency
+      - opened_at
+      title: BankAccountRecord
+    BankAccountsPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/BankAccountRecord'
+          type: array
+          title: Items
+        page:
+          type: integer
+          title: Page
+        page_size:
+          type: integer
+          title: Page Size
+        total:
+          type: integer
+          title: Total
+        has_next:
+          type: boolean
+          title: Has Next
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      - has_next
+      title: PaginatedBankAccountsResponse
+    CryptoTransactionRecord:
+      properties:
+        crypto_txn_id:
+          type: string
+          title: Crypto Txn Id
+        user_id:
+          type: string
+          title: User Id
+        occurred_at:
+          type: string
+          title: Occurred At
+        direction:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Direction
+        asset:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Asset
+        network:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Network
+        wallet_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Wallet Id
+        counterparty_wallet_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Counterparty Wallet Id
+        amount_asset:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Amount Asset
+        amount_twd_equiv:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Amount Twd Equiv
+        tx_hash:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Tx Hash
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      type: object
+      required:
+      - crypto_txn_id
+      - user_id
+      - occurred_at
+      - direction
+      - asset
+      - network
+      - wallet_id
+      - counterparty_wallet_id
+      - amount_asset
+      - amount_twd_equiv
+      - tx_hash
+      - status
+      title: CryptoTransactionRecord
+    CryptoTransactionsPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/CryptoTransactionRecord'
+          type: array
+          title: Items
+        page:
+          type: integer
+          title: Page
+        page_size:
+          type: integer
+          title: Page Size
+        total:
+          type: integer
+          title: Total
+        has_next:
+          type: boolean
+          title: Has Next
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      - has_next
+      title: PaginatedCryptoTransactionsResponse
+    CryptoWalletRecord:
+      properties:
+        wallet_id:
+          type: string
+          title: Wallet Id
+        wallet_kind:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Wallet Kind
+        user_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+        asset:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Asset
+        network:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Network
+        created_at:
+          type: string
+          title: Created At
+      type: object
+      required:
+      - wallet_id
+      - wallet_kind
+      - user_id
+      - asset
+      - network
+      - created_at
+      title: CryptoWalletRecord
+    CryptoWalletsPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/CryptoWalletRecord'
+          type: array
+          title: Items
+        page:
+          type: integer
+          title: Page
+        page_size:
+          type: integer
+          title: Page Size
+        total:
+          type: integer
+          title: Total
+        has_next:
+          type: boolean
+          title: Has Next
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      - has_next
+      title: PaginatedCryptoWalletsResponse
+    DeviceRecord:
+      properties:
+        device_id:
+          type: string
+          title: Device Id
+        device_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Device Type
+        os_family:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Os Family
+        app_channel:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: App Channel
+        device_fingerprint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Device Fingerprint
+        first_seen_at:
+          type: string
+          title: First Seen At
+      type: object
+      required:
+      - device_id
+      - device_type
+      - os_family
+      - app_channel
+      - device_fingerprint
+      - first_seen_at
+      title: DeviceRecord
+    DevicesPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/DeviceRecord'
+          type: array
+          title: Items
+        page:
+          type: integer
+          title: Page
+        page_size:
+          type: integer
+          title: Page Size
+        total:
+          type: integer
+          title: Total
+        has_next:
+          type: boolean
+          title: Has Next
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      - has_next
+      title: PaginatedDevicesResponse
+    ErrorResponse:
+      properties:
+        error_code:
+          type: string
+          title: Error Code
+        message:
+          type: string
+          title: Message
+        details:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Details
+      type: object
+      required:
+      - error_code
+      - message
+      title: ErrorResponse
+    FiatTransactionRecord:
+      properties:
+        fiat_txn_id:
+          type: string
+          title: Fiat Txn Id
+        user_id:
+          type: string
+          title: User Id
+        occurred_at:
+          type: string
+          title: Occurred At
+        direction:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Direction
+        amount_twd:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Amount Twd
+        currency:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Currency
+        bank_account_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Bank Account Id
+        method:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Method
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      type: object
+      required:
+      - fiat_txn_id
+      - user_id
+      - occurred_at
+      - direction
+      - amount_twd
+      - currency
+      - bank_account_id
+      - method
+      - status
+      title: FiatTransactionRecord
+    FiatTransactionsPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/FiatTransactionRecord'
+          type: array
+          title: Items
+        page:
+          type: integer
+          title: Page
+        page_size:
+          type: integer
+          title: Page Size
+        total:
+          type: integer
+          title: Total
+        has_next:
+          type: boolean
+          title: Has Next
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      - has_next
+      title: PaginatedFiatTransactionsResponse
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    KnownBlacklistUserRecord:
+      properties:
+        blacklist_entry_id:
+          type: string
+          title: Blacklist Entry Id
+        user_id:
+          type: string
+          title: User Id
+        observed_at:
+          type: string
+          title: Observed At
+        source:
+          type: string
+          title: Source
+        reason_code:
+          type: string
+          title: Reason Code
+        is_active:
+          type: boolean
+          title: Is Active
+      type: object
+      required:
+      - blacklist_entry_id
+      - user_id
+      - observed_at
+      - source
+      - reason_code
+      - is_active
+      title: KnownBlacklistUserRecord
+    KnownBlacklistUsersPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/KnownBlacklistUserRecord'
+          type: array
+          title: Items
+        page:
+          type: integer
+          title: Page
+        page_size:
+          type: integer
+          title: Page Size
+        total:
+          type: integer
+          title: Total
+        has_next:
+          type: boolean
+          title: Has Next
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      - has_next
+      title: PaginatedKnownBlacklistUsersResponse
+    LoginEventRecord:
+      properties:
+        login_id:
+          type: string
+          title: Login Id
+        user_id:
+          type: string
+          title: User Id
+        occurred_at:
+          type: string
+          title: Occurred At
+        device_id:
+          type: string
+          title: Device Id
+        ip_address:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ip Address
+        ip_country:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ip Country
+        ip_city:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ip City
+        is_vpn:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Vpn
+        is_new_device:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is New Device
+        is_geo_jump:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Geo Jump
+        success:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Success
+      type: object
+      required:
+      - login_id
+      - user_id
+      - occurred_at
+      - device_id
+      - ip_address
+      - ip_country
+      - ip_city
+      - is_vpn
+      - is_new_device
+      - is_geo_jump
+      - success
+      title: LoginEventRecord
+    LoginEventsPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/LoginEventRecord'
+          type: array
+          title: Items
+        page:
+          type: integer
+          title: Page
+        page_size:
+          type: integer
+          title: Page Size
+        total:
+          type: integer
+          title: Total
+        has_next:
+          type: boolean
+          title: Has Next
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      - has_next
+      title: PaginatedLoginEventsResponse
+    TradeOrderRecord:
+      properties:
+        trade_id:
+          type: string
+          title: Trade Id
+        user_id:
+          type: string
+          title: User Id
+        occurred_at:
+          type: string
+          title: Occurred At
+        side:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Side
+        base_asset:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Base Asset
+        quote_asset:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Quote Asset
+        price_twd:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Price Twd
+        quantity:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Quantity
+        notional_twd:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Notional Twd
+        fee_twd:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Fee Twd
+        order_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Order Type
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      type: object
+      required:
+      - trade_id
+      - user_id
+      - occurred_at
+      - side
+      - base_asset
+      - quote_asset
+      - price_twd
+      - quantity
+      - notional_twd
+      - fee_twd
+      - order_type
+      - status
+      title: TradeOrderRecord
+    TradeOrdersPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/TradeOrderRecord'
+          type: array
+          title: Items
+        page:
+          type: integer
+          title: Page
+        page_size:
+          type: integer
+          title: Page Size
+        total:
+          type: integer
+          title: Total
+        has_next:
+          type: boolean
+          title: Has Next
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      - has_next
+      title: PaginatedTradeOrdersResponse
+    UserBankLinkRecord:
+      properties:
+        link_id:
+          type: string
+          title: Link Id
+        user_id:
+          type: string
+          title: User Id
+        bank_account_id:
+          type: string
+          title: Bank Account Id
+        is_primary:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Primary
+        linked_at:
+          type: string
+          title: Linked At
+      type: object
+      required:
+      - link_id
+      - user_id
+      - bank_account_id
+      - is_primary
+      - linked_at
+      title: UserBankLinkRecord
+    UserBankLinksPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/UserBankLinkRecord'
+          type: array
+          title: Items
+        page:
+          type: integer
+          title: Page
+        page_size:
+          type: integer
+          title: Page Size
+        total:
+          type: integer
+          title: Total
+        has_next:
+          type: boolean
+          title: Has Next
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      - has_next
+      title: PaginatedUserBankLinksResponse
+    UserDeviceLinkRecord:
+      properties:
+        link_id:
+          type: string
+          title: Link Id
+        user_id:
+          type: string
+          title: User Id
+        device_id:
+          type: string
+          title: Device Id
+        is_primary:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Primary
+        first_seen_at:
+          type: string
+          title: First Seen At
+        last_seen_at:
+          type: string
+          title: Last Seen At
+      type: object
+      required:
+      - link_id
+      - user_id
+      - device_id
+      - is_primary
+      - first_seen_at
+      - last_seen_at
+      title: UserDeviceLinkRecord
+    UserDeviceLinksPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/UserDeviceLinkRecord'
+          type: array
+          title: Items
+        page:
+          type: integer
+          title: Page
+        page_size:
+          type: integer
+          title: Page Size
+        total:
+          type: integer
+          title: Total
+        has_next:
+          type: boolean
+          title: Has Next
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      - has_next
+      title: PaginatedUserDeviceLinksResponse
+    UserRecord:
+      properties:
+        user_id:
+          type: string
+          title: User Id
+        created_at:
+          type: string
+          title: Created At
+        segment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Segment
+        kyc_level:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kyc Level
+        occupation:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Occupation
+        monthly_income_twd:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Monthly Income Twd
+        expected_monthly_volume_twd:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Expected Monthly Volume Twd
+        declared_source_of_funds:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Declared Source Of Funds
+        residence_country:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Residence Country
+        residence_city:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Residence City
+        nationality:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Nationality
+        activity_window:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Activity Window
+      type: object
+      required:
+      - user_id
+      - created_at
+      - segment
+      - kyc_level
+      - occupation
+      - monthly_income_twd
+      - expected_monthly_volume_twd
+      - declared_source_of_funds
+      - residence_country
+      - residence_city
+      - nationality
+      - activity_window
+      title: UserRecord
+    UsersPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/UserRecord'
+          type: array
+          title: Items
+        page:
+          type: integer
+          title: Page
+        page_size:
+          type: integer
+          title: Page Size
+        total:
+          type: integer
+          title: Total
+        has_next:
+          type: boolean
+          title: Has Next
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      - has_next
+      title: PaginatedUsersResponse
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

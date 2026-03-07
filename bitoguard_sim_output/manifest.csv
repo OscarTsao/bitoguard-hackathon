@@ -1,0 +1,14 @@
+table_name,row_count
+bank_accounts,1721
+crypto_transactions,1719
+crypto_wallets,5289
+devices,1975
+entity_edges,30459
+fiat_transactions,5795
+login_events,19233
+scenario_members,53
+scenarios,13
+trade_orders,5381
+user_bank_links,1729
+user_device_links,1983
+users,1200
