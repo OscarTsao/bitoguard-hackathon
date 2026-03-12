@@ -144,6 +144,12 @@ def build_official_features(
 
     profile_columns = [
         "user_id",
+        "sex",
+        "age",
+        "career",
+        "income_source",
+        "user_source",
+        "kyc_level",
         "sex_label",
         "career_label",
         "income_source_label",
@@ -155,7 +161,26 @@ def build_official_features(
         "days_level1_to_level2",
     ]
     profile = user_info[[column for column in profile_columns if column in user_info.columns]].copy()
-    base = cohorts.merge(profile, on="user_id", how="left")
+    base = cohorts.drop(
+        columns=[
+            "sex",
+            "age",
+            "career",
+            "income_source",
+            "user_source",
+            "kyc_level",
+            "sex_label",
+            "career_label",
+            "income_source_label",
+            "user_source_label",
+            "has_email_confirmation",
+            "has_level1_kyc",
+            "has_level2_kyc",
+            "days_email_to_level1",
+            "days_level1_to_level2",
+        ],
+        errors="ignore",
+    ).merge(profile, on="user_id", how="left")
     base["sex"] = _series_or_default(base, "sex")
     base["age"] = _series_or_default(base, "age")
     base["career"] = _series_or_default(base, "career")
@@ -183,7 +208,9 @@ def build_official_features(
     crypto_protocols = _nunique_or_empty(crypto_transfer, "user_id", "protocol_label", "crypto_protocol_count")
     crypto_currencies = _nunique_or_empty(crypto_transfer, "user_id", "currency", "crypto_currency_count")
     crypto_internal_ratio = _boolean_ratio(crypto_transfer, "user_id", crypto_transfer["sub_kind_label"] == "internal", "crypto_internal_ratio")
-    relation_rows = crypto_transfer[crypto_transfer["relation_user_id"].notna()].copy()
+    relation_rows = crypto_transfer[
+        crypto_transfer["relation_user_id"].notna() & crypto_transfer["is_internal_transfer"].eq(True)
+    ].copy()
     relation_counts = relation_rows.groupby("user_id").size().reset_index(name="relation_transfer_count") if not relation_rows.empty else pd.DataFrame(columns=["user_id", "relation_transfer_count"])
     relation_users = _nunique_or_empty(relation_rows, "user_id", "relation_user_id", "relation_unique_counterparty_count")
 

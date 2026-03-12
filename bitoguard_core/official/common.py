@@ -43,6 +43,7 @@ class OfficialPaths:
     report_dir: Path
     prediction_dir: Path
     feature_dir: Path
+    bundle_path: Path
 
 
 def load_official_paths() -> OfficialPaths:
@@ -61,6 +62,7 @@ def load_official_paths() -> OfficialPaths:
         report_dir=report_dir,
         prediction_dir=prediction_dir,
         feature_dir=feature_dir,
+        bundle_path=settings.artifact_dir / "official_bundle.json",
     )
 
 
@@ -164,3 +166,13 @@ def feature_output_path(name: str, cutoff_tag: str = "full") -> Path:
 
 def feature_report_path(name: str) -> Path:
     return load_official_paths().report_dir / name
+
+
+def prediction_output_path(name: str) -> Path:
+    return load_official_paths().prediction_dir / name
+
+
+def bundle_file_path(path: Path | None = None) -> Path:
+    if path is not None:
+        return path
+    return load_official_paths().bundle_path

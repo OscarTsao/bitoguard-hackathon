@@ -1,46 +1,52 @@
 from __future__ import annotations
 
-import json
+from pathlib import Path
 
 import pandas as pd
 
+from official.bundle import load_selected_bundle
 from official.common import encode_frame, load_clean_table, load_official_paths, load_pickle
 from official.train import _load_dataset
 
 
-def _load_latest() -> tuple[object, dict]:
-    paths = load_official_paths()
-    model_files = sorted(paths.model_dir.glob("official_lgbm_*.pkl"))
-    if not model_files:
-        raise FileNotFoundError("No official_lgbm model found")
-    model_path = model_files[-1]
-    meta = json.loads(model_path.with_suffix(".json").read_text(encoding="utf-8"))
-    return load_pickle(model_path), meta
+def _load_bundle_model(bundle: dict) -> object:
+    if bundle["selected_model"] != "lgbm":
+        raise NotImplementedError(f"Selected model not yet supported: {bundle['selected_model']}")
+    model_path = Path(bundle["model_paths"]["lgbm"])
+    return load_pickle(model_path)
 
 
 def score_official_predict() -> pd.DataFrame:
+    bundle = load_selected_bundle(require_ready=True)
     dataset = _load_dataset("full")
-    model, meta = _load_latest()
-    predict_users = set(load_parquet_predict_ids())
-    scoring = dataset[dataset["user_id"].isin(predict_users)].copy()
-    x_score, _ = encode_frame(scoring, meta["feature_columns"], reference_columns=meta["encoded_columns"])
-    scoring["model_probability"] = model.predict_proba(x_score)[:, 1]
-    scoring["risk_score"] = (
-        0.75 * scoring["model_probability"]
-        + 0.15 * scoring["anomaly_score"]
-        + 0.10 * scoring["rule_score"]
+    model = _load_bundle_model(bundle)
+    calibrator = load_pickle(Path(bundle["calibrator"]["calibrator_path"]))
+
+    predict_users = set(load_clean_table("predict_label")["user_id"].astype(int).tolist())
+    scoring = dataset[dataset["user_id"].astype(int).isin(predict_users)].copy()
+    encoded, _ = encode_frame(scoring, bundle["feature_columns_lgbm"], reference_columns=bundle["encoded_columns_lgbm"])
+    scoring["model_probability_raw"] = model.predict_proba(encoded)[:, 1]
+    scoring["submission_probability"] = calibrator.predict(scoring["model_probability_raw"].to_numpy())
+    scoring["submission_pred"] = (scoring["submission_probability"] >= float(bundle["selected_threshold"])).astype(int)
+    scoring["analyst_risk_score"] = (
+        0.80 * scoring["submission_probability"]
+        + 0.12 * scoring["anomaly_score"]
+        + 0.08 * scoring["rule_score"]
     ) * 100.0
-    scoring["risk_rank"] = scoring["risk_score"].rank(method="first", ascending=False).astype(int)
+    scoring["risk_rank"] = scoring["analyst_risk_score"].rank(method="first", ascending=False).astype(int)
     scoring["risk_level"] = pd.cut(
-        scoring["risk_score"],
+        scoring["analyst_risk_score"],
         bins=[-1, 35, 60, 80, 100],
         labels=["low", "medium", "high", "critical"],
     ).astype(str)
     output = scoring[[
         "user_id",
-        "risk_score",
-        "model_probability",
+        "submission_probability",
+        "submission_pred",
+        "model_probability_raw",
         "anomaly_score",
+        "rule_score",
+        "analyst_risk_score",
         "risk_rank",
         "risk_level",
         "top_reason_codes",
@@ -50,11 +56,6 @@ def score_official_predict() -> pd.DataFrame:
     output.to_parquet(paths.prediction_dir / "official_predict_scores.parquet", index=False)
     output.to_csv(paths.prediction_dir / "official_predict_scores.csv", index=False)
     return output
-
-
-def load_parquet_predict_ids() -> list[int]:
-    predict = load_clean_table("predict_label")
-    return predict["user_id"].astype(int).tolist()
 
 
 def main() -> None:

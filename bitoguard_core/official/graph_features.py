@@ -86,7 +86,9 @@ def build_official_graph_features(
     wallet_graph, wallet_other_users, wallet_degree = _user_entity_graph(wallet_edges, "wallet")
     wallet_components = _component_user_sizes(wallet_graph)
 
-    relation = crypto_transfer[crypto_transfer["relation_user_id"].notna()][["user_id", "relation_user_id"]].copy()
+    relation = crypto_transfer[
+        crypto_transfer["relation_user_id"].notna() & crypto_transfer["is_internal_transfer"].eq(True)
+    ][["user_id", "relation_user_id"]].copy()
     relation["relation_user_id"] = pd.to_numeric(relation["relation_user_id"], errors="coerce").astype("Int64")
     directed = relation.dropna().drop_duplicates()
     relation_graph = nx.Graph()
