@@ -88,9 +88,12 @@ class DuckDBStore:
     def replace_table(self, table_name: str, dataframe: pd.DataFrame) -> None:
         _validate_table_name(table_name)
         with _WRITE_LOCK, self.connect() as conn:
+            if dataframe.empty:
+                # Preserve the existing table schema; just clear all rows.
+                conn.execute(f"DELETE FROM {table_name}")
+                return
             conn.register("tmp_df", dataframe)
-            conn.execute(f"DELETE FROM {table_name}")
-            conn.execute(f"INSERT INTO {table_name} SELECT * FROM tmp_df")
+            conn.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM tmp_df")
             conn.unregister("tmp_df")
 
     def append_dataframe(self, table_name: str, dataframe: pd.DataFrame) -> None:
