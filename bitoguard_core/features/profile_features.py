@@ -31,6 +31,8 @@ def build_profile_category_maps(users: pd.DataFrame) -> dict[str, dict[str, int]
         if raw_col not in users.columns:
             maps[raw_col] = {}
             continue
+        # dropna() intentionally excludes nulls from the map — null values
+        # hit the .fillna(-1) path in compute_profile_features at scoring time.
         unique_vals = sorted(users[raw_col].dropna().astype(str).unique())
         maps[raw_col] = {v: i for i, v in enumerate(unique_vals)}
     return maps

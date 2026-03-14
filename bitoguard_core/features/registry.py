@@ -155,7 +155,7 @@ def build_and_store_v2_features(
     from config import load_settings
 
     if snapshot_date is None:
-        snapshot_date = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
+        snapshot_date = pd.Timestamp.now(tz="UTC").normalize()
 
     settings = load_settings()
     artifact_dir = settings.artifact_dir
