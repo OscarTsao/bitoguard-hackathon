@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 from datetime import date
 from pathlib import Path
@@ -141,18 +142,23 @@ def save_iforest(model: object, path: Path) -> None:
 
 
 def load_iforest(path: Path) -> object:
-    """Load IsolationForest after verifying SHA-256 integrity."""
+    """Load IsolationForest after verifying SHA-256 integrity.
+
+    Reads the file once into memory to eliminate the TOCTOU window between
+    the integrity check and deserialization.
+    """
     sha_path = path.with_suffix(".sha256")
     if not sha_path.exists():
         raise FileNotFoundError(f"SHA-256 manifest not found for {path}")
     expected = sha_path.read_text(encoding="utf-8").strip()
-    actual = _sha256_file(path)
+    file_bytes = path.read_bytes()
+    actual = hashlib.sha256(file_bytes).hexdigest()
     if actual != expected:
         raise ValueError(
             f"Model file integrity check FAILED for {path}. "
             "The file may have been tampered with. Retrain the model."
         )
-    return joblib.load(path)
+    return joblib.load(io.BytesIO(file_bytes))
 
 
 def save_json(data: dict[str, Any], path: Path) -> None:

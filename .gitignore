@@ -53,6 +53,9 @@ yarn-error.log*
 
 # Trained model binaries (large binaries; keep *.json metadata only)
 bitoguard_core/artifacts/models/*.pkl
+bitoguard_core/artifacts/models/*.lgbm
+bitoguard_core/artifacts/models/*.joblib
+bitoguard_core/artifacts/models/*.sha256
 
 # Codex build-time event logs (keep task.md / final.txt summaries only)
 .orchestration/codex/*/events.jsonl

@@ -30,11 +30,9 @@ def explain_user(user_id: str) -> list[dict]:
     cols = feature_columns(frame)
     encoded, encoded_columns = encode_features(frame, cols, reference_columns=meta["encoded_columns"])
     explainer = shap.TreeExplainer(model)
+    # lgb.Booster returns a 2D array (n_samples, n_features) for binary objectives
     shap_values = explainer.shap_values(encoded)
-    if isinstance(shap_values, list):
-        shap_vector = shap_values[1][0]
-    else:
-        shap_vector = shap_values[0]
+    shap_vector = shap_values[0]
     factors = pd.DataFrame({
         "feature": encoded_columns,
         "value": encoded.iloc[0].tolist(),

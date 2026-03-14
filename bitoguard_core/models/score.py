@@ -55,6 +55,10 @@ def score_latest_snapshot() -> pd.DataFrame:
     lgbm = load_lgbm(lgbm_path)
     anomaly_model = load_iforest(anomaly_path)
     model_probability = lgbm.predict(x_score)
+    # lgb.Booster.predict returns probabilities for binary objectives — assert sanity
+    assert model_probability.min() >= 0.0 and model_probability.max() <= 1.0, (
+        "LightGBM predictions out of [0,1] range — model may not have binary objective"
+    )
     anomaly_raw = -anomaly_model.score_samples(x_anomaly)
     anomaly_score = (anomaly_raw - anomaly_raw.min()) / (anomaly_raw.max() - anomaly_raw.min() + 1e-9)
     graph_risk = _graph_risk_score(scoring_frame)
