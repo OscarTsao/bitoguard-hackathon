@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from datetime import date
 from typing import Any
@@ -16,6 +17,14 @@ from db.store import DuckDBStore, utc_now
 from features.build_features import build_feature_snapshots
 from features.graph_features import build_graph_features
 from models.score import score_latest_snapshot
+
+_SAFE_COLUMN_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def _safe_column_name(col: str) -> str:
+    if not _SAFE_COLUMN_RE.match(col):
+        raise ValueError(f"Column name {col!r} contains invalid characters")
+    return col
 
 
 PIPELINE_NAME = "refresh_live"
@@ -193,8 +202,9 @@ def _ensure_table_columns(conn: duckdb.DuckDBPyConnection, table_name: str, data
     for column in dataframe.columns:
         if column in existing_columns:
             continue
+        safe_col = _safe_column_name(column)
         conn.execute(
-            f'ALTER TABLE {table_name} ADD COLUMN "{column}" {_duckdb_type_for_series(dataframe[column])}'
+            f'ALTER TABLE {table_name} ADD COLUMN "{safe_col}" {_duckdb_type_for_series(dataframe[column])}'
         )
         existing_columns.append(column)
     return conn.execute(f"SELECT * FROM {table_name} LIMIT 0").df().columns.tolist()
