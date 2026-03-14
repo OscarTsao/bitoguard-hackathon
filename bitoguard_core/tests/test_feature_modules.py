@@ -171,3 +171,35 @@ def test_ip_features_u1():
     assert u1["unique_ips"] == 2
     assert u1["ip_concentration"] == pytest.approx(2/3, abs=0.01)  # top IP (1.2.3.4) has 2/3 events
     assert u1["ip_night_share"] == pytest.approx(1/3, abs=0.01)    # 23:00 = night
+
+
+from features.sequence_features import compute_sequence_features
+
+
+def test_sequence_features_fiat_to_swap():
+    fiat = pd.DataFrame([
+        {"user_id": "u1", "occurred_at": "2025-01-01T10:00:00+00:00",
+         "direction": "deposit", "amount_twd": 10000.0},
+    ])
+    # Swap buy 30 min after fiat deposit → appears in within_1h
+    trades = pd.DataFrame([
+        {"user_id": "u1", "occurred_at": "2025-01-01T10:30:00+00:00",
+         "side": "buy", "order_type": "instant_swap", "notional_twd": 9000.0},
+    ])
+    crypto = pd.DataFrame(columns=["user_id", "occurred_at", "direction", "amount_twd_equiv"])
+    result = compute_sequence_features(fiat, trades, crypto)
+    u1 = result[result["user_id"] == "u1"].iloc[0]
+    assert u1["fiat_dep_to_swap_buy_within_1h"] >= 1
+    assert u1["fiat_dep_to_swap_buy_within_6h"] >= 1
+
+
+def test_sequence_features_columns():
+    fiat   = pd.DataFrame([{"user_id": "u1", "occurred_at": "2025-01-01T10:00:00+00:00",
+                             "direction": "deposit", "amount_twd": 5000.0}])
+    trades = pd.DataFrame(columns=["user_id", "occurred_at", "side", "order_type", "notional_twd"])
+    crypto = pd.DataFrame(columns=["user_id", "occurred_at", "direction", "amount_twd_equiv"])
+    result = compute_sequence_features(fiat, trades, crypto)
+    for col in ["fiat_dep_to_swap_buy_within_1h", "fiat_dep_to_swap_buy_within_24h",
+                "crypto_dep_to_fiat_wdr_within_1h", "dwell_hours",
+                "early_3d_volume", "early_3d_count"]:
+        assert col in result.columns
