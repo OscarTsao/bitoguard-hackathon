@@ -12,7 +12,10 @@ import pandas as pd
 KYC_LEVEL_MAP = {"level2": 2, "level1": 1, "email_verified": 0, None: -1}
 
 
-def compute_profile_features(users: pd.DataFrame) -> pd.DataFrame:
+def compute_profile_features(
+    users: pd.DataFrame,
+    snapshot_date: pd.Timestamp | None = None,
+) -> pd.DataFrame:
     """8 demographic/KYC features per user (no aggregation)."""
     if users.empty:
         return pd.DataFrame()
@@ -26,9 +29,11 @@ def compute_profile_features(users: pd.DataFrame) -> pd.DataFrame:
     df["user_source_code"] = df["activity_window"].astype("category").cat.codes
     df["monthly_income_twd"] = df.get("monthly_income_twd", 0.0).fillna(0.0)
 
-    now = pd.Timestamp.now(tz="UTC")
+    ref = pd.Timestamp.now(tz="UTC") if snapshot_date is None else snapshot_date
+    if ref.tzinfo is None:
+        ref = ref.tz_localize("UTC")
     df["account_age_days"] = (
-        (now - df["created_at"]).dt.total_seconds().div(86400).clip(lower=0).fillna(0)
+        (ref - df["created_at"]).dt.total_seconds().div(86400).clip(lower=0).fillna(0)
     )
 
     keep = [

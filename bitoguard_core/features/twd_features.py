@@ -33,10 +33,17 @@ def _agg_stats(series: pd.Series, prefix: str) -> dict:
     }
 
 
-def compute_twd_features(fiat: pd.DataFrame) -> pd.DataFrame:
+def compute_twd_features(
+    fiat: pd.DataFrame,
+    snapshot_date: pd.Timestamp | None = None,
+) -> pd.DataFrame:
     """~26 TWD fiat transfer features per user (lifetime, no IP — use ip_features.py)."""
     if fiat.empty:
         return pd.DataFrame()
+
+    ref = pd.Timestamp.now(tz="UTC") if snapshot_date is None else snapshot_date
+    if ref.tzinfo is None:
+        ref = ref.tz_localize("UTC")
 
     df = fiat.copy()
     df["occurred_at"] = pd.to_datetime(df["occurred_at"], utc=True, errors="coerce")
@@ -56,7 +63,7 @@ def compute_twd_features(fiat: pd.DataFrame) -> pd.DataFrame:
         row["twd_active_days"] = int(grp["occurred_at"].dt.date.nunique())
         span = (grp["occurred_at"].max() - grp["occurred_at"].min()).total_seconds() / 86400
         row["twd_span_days"]    = float(max(0.0, span))
-        recency = (pd.Timestamp.now(tz="UTC") - grp["occurred_at"].max()).total_seconds() / 86400
+        recency = (ref - grp["occurred_at"].max()).total_seconds() / 86400
         row["twd_recency_days"] = float(max(0.0, recency))
         row["twd_night_share"]  = float((grp["occurred_at"].dt.hour.isin(NIGHT_HOURS)).mean())
 

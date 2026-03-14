@@ -240,3 +240,44 @@ def test_registry_has_key_columns():
     for col in ["kyc_level_code", "twd_all_count", "crypto_all_count",
                 "fiat_dep_to_swap_buy_within_1h", "ip_n_entities", "unique_ips"]:
         assert col in result.columns, f"missing: {col}"
+
+
+def test_account_age_days_is_deterministic():
+    """account_age_days must be the same regardless of when the pipeline runs."""
+    import pandas as pd
+    from features.profile_features import compute_profile_features
+
+    snap_date = pd.Timestamp("2025-06-01", tz="UTC")
+    users = pd.DataFrame([{
+        "user_id": "u1",
+        "kyc_level": "level1",
+        "created_at": "2024-06-01T00:00:00+00:00",
+        "occupation": "engineer",
+        "declared_source_of_funds": "salary",
+        "activity_window": "regular",
+        "monthly_income_twd": 50000.0,
+    }])
+
+    result1 = compute_profile_features(users, snapshot_date=snap_date)
+    result2 = compute_profile_features(users, snapshot_date=snap_date)
+    assert result1["account_age_days"].iloc[0] == result2["account_age_days"].iloc[0]
+    # 2024-06-01 to 2025-06-01 = 365 days
+    assert abs(result1["account_age_days"].iloc[0] - 365.0) < 1.0
+
+
+def test_twd_recency_days_is_deterministic():
+    """twd_recency_days must be fixed relative to snapshot_date."""
+    import pandas as pd
+    from features.twd_features import compute_twd_features
+
+    snap_date = pd.Timestamp("2025-06-01", tz="UTC")
+    fiat = pd.DataFrame([{
+        "user_id": "u1",
+        "occurred_at": "2025-05-01T00:00:00+00:00",
+        "direction": "deposit",
+        "amount_twd": 10000.0,
+    }])
+
+    result = compute_twd_features(fiat, snapshot_date=snap_date)
+    # 2025-05-01 to 2025-06-01 = 31 days
+    assert abs(result["twd_recency_days"].iloc[0] - 31.0) < 1.0

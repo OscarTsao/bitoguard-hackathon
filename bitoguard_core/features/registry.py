@@ -68,12 +68,13 @@ def _make_probe_logins():
 
 
 def build_v2_features(
-    users:   pd.DataFrame,
-    fiat:    pd.DataFrame,
-    crypto:  pd.DataFrame,
-    trades:  pd.DataFrame,
-    logins:  pd.DataFrame,
-    edges:   pd.DataFrame,
+    users:          pd.DataFrame,
+    fiat:           pd.DataFrame,
+    crypto:         pd.DataFrame,
+    trades:         pd.DataFrame,
+    logins:         pd.DataFrame,
+    edges:          pd.DataFrame,
+    snapshot_date:  pd.Timestamp | None = None,
 ) -> pd.DataFrame:
     """Assemble all label-free feature modules. Returns one row per user_id.
 
@@ -87,8 +88,8 @@ def build_v2_features(
     # Each entry: (module_result_df, probe_factory_or_None)
     # The probe factory is called only when the result is empty/column-less.
     module_entries: list[tuple[pd.DataFrame | None, object]] = [
-        (compute_profile_features(users),                  None),
-        (compute_twd_features(fiat),                       _make_probe_fiat),
+        (compute_profile_features(users, snapshot_date=snapshot_date),  None),
+        (compute_twd_features(fiat, snapshot_date=snapshot_date),       _make_probe_fiat),
         (compute_crypto_features(crypto),                  _make_probe_crypto),
         (compute_swap_features(trades),                    _make_probe_trades),
         (compute_trading_features(trades),                 _make_probe_trades),
@@ -151,7 +152,8 @@ def build_and_store_v2_features(
     from db.store import DuckDBStore, make_id
     from config import load_settings
 
-    master = build_v2_features(users, fiat, crypto, trades, logins, edges)
+    master = build_v2_features(users, fiat, crypto, trades, logins, edges,
+                               snapshot_date=snapshot_date)
     if master.empty:
         return master
 
