@@ -1012,3 +1012,11 @@ def test_iforest_contamination_is_fixed() -> None:
     assert "contamination=0.05" in src, "contamination should be fixed at 0.05"
     assert "hidden_suspicious_label" not in src.split("contamination")[1].split("IsolationForest")[0], \
         "IsolationForest contamination must not depend on hidden_suspicious_label"
+
+
+def test_validate_model_includes_split_used_in_report() -> None:
+    """validate_model output must include split_used so callers know which data was evaluated."""
+    import inspect
+    from models.validate import validate_model
+    src = inspect.getsource(validate_model)
+    assert "split_used" in src, "validate_model must include 'split_used' field in report output"

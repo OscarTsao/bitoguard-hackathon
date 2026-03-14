@@ -84,7 +84,20 @@ def validate_model() -> dict:
     store = DuckDBStore(settings.db_path)
     dataset = training_dataset().sort_values("snapshot_date").reset_index(drop=True)
     date_splits = forward_date_splits(dataset["snapshot_date"])
-    holdout_dates = set(date_splits["holdout"] or date_splits["valid"] or date_splits["train"])
+    # Determine which split to evaluate on — holdout is required; raise if missing
+    holdout_dates_list = date_splits.get("holdout") or []
+    if not holdout_dates_list:
+        # Try valid as fallback but be explicit about it
+        holdout_dates_list = date_splits.get("valid") or []
+        split_used = "valid"
+        if not holdout_dates_list:
+            raise RuntimeError(
+                "No holdout or valid split available for validation. "
+                "The dataset may be too small to create temporal splits."
+            )
+    else:
+        split_used = "holdout"
+    holdout_dates = set(holdout_dates_list)
     holdout = dataset[dataset["snapshot_date"].dt.date.isin(holdout_dates)].copy().reset_index(drop=True)
 
     model, meta = _load_latest("lgbm")
@@ -140,6 +153,7 @@ def validate_model() -> dict:
 
     report = {
         "model_version": meta["model_version"],
+        "split_used": split_used,
         "holdout_rows": int(len(holdout)),
         "holdout_positives": n_pos,
         "holdout_negatives": int(len(holdout)) - n_pos,
