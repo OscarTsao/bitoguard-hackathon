@@ -1002,3 +1002,13 @@ def test_drift_detect_zero_rate_spike():
     result = detect_drift(df_from, df_to, "2026-01-01", "2026-01-02")
     drifted_cols = {f["feature"] for f in result.drifted_features}
     assert "vol" in drifted_cols
+
+
+def test_iforest_contamination_is_fixed() -> None:
+    """IsolationForest must use a fixed contamination, not derived from labels."""
+    import inspect
+    from models.anomaly import train_anomaly_model
+    src = inspect.getsource(train_anomaly_model)
+    assert "contamination=0.05" in src, "contamination should be fixed at 0.05"
+    assert "hidden_suspicious_label" not in src.split("contamination")[1].split("IsolationForest")[0], \
+        "IsolationForest contamination must not depend on hidden_suspicious_label"

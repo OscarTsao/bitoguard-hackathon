@@ -15,7 +15,7 @@ def train_anomaly_model() -> dict:
     x_train, encoded_columns = encode_features(train_frame, feature_cols)
     model = IsolationForest(
         n_estimators=200,
-        contamination=min(0.5, max(0.01, float(train_frame["hidden_suspicious_label"].mean()))),
+        contamination=0.05,  # fixed domain estimate; must not be derived from labels
         random_state=42,
     )
     model.fit(x_train)
