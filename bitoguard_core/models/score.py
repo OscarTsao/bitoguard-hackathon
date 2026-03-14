@@ -358,8 +358,14 @@ def score_latest_snapshot_v2() -> pd.DataFrame:
         "risk_score", "risk_level", "rule_hits", "top_reason_codes",
         "model_probability", "anomaly_score", "graph_risk",
     ]].copy()
-    store.execute("DELETE FROM ops.model_predictions WHERE snapshot_date = ?", (latest_date.date(),))
-    store.append_dataframe("ops.model_predictions", pred_rows)
+    with store.transaction() as conn:
+        conn.execute(
+            "DELETE FROM ops.model_predictions WHERE snapshot_date = ?",
+            (latest_date.date(),),
+        )
+        conn.register("pred_df_v2", pred_rows)
+        conn.execute("INSERT INTO ops.model_predictions SELECT * FROM pred_df_v2")
+        conn.unregister("pred_df_v2")
     generate_alerts()
     return pred_rows
 

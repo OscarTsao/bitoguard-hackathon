@@ -452,3 +452,65 @@ def test_api_key_enforcement_when_configured(tmp_path: Path, monkeypatch) -> Non
     # /healthz never requires key
     resp = client.get("/healthz")
     assert resp.status_code == 200
+
+
+def test_score_v2_uses_transaction_for_db_write():
+    """score_latest_snapshot_v2 must use store.transaction() not bare execute+append."""
+    import numpy as np
+    import pandas as pd
+    from unittest.mock import MagicMock, patch
+
+    with patch("models.score.load_feature_table") as mock_ft, \
+         patch("models.score._load_latest_model") as mock_lm, \
+         patch("models.score.load_joblib") as mock_lj, \
+         patch("models.score.load_iforest") as mock_li, \
+         patch("models.score.evaluate_rules") as mock_rules, \
+         patch("models.score.generate_alerts"), \
+         patch("models.score.DuckDBStore") as MockStore, \
+         patch("models.score.load_settings"):
+
+        mock_ft.return_value = pd.DataFrame({
+            "user_id": ["u1"],
+            "snapshot_date": [pd.Timestamp("2025-06-01")],
+            "feature_snapshot_id": ["f1"],
+            "feature_version": ["v2"],
+        })
+        stacker_meta = {
+            "stacker_version": "stacker_test",
+            "feature_columns": [],
+            "branch_models": {"catboost": "/fake/cb.joblib", "lgbm": "/fake/lgbm.joblib"},
+        }
+        mock_lm.return_value = ("/fake/stacker.joblib", stacker_meta)
+        mock_lj.return_value = MagicMock(
+            predict_proba=lambda x: np.array([[0.2, 0.8]] * max(1, len(x)))
+        )
+        mock_li.side_effect = FileNotFoundError
+
+        mock_rules.return_value = pd.DataFrame({
+            "user_id": ["u1"],
+            "snapshot_date": [pd.Timestamp("2025-06-01")],
+            "rule_score": [0.0],
+            "rule_hits": ["[]"],
+        })
+
+        store = MagicMock()
+        store.fetch_df.return_value = pd.DataFrame(
+            columns=["prediction_id", "user_id", "snapshot_date"]
+        )
+        # Context manager support for store.transaction()
+        ctx = MagicMock()
+        ctx.__enter__ = MagicMock(return_value=MagicMock())
+        ctx.__exit__ = MagicMock(return_value=False)
+        store.transaction.return_value = ctx
+
+        MockStore.return_value = store
+
+        from models.score import score_latest_snapshot_v2
+        score_latest_snapshot_v2()
+
+        assert store.transaction.called, (
+            "score_latest_snapshot_v2 must use store.transaction() for atomic write"
+        )
+        assert not store.execute.called or all(
+            "DELETE" not in str(call) for call in store.execute.call_args_list
+        ), "store.execute(DELETE) must not be called outside a transaction"
