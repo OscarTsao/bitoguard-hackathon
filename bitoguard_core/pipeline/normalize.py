@@ -5,7 +5,7 @@ from datetime import timezone
 import pandas as pd
 
 from config import load_settings
-from db.store import DuckDBStore, make_id, utc_now
+from db.store import DuckDBStore, _validate_table_name, make_id, utc_now
 
 
 PRIMARY_KEYS = {
@@ -64,6 +64,7 @@ def _dedupe_latest(frame: pd.DataFrame, primary_key: str) -> pd.DataFrame:
 
 
 def _replace_table_in_transaction(conn, table_name: str, dataframe: pd.DataFrame) -> None:
+    _validate_table_name(table_name)
     if dataframe.empty:
         conn.execute(f"DELETE FROM {table_name}")
         return
