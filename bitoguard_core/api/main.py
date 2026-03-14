@@ -63,6 +63,8 @@ ALLOWED_DECISIONS = [
     "request_monitoring",
 ]
 
+_MAX_NEIGHBOR_IDS = 500
+
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
@@ -134,6 +136,7 @@ def _load_neighborhood_edges(store: DuckDBStore, user_id: str, max_hops: int) ->
     ) - {user_id}
     if not neighbor_ids:
         return one_hop
+    neighbor_ids = set(sorted(neighbor_ids)[:_MAX_NEIGHBOR_IDS])
     placeholders = ", ".join(["?"] * len(neighbor_ids))
     nb = list(neighbor_ids)
     two_hop = store.fetch_df(
