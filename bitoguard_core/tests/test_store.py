@@ -21,3 +21,11 @@ def test_append_rejects_unknown_table(tmp_path: Path) -> None:
     store = DuckDBStore(tmp_path / "t.duckdb")
     with pytest.raises(ValueError, match="not in the allowed"):
         store.append_dataframe("'; DROP TABLE ops.alerts; --", pd.DataFrame({"x": [1]}))
+
+
+def test_read_table_accepts_known_table(tmp_path: Path) -> None:
+    """A known-allowed table name must not raise ValueError."""
+    store = DuckDBStore(tmp_path / "t.duckdb")
+    # ops.alerts is a known allowed table — must not raise
+    result = store.read_table("ops.alerts")
+    assert isinstance(result, pd.DataFrame)

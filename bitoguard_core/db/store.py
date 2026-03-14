@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -10,8 +11,6 @@ import duckdb
 import pandas as pd
 
 from db.schema import CANONICAL_TABLE_SPECS, FEATURE_TABLE_SPECS, OPS_TABLE_DDLS, RAW_TABLE_SPECS, TableSpec
-
-import threading
 
 _ALLOWED_TABLES: frozenset[str] = frozenset(
     f"{spec.schema}.{spec.name}"
