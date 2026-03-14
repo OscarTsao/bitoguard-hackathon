@@ -1,64 +1,94 @@
-# OS / editor
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# Environment files
-.env
-.env.*
-!.env.example
-!.env.compose.example
-!**/.env.example
-!**/.env.compose.example
-
 # Python
 __pycache__/
 *.py[cod]
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 .venv/
 venv/
-bitoguard_core/.venv/
-bitoguard_mock_api/.venv/
+ENV/
+env/
 
-# Node / Next.js
+# Node
 node_modules/
-.next/
-out/
-build/
-coverage/
-*.tsbuildinfo
-
-# Logs
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
+.next/
+out/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Archives / temp artifacts
-*.tar
-*.tar.gz
-*.zip
-*.tmp
-*:Zone.Identifier
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.tfstate.lock.info
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
 
-# DuckDB database files (runtime state, not source)
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
 *.duckdb
 *.duckdb.wal
 
-# Trained model binaries (large binaries; keep *.json metadata only)
-bitoguard_core/artifacts/models/*.pkl
-bitoguard_core/artifacts/models/*.lgbm
-bitoguard_core/artifacts/models/*.joblib
-bitoguard_core/artifacts/models/*.sha256
+# Artifacts
+artifacts/
+*.pkl
+*.json.gz
 
-# Codex build-time event logs (keep task.md / final.txt summaries only)
-.orchestration/codex/*/events.jsonl
+# OS
+.DS_Store
+Thumbs.db
 
-# Raw event data from BitoPro (large binaries/zips)
-data/
+# Secrets
+.env
+*.pem
+*.key
+secrets.yml
+
+# Tool-local state (never commit)
+.kiro/
+.serena/
+.superpowers/
+bitoguard_core/catboost_info/
+mcp.json
+
+# Planning tool output (plans tracked in docs/superpowers/plans/, state dirs ignored)
+docs/superpowers/.sessions/
+docs/superpowers/.cache/
