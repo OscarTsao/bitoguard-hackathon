@@ -103,3 +103,45 @@ def test_crypto_features_u1():
     assert u1["crypto_all_count"] == 3
     assert u1["crypto_n_currencies"] == 2  # TRX + ETH
     assert u1["crypto_trx_tx_share"] == pytest.approx(2/3, abs=0.01)
+
+
+from features.swap_features import compute_swap_features
+from features.trading_features import compute_trading_features
+
+
+def _trades_df():
+    return pd.DataFrame([
+        {"user_id": "u1", "occurred_at": "2025-01-01T10:00:00+00:00", "side": "buy",
+         "base_asset": "USDT", "quote_asset": "TWD", "notional_twd": 10000.0,
+         "order_type": "instant_swap"},
+        {"user_id": "u1", "occurred_at": "2025-01-02T22:00:00+00:00", "side": "sell",
+         "base_asset": "USDT", "quote_asset": "TWD", "notional_twd": 5000.0,
+         "order_type": "instant_swap"},
+        {"user_id": "u1", "occurred_at": "2025-01-03T12:00:00+00:00", "side": "buy",
+         "base_asset": "USDT", "quote_asset": "TWD", "notional_twd": 20000.0,
+         "order_type": "market"},
+    ])
+
+
+def test_swap_features_uses_instant_swap_only():
+    result = compute_swap_features(_trades_df())
+    u1 = result[result["user_id"] == "u1"].iloc[0]
+    assert u1["swap_count"] == 2  # NOT 3
+
+
+def test_swap_features_columns():
+    result = compute_swap_features(_trades_df())
+    for col in ["swap_count", "swap_buy_count", "swap_sell_count", "swap_buy_ratio", "swap_net_twd"]:
+        assert col in result.columns
+
+
+def test_trading_features_book_only():
+    result = compute_trading_features(_trades_df())
+    u1 = result[result["user_id"] == "u1"].iloc[0]
+    assert u1["trade_count"] == 1
+
+
+def test_trading_features_columns():
+    result = compute_trading_features(_trades_df())
+    for col in ["trade_count", "trade_buy_count", "trade_market_ratio", "trade_night_share"]:
+        assert col in result.columns
