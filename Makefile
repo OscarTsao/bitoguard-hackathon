@@ -21,7 +21,7 @@ PYTHON     := .venv/bin/python
 ACTIVATE   := source .venv/bin/activate
 CORE_DIR   := bitoguard_core
 
-.PHONY: help setup test test-quick test-rules sync features train evaluate refresh score serve frontend docker-up docker-build docker-down drift lint clean
+.PHONY: help setup test test-quick test-rules sync features train evaluate refresh score features-v2 train-stacker score-v2 serve frontend docker-up docker-build docker-down drift lint clean
 
 help:
 	@echo ""
@@ -73,6 +73,16 @@ evaluate: ## Run temporal holdout evaluation, save report
 
 score: ## Score latest snapshot + generate alerts
 	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python models/score.py
+
+features-v2: ## Build v2 feature snapshots (~155 columns per user)
+	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python features/build_features_v2.py
+
+train-stacker: ## Train CatBoost + LightGBM branches + LR stacker on v2 features
+	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python models/stacker.py
+
+score-v2: ## Score latest snapshot using stacker (v2 features)
+	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python -c \
+	    "from models.score import score_latest_snapshot_v2; r = score_latest_snapshot_v2(); print(f'Scored {len(r)} users')"
 
 drift: ## Run feature drift detection between two most recent snapshots
 	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python services/drift.py
