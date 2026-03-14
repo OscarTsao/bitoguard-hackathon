@@ -1,0 +1,9 @@
+{
+  "workspaceId": "",
+  "collectionId": "",
+  "environments": {
+    "local": "",
+    "docker": ""
+  },
+  "notes": "This file stores Postman workspace and collection IDs for BitoGuard API testing. Run setup after configuring POSTMAN_API_KEY."
+}
