@@ -123,14 +123,13 @@ def _build_graph_features_fast(
         dst = _prefix(row["dst_type"], row["dst_id"])
         graph.add_edge(src, dst)
 
-    # Collect blacklisted user IDs (as of end of data)
-    max_date = edges_df["snapshot_time"].max()
-    blacklisted_set = set(
-        blacklist_feed[blacklist_feed["observed_at"] <= max_date]["user_id"].astype(str)
-    )
-
-    # Per-target-user: compute static graph features once
+    # Per-target-user: compute static graph features once.
+    # Blacklist-dependent features (blacklist_1hop_count, blacklist_2hop_count) are
+    # intentionally excluded here and computed per snapshot date in the loop below
+    # to prevent label leakage from future blacklist entries.
     per_user: dict[str, dict] = {}
+    # Store per-user neighbor distances for use in per-snapshot blacklist computation.
+    per_user_neighbor_distances: dict[str, dict[str, int]] = {}
     for uid in target_user_ids:
         node = _prefix("user", uid)
         if node not in graph:
@@ -139,6 +138,7 @@ def _build_graph_features_fast(
                 "shared_wallet_count": 0, "blacklist_1hop_count": 0,
                 "blacklist_2hop_count": 0, "component_size": 1,
             }
+            per_user_neighbor_distances[uid] = {}
             continue
 
         shared_banks = _other_users_via_type(graph, node, "bank_account")
@@ -147,34 +147,29 @@ def _build_graph_features_fast(
         if trusted_only:
             shared_device_count = 0
             component_size = 1
-            blacklist_1hop = 0
-            blacklist_2hop = 0
+            # Blacklist hop counts will be zeroed per snapshot date too
+            neighbor_user_distances: dict[str, int] = {}
         else:
             shared_devices = _other_users_via_type(graph, node, "device")
             shared_device_count = len(shared_devices)
             component_size = len(nx.node_connected_component(graph, node))
-            blacklist_1hop = 0
-            blacklist_2hop = 0
             lengths = nx.single_source_shortest_path_length(graph, node, cutoff=4)
-            for target_node, distance in lengths.items():
-                if _node_type(target_node) != "user":
-                    continue
-                target_uid = target_node.split(":", 1)[1]
-                if target_uid == uid or target_uid not in blacklisted_set:
-                    continue
-                if distance <= 2:
-                    blacklist_1hop += 1
-                elif distance <= 4:
-                    blacklist_2hop += 1
+            neighbor_user_distances = {
+                target_node.split(":", 1)[1]: distance
+                for target_node, distance in lengths.items()
+                if _node_type(target_node) == "user" and target_node.split(":", 1)[1] != uid
+            }
 
         per_user[uid] = {
             "shared_device_count": shared_device_count,
             "shared_bank_count": len(shared_banks),
             "shared_wallet_count": len(shared_wallets),
-            "blacklist_1hop_count": blacklist_1hop,
-            "blacklist_2hop_count": blacklist_2hop,
+            # blacklist hop counts are placeholders; overwritten per snapshot below
+            "blacklist_1hop_count": 0,
+            "blacklist_2hop_count": 0,
             "component_size": component_size,
         }
+        per_user_neighbor_distances[uid] = neighbor_user_distances
 
     # Compute fan_out_ratio per user per snapshot_date from crypto transactions
     crypto_all["occurred_at"] = pd.to_datetime(crypto_all["occurred_at"], utc=True)
@@ -186,9 +181,11 @@ def _build_graph_features_fast(
     )
 
     # Replicate static features across all snapshot dates, with per-date fan_out
+    # and per-date blacklist to prevent label leakage.
     records = []
     for sd in snapshot_dates:
-        sd_end = pd.Timestamp(sd, tz="UTC") + pd.Timedelta(days=1)
+        snapshot_end = pd.Timestamp(sd, tz="UTC") + pd.Timedelta(days=1)
+        sd_end = snapshot_end
         crypto_window = crypto_user[crypto_user["occurred_at"] < sd_end]
         transfer_counts = crypto_window.groupby("user_id").size().to_dict()
         distinct_targets = (
@@ -196,15 +193,38 @@ def _build_graph_features_fast(
             if "to_wallet" in crypto_window.columns else {}
         )
 
+        # Compute blacklisted_set bounded to this snapshot date to prevent leakage
+        blacklisted_set = set(
+            blacklist_feed[blacklist_feed["observed_at"] < snapshot_end]["user_id"].astype(str)
+        )
+
         for uid, feats in per_user.items():
             total = transfer_counts.get(uid, 0)
             distinct = distinct_targets.get(uid, 0)
             fan_out_ratio = distinct / total if total > 0 else 0.0
+
+            # Compute blacklist hop counts using snapshot-bounded blacklisted_set
+            if trusted_only:
+                blacklist_1hop = 0
+                blacklist_2hop = 0
+            else:
+                blacklist_1hop = 0
+                blacklist_2hop = 0
+                for neighbor_uid, distance in per_user_neighbor_distances.get(uid, {}).items():
+                    if neighbor_uid not in blacklisted_set:
+                        continue
+                    if distance <= 2:
+                        blacklist_1hop += 1
+                    elif distance <= 4:
+                        blacklist_2hop += 1
+
             records.append({
                 "graph_feature_id": f"gf_{uid}_{sd.date().isoformat()}",
                 "user_id": uid,
                 "snapshot_date": pd.Timestamp(sd),
-                **feats,
+                **{k: v for k, v in feats.items() if k not in ("blacklist_1hop_count", "blacklist_2hop_count")},
+                "blacklist_1hop_count": blacklist_1hop,
+                "blacklist_2hop_count": blacklist_2hop,
                 "fan_out_ratio": fan_out_ratio,
             })
 

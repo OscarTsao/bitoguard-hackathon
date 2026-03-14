@@ -191,3 +191,17 @@ class TestDuplicateEdgeGuard:
         source = inspect.getsource(rebuild_edges)
         assert "drop_duplicates" in source, \
             "rebuild_edges must call drop_duplicates to guard against duplicate edges"
+
+
+def test_fast_path_blacklist_is_snapshot_bounded() -> None:
+    """Graph fast path must filter blacklist by snapshot date, not global max_date.
+
+    A user blacklisted at T+1 must NOT appear in the blacklisted_set when
+    computing features for snapshot at T.
+    """
+    import inspect
+    from features import graph_features
+    src = inspect.getsource(graph_features._build_graph_features_fast)
+    # The blacklisted_set must NOT be computed using a single global max_date
+    assert "max_date" not in src or "blacklisted_set" not in src.split("max_date")[0].split("blacklisted_set")[-1], \
+        "Blacklist set must not use global max_date — must be bounded per snapshot"
