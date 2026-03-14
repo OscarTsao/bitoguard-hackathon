@@ -33,3 +33,34 @@ def test_bipartite_isolated_user():
     u3 = result[result["user_id"] == "u3"].iloc[0]
     assert u3["graph_is_isolated"] == 1
     assert u3["ip_n_entities"] == 0
+
+
+from features.graph_propagation import compute_label_propagation
+
+
+def test_propagation_reaches_neighbor():
+    edges = _edges_df()
+    # u2 is positive; u1 shares ip1 with u2 → u1 should get IP propagation signal
+    labels = pd.Series({"u2": 1, "u1": 0})
+    result = compute_label_propagation(edges, labels, user_ids=["u1"])
+    u1 = result[result["user_id"] == "u1"].iloc[0]
+    assert u1["prop_ip"] > 0.0
+
+
+def test_propagation_columns():
+    labels = pd.Series({"u1": 1, "u2": 0})
+    result = compute_label_propagation(_edges_df(), labels, user_ids=["u1", "u2"])
+    for col in ["prop_ip", "prop_wallet", "prop_combined",
+                "ip_rep_max_rate", "wallet_rep_max_rate",
+                "rel_has_pos_neighbor", "rel_direct_pos_count"]:
+        assert col in result.columns
+
+
+def test_propagation_no_leakage():
+    """Test user absent from labels still gets correct propagation."""
+    edges = _edges_df()
+    labels = pd.Series({"u2": 1})   # u1 not in labels (it's the test user)
+    result = compute_label_propagation(edges, labels, user_ids=["u1"])
+    u1 = result[result["user_id"] == "u1"].iloc[0]
+    # u1 receives signal from u2 (training) via shared ip1 — this is correct, not leakage
+    assert u1["prop_ip"] > 0.0
