@@ -27,7 +27,7 @@ def _graph_risk_score(frame: pd.DataFrame) -> pd.Series:
 
     Blacklist proximity features (blacklist_1hop/2hop, shared_device_count) are
     disabled by default (graph_trusted_only=True) and contribute zero in that mode.
-    shared_bank_count uses a log-scale capped at 10 accounts.
+    shared_bank_count uses a linear scale capped at 10 accounts.
     """
     blacklist_risk = (
         (frame["blacklist_1hop_count"] > 0).astype(float) * 0.60
