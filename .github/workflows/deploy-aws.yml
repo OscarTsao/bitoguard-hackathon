@@ -1,0 +1,86 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - prod
+          - staging
+
+env:
+  AWS_REGION: us-west-2
+
+jobs:
+  deploy:
+    name: Deploy to AWS ECS
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'prod' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: bitoguard-${{ github.event.inputs.environment || 'prod' }}-backend
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -f bitoguard_core/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Build and push frontend image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: bitoguard-${{ github.event.inputs.environment || 'prod' }}-frontend
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -f bitoguard_frontend/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Deploy to ECS
+        env:
+          CLUSTER_NAME: bitoguard-${{ github.event.inputs.environment || 'prod' }}-cluster
+          BACKEND_SERVICE: bitoguard-${{ github.event.inputs.environment || 'prod' }}-backend
+          FRONTEND_SERVICE: bitoguard-${{ github.event.inputs.environment || 'prod' }}-frontend
+        run: |
+          aws ecs update-service --cluster $CLUSTER_NAME --service $BACKEND_SERVICE --force-new-deployment --region $AWS_REGION
+          aws ecs update-service --cluster $CLUSTER_NAME --service $FRONTEND_SERVICE --force-new-deployment --region $AWS_REGION
+
+      - name: Wait for deployment
+        env:
+          CLUSTER_NAME: bitoguard-${{ github.event.inputs.environment || 'prod' }}-cluster
+          BACKEND_SERVICE: bitoguard-${{ github.event.inputs.environment || 'prod' }}-backend
+          FRONTEND_SERVICE: bitoguard-${{ github.event.inputs.environment || 'prod' }}-frontend
+        run: |
+          aws ecs wait services-stable --cluster $CLUSTER_NAME --services $BACKEND_SERVICE --region $AWS_REGION
+          aws ecs wait services-stable --cluster $CLUSTER_NAME --services $FRONTEND_SERVICE --region $AWS_REGION
+
+      - name: Verify deployment
+        run: |
+          chmod +x scripts/check-deployment.sh
+          ./scripts/check-deployment.sh

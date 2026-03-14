@@ -1,0 +1,11 @@
+aws_region              = "us-west-2"
+environment             = "prod"
+vpc_cidr                = "10.0.0.0/16"
+backend_cpu             = 1024
+backend_memory          = 2048
+frontend_cpu            = 512
+frontend_memory         = 1024
+backend_desired_count   = 2
+frontend_desired_count  = 2
+bitoguard_source_url    = "https://aws-event-api.bitopro.com"
+domain_name             = ""
