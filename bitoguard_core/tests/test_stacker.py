@@ -17,23 +17,37 @@ def _configure(tmp_path, monkeypatch):
 
 def _seed_v2(store: DuckDBStore) -> None:
     dates = pd.date_range("2026-01-01", periods=6, freq="D")
+    users = [
+        ("u_neg1", 0, 1, 0.0),
+        ("u_neg2", 0, 1, 0.0),
+        ("u_neg3", 0, 1, 0.0),
+        ("u_pos1", 1, 2, 3.0),
+        ("u_pos2", 1, 2, 4.0),
+        ("u_pos3", 1, 2, 5.0),
+    ]
     rows = []
     for i, d in enumerate(dates, 1):
-        rows += [
-            {"feature_snapshot_id": f"neg_{i}", "user_id": "u_neg", "snapshot_date": d,
-             "feature_version": "v2", "twd_all_count": float(i), "kyc_level_code": 1,
-             "crypto_all_count": 0.0},
-            {"feature_snapshot_id": f"pos_{i}", "user_id": "u_pos", "snapshot_date": d,
-             "feature_version": "v2", "twd_all_count": float(i * 5), "kyc_level_code": 2,
-             "crypto_all_count": float(i * 3)},
-        ]
+        for uid, _label, kyc, crypto_base in users:
+            rows.append({
+                "feature_snapshot_id": f"{uid}_{i}",
+                "user_id": uid,
+                "snapshot_date": d,
+                "feature_version": "v2",
+                "twd_all_count": float(i) * (5.0 if "pos" in uid else 1.0),
+                "kyc_level_code": kyc,
+                "crypto_all_count": crypto_base * i,
+            })
     store.replace_table("features.feature_snapshots_v2", pd.DataFrame(rows))
-    store.replace_table("ops.oracle_user_labels", pd.DataFrame([
-        {"user_id": "u_pos", "hidden_suspicious_label": 1,
-         "observed_blacklist_label": 1, "scenario_types": "", "evidence_tags": ""},
-        {"user_id": "u_neg", "hidden_suspicious_label": 0,
-         "observed_blacklist_label": 0, "scenario_types": "", "evidence_tags": ""},
-    ]))
+    labels = []
+    for uid, label, _, _ in users:
+        labels.append({
+            "user_id": uid,
+            "hidden_suspicious_label": label,
+            "observed_blacklist_label": label,
+            "scenario_types": "",
+            "evidence_tags": "",
+        })
+    store.replace_table("ops.oracle_user_labels", pd.DataFrame(labels))
 
 
 def test_catboost_trains_and_saves(tmp_path, monkeypatch):
@@ -56,3 +70,36 @@ def test_stacker_trains_and_saves(tmp_path, monkeypatch):
     assert Path(result["stacker_path"]).exists()
     assert "branch_models" in result
     assert len(result["branch_models"]) >= 2
+
+
+def test_stacker_no_user_leakage(tmp_path, monkeypatch):
+    """Verify that no user_id appears in both train and val within any OOF fold."""
+    import numpy as np
+    from sklearn.model_selection import StratifiedGroupKFold
+    from models.common import NON_FEATURE_COLUMNS, forward_date_splits
+    from models.train_catboost import _load_v2_training_dataset
+
+    store = _configure(tmp_path, monkeypatch)
+    _seed_v2(store)
+
+    dataset = _load_v2_training_dataset()
+    feature_cols = [c for c in dataset.columns
+                    if c not in NON_FEATURE_COLUMNS and c != "hidden_suspicious_label"]
+    date_splits = forward_date_splits(dataset["snapshot_date"])
+    train_dates = set(date_splits["train"])
+    train_df = dataset[dataset["snapshot_date"].dt.date.isin(train_dates)].copy()
+    groups = train_df["user_id"].reset_index(drop=True).values
+    x_train_df = train_df[feature_cols].fillna(0).reset_index(drop=True)
+    y_train = train_df["hidden_suspicious_label"].values
+
+    sgkf = StratifiedGroupKFold(n_splits=2, shuffle=True, random_state=42)
+    for fold_idx, (tr_idx, val_idx) in enumerate(sgkf.split(x_train_df, y_train, groups=groups)):
+        train_users = set(groups[tr_idx])
+        val_users = set(groups[val_idx])
+        overlap = train_users & val_users
+        assert overlap == set(), (
+            f"Fold {fold_idx}: user(s) {overlap} appear in both train and val sets"
+        )
+        assert len(np.unique(y_train[tr_idx])) == 2, (
+            f"Fold {fold_idx}: training set must contain both classes"
+        )

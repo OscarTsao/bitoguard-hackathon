@@ -14,7 +14,7 @@ import pandas as pd
 from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedGroupKFold
 
 from models.common import (
     NON_FEATURE_COLUMNS, forward_date_splits, model_dir,
@@ -35,14 +35,15 @@ def train_stacker(n_folds: int = 5) -> dict:
     train_df      = dataset[dataset["snapshot_date"].dt.date.isin(train_dates)].copy()
     # Keep as DataFrame so CatBoost can handle categorical columns by name/index;
     # LightGBM receives the same DataFrame (it handles mixed types fine).
+    groups        = train_df["user_id"].reset_index(drop=True).values
     x_train_df    = train_df[feature_cols].fillna(0).reset_index(drop=True)
     y_train       = train_df["hidden_suspicious_label"].values
 
     oof_cb   = np.zeros(len(x_train_df))
     oof_lgbm = np.zeros(len(x_train_df))
 
-    skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
-    for tr_idx, val_idx in skf.split(x_train_df, y_train):
+    sgkf = StratifiedGroupKFold(n_splits=n_folds, shuffle=True, random_state=42)
+    for tr_idx, val_idx in sgkf.split(x_train_df, y_train, groups=groups):
         pos = max(1, int(y_train[tr_idx].sum()))
         neg = max(1, len(tr_idx) - pos)
 
