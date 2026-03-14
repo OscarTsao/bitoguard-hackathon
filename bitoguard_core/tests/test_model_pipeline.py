@@ -1020,3 +1020,20 @@ def test_validate_model_includes_split_used_in_report() -> None:
     from models.validate import validate_model
     src = inspect.getsource(validate_model)
     assert "split_used" in src, "validate_model must include 'split_used' field in report output"
+
+
+def test_graph_risk_score_is_reproducible() -> None:
+    """_graph_risk_score must return the same values regardless of batch composition."""
+    import pandas as pd
+    from models.score import _graph_risk_score
+
+    frame_a = pd.DataFrame([{"blacklist_1hop_count": 0, "blacklist_2hop_count": 0,
+                              "shared_device_count": 0, "shared_bank_count": 3}])
+    frame_b = pd.DataFrame([{"blacklist_1hop_count": 0, "blacklist_2hop_count": 0,
+                              "shared_device_count": 0, "shared_bank_count": 3},
+                             {"blacklist_1hop_count": 0, "blacklist_2hop_count": 0,
+                              "shared_device_count": 0, "shared_bank_count": 100}])
+    score_alone = float(_graph_risk_score(frame_a).iloc[0])
+    score_with_outlier = float(_graph_risk_score(frame_b).iloc[0])
+    assert abs(score_alone - score_with_outlier) < 0.001, \
+        f"Graph risk score changed when batch composition changed: {score_alone} vs {score_with_outlier}"

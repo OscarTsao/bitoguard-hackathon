@@ -23,13 +23,19 @@ def _load_latest_model(prefix: str, extension: str) -> tuple[Path, dict]:
 
 
 def _graph_risk_score(frame: pd.DataFrame) -> pd.Series:
-    raw = (
-        frame["blacklist_1hop_count"] * 0.6
-        + frame["blacklist_2hop_count"] * 0.4
-        + frame["shared_device_count"] * 0.05
-        + frame["shared_bank_count"] * 0.05
+    """Absolute-threshold graph risk (0–1). Reproducible across scoring batches.
+
+    Blacklist proximity features (blacklist_1hop/2hop, shared_device_count) are
+    disabled by default (graph_trusted_only=True) and contribute zero in that mode.
+    shared_bank_count uses a log-scale capped at 10 accounts.
+    """
+    blacklist_risk = (
+        (frame["blacklist_1hop_count"] > 0).astype(float) * 0.60
+        + (frame["blacklist_2hop_count"] > 0).astype(float) * 0.30
     )
-    return raw.clip(lower=0).pipe(lambda s: s / max(1.0, s.max()))
+    device_risk = (frame["shared_device_count"].clip(0, 20) / 20.0) * 0.05
+    bank_risk = (frame["shared_bank_count"].clip(0, 10) / 10.0) * 0.05
+    return (blacklist_risk + device_risk + bank_risk).clip(0.0, 1.0)
 
 
 def _prediction_key(user_id: str, snapshot_date: object) -> tuple[str, object]:
@@ -104,8 +110,14 @@ def score_latest_snapshot() -> pd.DataFrame:
         "risk_score", "risk_level", "rule_hits", "top_reason_codes",
         "model_probability", "anomaly_score", "graph_risk",
     ]].copy()
-    store.execute("DELETE FROM ops.model_predictions WHERE snapshot_date = ?", (latest_date.date(),))
-    store.append_dataframe("ops.model_predictions", prediction_rows)
+    with store.transaction() as conn:
+        conn.execute(
+            "DELETE FROM ops.model_predictions WHERE snapshot_date = ?",
+            (latest_date.date(),),
+        )
+        conn.register("pred_df", prediction_rows)
+        conn.execute("INSERT INTO ops.model_predictions SELECT * FROM pred_df")
+        conn.unregister("pred_df")
     generate_alerts()
     return prediction_rows
 
