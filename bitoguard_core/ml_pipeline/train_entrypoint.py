@@ -56,7 +56,14 @@ def parse_args(args=None):
         default='/opt/ml/output',
         help='Directory for additional output'
     )
-    
+
+    parser.add_argument(
+        '--use_s3_data',
+        action='store_true',
+        default=False,
+        help='Load training data from S3 input path instead of DuckDB'
+    )
+
     # Optional: Override hyperparameters
     parser.add_argument(
         '--hyperparameters',
@@ -297,6 +304,23 @@ def save_model_artifacts(model_type: str, model_dir: Path, result: Dict[str, Any
     print(f"Model artifacts saved to {model_dir}")
 
 
+def load_training_data_from_path(input_data_path: str) -> 'pd.DataFrame':
+    """Load training DataFrame from Parquet files at the given directory.
+
+    SageMaker places channel data at /opt/ml/input/data/<channel>.
+    Ref: https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-training-algo-running-container.html
+    """
+    import glob
+    import pandas as pd
+
+    parquet_files = glob.glob(f"{input_data_path}/**/*.parquet", recursive=True)
+    if not parquet_files:
+        parquet_files = glob.glob(f"{input_data_path}/*.parquet")
+    if not parquet_files:
+        raise FileNotFoundError(f"No Parquet files found in {input_data_path}")
+    return pd.concat([pd.read_parquet(f) for f in parquet_files], ignore_index=True)
+
+
 def main():
     """Main training entry point."""
     print("=" * 80)
@@ -305,7 +329,12 @@ def main():
     
     # Parse arguments
     args = parse_args()
-    
+
+    training_df = None
+    if args.use_s3_data:
+        training_df = load_training_data_from_path(args.input_data)
+        print(f"Loaded {len(training_df)} rows from S3 input: {args.input_data}")
+
     print(f"\nTraining Configuration:")
     print(f"  Model Type: {args.model_type}")
     print(f"  Input Data: {args.input_data}")
