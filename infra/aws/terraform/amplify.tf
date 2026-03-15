@@ -20,6 +20,7 @@ resource "aws_amplify_app" "frontend" {
             - npm ci
         build:
           commands:
+            - cd bitoguard_frontend
             - npm run build
       artifacts:
         baseDirectory: bitoguard_frontend/.next
