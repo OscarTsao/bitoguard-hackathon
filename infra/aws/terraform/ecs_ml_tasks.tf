@@ -267,3 +267,63 @@ output "ml_scoring_task_definition_arn" {
   description = "ARN of the ML scoring task definition"
   value       = aws_ecs_task_definition.ml_scoring.arn
 }
+
+# EFS Bootstrap: Copy-Seed Task Definition
+# Copies bitoguard.duckdb from S3 to EFS on first deploy; skips if already present.
+resource "aws_ecs_task_definition" "copy_seed" {
+  family                   = "${local.name_prefix}-copy-seed"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
+  task_role_arn            = aws_iam_role.backend_task.arn
+
+  container_definitions = jsonencode([{
+    name      = "copy-seed"
+    image     = "${aws_ecr_repository.backend.repository_url}:latest"
+    essential = true
+    command = [
+      "sh", "-c",
+      "if [ ! -f /mnt/efs/bitoguard.duckdb ]; then aws s3 cp s3://${aws_s3_bucket.artifacts.bucket}/seed/bitoguard.duckdb /mnt/efs/bitoguard.duckdb && echo 'Seed complete'; else echo 'EFS already seeded, skipping'; fi"
+    ]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = aws_cloudwatch_log_group.copy_seed.name
+        "awslogs-region"        = var.aws_region
+        "awslogs-stream-prefix" = "ecs"
+      }
+    }
+    mountPoints = [{
+      sourceVolume  = "efs-storage"
+      containerPath = "/mnt/efs"
+      readOnly      = false
+    }]
+  }])
+
+  volume {
+    name = "efs-storage"
+
+    efs_volume_configuration {
+      file_system_id     = aws_efs_file_system.bitoguard.id
+      transit_encryption = "ENABLED"
+      authorization_config {
+        access_point_id = aws_efs_access_point.artifacts.id
+      }
+    }
+  }
+
+  tags = merge(local.common_tags, { Name = "${local.name_prefix}-copy-seed" })
+}
+
+resource "aws_cloudwatch_log_group" "copy_seed" {
+  name              = "/ecs/${local.name_prefix}/copy-seed"
+  retention_in_days = 7
+  tags              = local.common_tags
+}
+
+output "copy_seed_task_definition_arn" {
+  description = "ARN of the copy-seed EFS bootstrap task definition"
+  value       = aws_ecs_task_definition.copy_seed.arn
+}

@@ -52,3 +52,23 @@ output "cloudwatch_log_group_frontend" {
   description = "CloudWatch log group for frontend"
   value       = aws_cloudwatch_log_group.frontend.name
 }
+
+output "artifacts_bucket_name" {
+  description = "S3 artifacts bucket name"
+  value       = aws_s3_bucket.artifacts.bucket
+}
+
+output "aws_region" {
+  description = "AWS region"
+  value       = var.aws_region
+}
+
+output "private_subnet_ids" {
+  description = "Private subnet IDs for ECS tasks"
+  value       = aws_subnet.private[*].id
+}
+
+output "ecs_security_group_id" {
+  description = "ECS tasks security group ID"
+  value       = aws_security_group.ecs_tasks.id
+}
