@@ -28,12 +28,13 @@ jobs:
           source .venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -e .
 
       - name: Run core tests (85 tests)
         working-directory: bitoguard_core
         run: |
           source .venv/bin/activate
-          PYTHONPATH=. pytest tests/ -q --tb=short
+          pytest tests/ -q --tb=short
 
   lint-frontend:
     name: Frontend Lint + Build

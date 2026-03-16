@@ -17,7 +17,6 @@ COPY . .
 RUN pip install -e .
 
 # Set environment variables for SageMaker
-ENV PYTHONPATH=/opt/ml/code
 ENV SAGEMAKER_PROGRAM=ml_pipeline/train_entrypoint.py
 
 # SageMaker uses /opt/ml for input/output

@@ -17,8 +17,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 RUN pip install -e .
 
-# Set Python path
-ENV PYTHONPATH=/opt/ml/code
-
 # SageMaker processing entry point
 ENTRYPOINT ["python", "ml_pipeline/preprocessing_entrypoint.py"]
