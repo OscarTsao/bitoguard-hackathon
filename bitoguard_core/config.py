@@ -95,8 +95,10 @@ def load_settings() -> Settings:
         graph_trusted_only=graph_trusted_raw not in ("false", "0", "no"),
         api_key=os.getenv("BITOGUARD_API_KEY") or None,
         m0_enabled=_env_flag("BITOGUARD_M0_ENABLED", True),
-        m1_enabled=_env_flag("BITOGUARD_M1_ENABLED", False),
-        m3_enabled=_env_flag("BITOGUARD_M3_ENABLED", False),
-        m4_enabled=_env_flag("BITOGUARD_M4_ENABLED", True),
+        m1_enabled=_env_flag("BITOGUARD_M1_ENABLED", True),
+        m3_enabled=_env_flag("BITOGUARD_M3_ENABLED", True),
+        # M4 explicitly disabled: IsolationForest trained on v1 schema, incompatible with v2.
+        # Re-enable after retraining on v2 features (negatives-only). See docs/GRAPH_RECOVERY_PLAN.md.
+        m4_enabled=_env_flag("BITOGUARD_M4_ENABLED", False),
         m5_enabled=_env_flag("BITOGUARD_M5_ENABLED", False),
     )

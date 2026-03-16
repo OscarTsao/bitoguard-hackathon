@@ -314,8 +314,11 @@ def score_latest_snapshot_v2() -> pd.DataFrame:
         + 0.10 * result["anomaly_score"]
         + 0.20 * result["rule_score"]
     ) * 100.0
+    # Risk score ceiling with M1+M3 active (no M4/M5):
+    # max risk_score = (0.20*rule_score + 0.70*model_prob) * 100 ≈ 57 at best.
+    # Thresholds must stay below 57 to produce any alerts. Do not revert to [-1,35,...].
     result["risk_level"] = pd.cut(
-        result["risk_score"], bins=[-1, 35, 60, 80, 100],
+        result["risk_score"], bins=[-1, 20, 50, 70, 100],
         labels=["low", "medium", "high", "critical"],
     ).astype(str)
     result["top_reason_codes"] = result["rule_hits"]
