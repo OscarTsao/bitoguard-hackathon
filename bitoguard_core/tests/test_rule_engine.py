@@ -288,3 +288,35 @@ def test_severity_3_rules_score_higher_than_severity_2_rules():
 def test_all_rule_names_have_severity_defined():
     for rule in RULE_DEFINITIONS:
         assert rule in RULE_SEVERITY, f"Rule '{rule}' missing from RULE_SEVERITY"
+
+
+# ── Cross-channel v2 rules ─────────────────────────────────────────────────────
+
+def test_fiat_passthrough_triggers_at_threshold():
+    row = _score({"fiat_dep_to_fiat_wdr_within_24h": 2})
+    assert bool(row["fiat_passthrough"]) is True
+
+
+def test_fiat_passthrough_no_trigger_below_threshold():
+    row = _score({"fiat_dep_to_fiat_wdr_within_24h": 1})
+    assert bool(row["fiat_passthrough"]) is False
+
+
+def test_fiat_passthrough_no_trigger_for_clean_user():
+    row = _score({})
+    assert bool(row["fiat_passthrough"]) is False
+
+
+def test_layering_burst_triggers_at_threshold():
+    row = _score({"xch_layering_intensity": 5.1})
+    assert bool(row["layering_burst"]) is True
+
+
+def test_layering_burst_no_trigger_below_threshold():
+    row = _score({"xch_layering_intensity": 4.9})
+    assert bool(row["layering_burst"]) is False
+
+
+def test_layering_burst_no_trigger_for_clean_user():
+    row = _score({})
+    assert bool(row["layering_burst"]) is False

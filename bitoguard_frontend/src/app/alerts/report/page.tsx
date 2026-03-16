@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { api, type TimelineEvent } from "@/lib/api"
+import { api } from "@/lib/api"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft, AlertTriangle, Clock, CheckCircle, XCircle, TrendingUp, Shield } from "lucide-react"
@@ -10,7 +10,7 @@ import type { ReactNode } from "react"
 import { ErrorBanner } from "@/components/ErrorBanner"
 import {
   ALERT_STATUS_ZH, RECOMMENDED_ACTION_ZH, RISK_LEVEL_ZH,
-  DECISION_ZH, DECISION_COLOR, TIMELINE_TYPE_ZH, CASE_STATUS_ZH,
+  DECISION_ZH, DECISION_COLOR, TIMELINE_TYPE_ZH, CASE_STATUS_ZH, GRAPH_EVIDENCE_ZH,
 } from "@/lib/labels"
 
 const RISK_COLORS: Record<string, string> = {
@@ -368,7 +368,7 @@ function ReportPageContent() {
                         .filter(([, v]) => v != null)
                         .map(([k, v]) => (
                           <div key={k} className="flex items-center justify-between">
-                            <span className="text-[11px] text-[#6b7280]">{k.replace(/_/g, " ")}</span>
+                            <span className="text-[11px] text-[#6b7280]">{GRAPH_EVIDENCE_ZH[k] ?? k.replace(/_/g, " ")}</span>
                             <span className={`text-[12px] font-semibold ${v > 0 ? "text-[#e53935]" : "text-[#9ca3af]"}`}>
                               {v}
                             </span>

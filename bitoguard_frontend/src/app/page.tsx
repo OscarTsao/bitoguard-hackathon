@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { api, type RiskLevel } from "@/lib/api"
 import Link from "next/link"
 import { AlertTriangle, Activity, TrendingUp, Shield, ChevronRight, CheckCircle, XCircle } from "lucide-react"
+import { FEATURE_ZH } from "@/lib/labels"
 
 const RISK_COLORS: Record<NonNullable<RiskLevel>, { bg: string; text: string; border: string }> = {
   critical: { bg: "bg-red-50",    text: "text-[#e53935]", border: "border-red-200" },
@@ -135,7 +136,9 @@ export default function DashboardPage() {
     },
     {
       label: "模型版本",
-      value: metrics?.model_version ? metrics.model_version.slice(0, 12) : "—",
+      value: metrics?.model_version
+        ? metrics.model_version.split("+")[0].replace(/^(stacker|lgbm_v2|lgbm)_/, "").slice(0, 10)
+        : "—",
       icon: Shield,
       color: "#5c6bc0",
       bg: "bg-[#eef0fa]",
@@ -259,7 +262,7 @@ export default function DashboardPage() {
                 {metrics.feature_importance_top20.slice(0, 5).map((row) => (
                   <div key={row.feature} className="space-y-0.5">
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-[#6b7280] truncate max-w-[140px]" title={row.feature}>{row.feature}</span>
+                      <span className="text-[#6b7280] truncate max-w-[140px]" title={row.feature}>{FEATURE_ZH[row.feature] ?? row.feature}</span>
                       <span className="text-[#1a1d2e] font-mono font-semibold">{row.importance_pct.toFixed(1)}%</span>
                     </div>
                     <MiniBar value={row.importance_pct} max={metrics.feature_importance_top20[0]?.importance_pct ?? 100} color="#5c6bc0" />

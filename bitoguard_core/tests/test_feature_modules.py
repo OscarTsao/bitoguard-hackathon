@@ -315,3 +315,79 @@ def test_profile_category_codes_deterministic_across_populations():
 
     doctor_code = score_result.loc[score_result["user_id"] == "u4", "occupation_code"].iloc[0]
     assert doctor_code == -1, "Unknown category must map to -1"
+
+
+# ── New feature tests (entropy, weekend share, fiat passthrough) ──────────────
+
+def test_twd_dep_amt_entropy_present():
+    """twd_dep_amt_entropy is computed and lies in [0, 1]."""
+    result = compute_twd_features(_fiat_df())
+    assert "twd_dep_amt_entropy" in result.columns
+    u1 = result[result["user_id"] == "u1"].iloc[0]
+    assert 0.0 <= float(u1["twd_dep_amt_entropy"]) <= 1.0
+
+
+def test_twd_dep_amt_entropy_structured_vs_varied():
+    """Structuring (same amount repeated) → lower entropy than random amounts."""
+    from features.twd_features import compute_twd_features
+    # All same amount → minimally diverse
+    structured_fiat = pd.DataFrame([
+        {"user_id": "u1", "occurred_at": f"2025-01-0{i+1}T10:00:00+00:00",
+         "direction": "deposit", "amount_twd": 10000.0}
+        for i in range(10)
+    ])
+    # Varied amounts → high entropy
+    varied_fiat = pd.DataFrame([
+        {"user_id": "u2", "occurred_at": f"2025-01-0{i+1}T10:00:00+00:00",
+         "direction": "deposit", "amount_twd": float((i + 1) * 3333)}
+        for i in range(10)
+    ])
+    fiat = pd.concat([structured_fiat, varied_fiat], ignore_index=True)
+    result = compute_twd_features(fiat)
+    entropy_structured = float(result[result["user_id"] == "u1"]["twd_dep_amt_entropy"].iloc[0])
+    entropy_varied     = float(result[result["user_id"] == "u2"]["twd_dep_amt_entropy"].iloc[0])
+    assert entropy_structured < entropy_varied, "structuring should have lower entropy than varied amounts"
+
+
+def test_crypto_wdr_amt_entropy_present():
+    """crypto_wdr_amt_entropy is computed and lies in [0, 1]."""
+    result = compute_crypto_features(_crypto_df())
+    assert "crypto_wdr_amt_entropy" in result.columns
+    u1 = result[result["user_id"] == "u1"].iloc[0]
+    assert 0.0 <= float(u1["crypto_wdr_amt_entropy"]) <= 1.0
+
+
+def test_sequence_fiat_passthrough_detected():
+    """fiat_dep_to_fiat_wdr_within_24h counts deposit→withdrawal pairs within 24h."""
+    fiat = pd.DataFrame([
+        {"user_id": "u1", "occurred_at": "2025-01-01T09:00:00+00:00",
+         "direction": "deposit",    "amount_twd": 50000.0},
+        {"user_id": "u1", "occurred_at": "2025-01-01T20:00:00+00:00",
+         "direction": "withdrawal", "amount_twd": 49000.0},
+        {"user_id": "u1", "occurred_at": "2025-01-02T10:00:00+00:00",
+         "direction": "deposit",    "amount_twd": 30000.0},
+        {"user_id": "u1", "occurred_at": "2025-01-02T22:00:00+00:00",
+         "direction": "withdrawal", "amount_twd": 29000.0},
+    ])
+    trades = pd.DataFrame(columns=["user_id", "occurred_at", "side", "order_type", "notional_twd"])
+    crypto = pd.DataFrame(columns=["user_id", "occurred_at", "direction", "amount_twd_equiv"])
+    result = compute_sequence_features(fiat, trades, crypto)
+    u1 = result[result["user_id"] == "u1"].iloc[0]
+    assert u1["fiat_dep_to_fiat_wdr_within_24h"] >= 2, (
+        "two deposit→withdrawal pairs within 24h should both be counted"
+    )
+
+
+def test_sequence_dwell_hours_measured():
+    """dwell_hours = time from first fiat deposit to first fiat withdrawal."""
+    fiat = pd.DataFrame([
+        {"user_id": "u1", "occurred_at": "2025-01-01T00:00:00+00:00",
+         "direction": "deposit",    "amount_twd": 10000.0},
+        {"user_id": "u1", "occurred_at": "2025-01-01T06:00:00+00:00",
+         "direction": "withdrawal", "amount_twd": 9000.0},
+    ])
+    trades = pd.DataFrame(columns=["user_id", "occurred_at", "side", "order_type", "notional_twd"])
+    crypto = pd.DataFrame(columns=["user_id", "occurred_at", "direction", "amount_twd_equiv"])
+    result = compute_sequence_features(fiat, trades, crypto)
+    u1 = result[result["user_id"] == "u1"].iloc[0]
+    assert abs(float(u1["dwell_hours"]) - 6.0) < 0.01, "dwell should be exactly 6 hours"

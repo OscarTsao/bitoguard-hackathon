@@ -11,21 +11,87 @@ from services.explain import explain_user
 
 
 FEATURE_ZH = {
+    # --- Fiat velocity (legacy v1 names) ---
     "fiat_in_to_crypto_out_2h": "法幣入金後 2 小時內提領虛幣",
     "fiat_in_to_crypto_out_6h": "法幣入金後 6 小時內提領虛幣",
     "fiat_in_to_crypto_out_24h": "法幣入金後 24 小時內提領虛幣",
-    "monthly_income_twd": "月收入",
+    # --- Profile / KYC ---
+    "monthly_income_twd": "月收入 (TWD)",
     "expected_monthly_volume_twd": "預期月交易量",
     "actual_volume_expected_ratio": "實際交易量 / 預期交易量",
     "actual_fiat_income_ratio": "實際法幣入金 / 月收入",
+    "account_age_days": "帳戶開戶天數",
+    "kyc_level_code": "KYC 等級",
+    # --- Graph ---
     "component_size": "關聯群體規模",
     "shared_device_count": "共用裝置關聯帳戶數",
     "shared_bank_count": "共用銀行帳戶關聯數",
     "shared_wallet_count": "共用錢包關聯數",
     "blacklist_1hop_count": "黑名單 1-hop 鄰居數",
     "blacklist_2hop_count": "黑名單 2-hop 鄰居數",
+    "fan_out_ratio": "出金擴散比",
+    # --- IP / Device ---
     "night_large_withdrawal_ratio": "深夜大額提領比例",
     "ip_country_switch_count": "IP 國家切換次數",
+    "ip_n_entities": "IP 關聯帳戶數",
+    "ip_unique_ips": "使用 IP 數",
+    # --- TWD fiat (v2 windowed velocity) ---
+    "twd_dep_sum": "法幣入金總額 (TWD)",
+    "twd_wdr_sum": "法幣出金總額 (TWD)",
+    "twd_dep_7d_sum": "7 日法幣入金總額",
+    "twd_dep_30d_sum": "30 日法幣入金總額",
+    "twd_wdr_7d_sum": "7 日法幣出金總額",
+    "twd_wdr_30d_sum": "30 日法幣出金總額",
+    "twd_dep_burst_ratio": "法幣入金爆發比 (7d/歷史均值)",
+    "twd_dep_round_10k_ratio": "整數萬元入金比 (結構化信號)",
+    "twd_dep_near_500k_ratio": "接近 50 萬上限入金比",
+    "twd_dep_amt_entropy": "法幣入金金額分佈熵值 (低=結構化信號)",
+    "twd_dep_span_days": "法幣交易活躍天數",
+    "twd_all_count": "法幣交易總筆數",
+    "twd_weekend_share": "法幣交易週末佔比",
+    # --- Crypto (v2 windowed velocity) ---
+    "crypto_wdr_twd_sum": "虛幣出金總額 (TWD 換算)",
+    "crypto_dep_twd_sum": "虛幣入金總額 (TWD 換算)",
+    "crypto_wdr_7d_sum": "7 日虛幣出金總額",
+    "crypto_wdr_30d_sum": "30 日虛幣出金總額",
+    "crypto_dep_7d_sum": "7 日虛幣入金總額",
+    "crypto_wdr_burst_ratio": "虛幣出金爆發比 (7d/歷史均值)",
+    "crypto_wdr_to_dep_ratio": "虛幣出金 / 入金比",
+    "crypto_n_currencies": "使用虛幣種類數",
+    "crypto_n_protocols": "使用鏈路協議數",
+    "crypto_trx_tx_share": "TRX/TRC20 交易佔比",
+    "crypto_trx_amt_share": "TRX/TRC20 金額佔比",
+    "crypto_n_from_wallets": "接收錢包地址數",
+    "crypto_n_to_wallets": "發送目標錢包數",
+    "crypto_from_wallet_conc": "來源錢包集中度",
+    "crypto_weekend_share": "虛幣交易週末佔比",
+    # --- Cross-channel layering ---
+    "xch_cashout_ratio_lifetime": "跨通道提現比 (全期)",
+    "xch_cashout_ratio_7d": "跨通道提現比 (7 日)",
+    "xch_cashout_ratio_30d": "跨通道提現比 (30 日)",
+    "xch_layering_intensity": "分層洗錢強度指標",
+    # --- Sequence ---
+    "fiat_dep_to_swap_buy_within_1h": "1 小時內法幣轉虛幣次數",
+    "fiat_dep_to_swap_buy_within_6h": "6 小時內法幣轉虛幣次數",
+    "fiat_dep_to_swap_buy_within_24h": "24 小時內法幣轉虛幣次數",
+    "fiat_dep_to_swap_buy_within_72h": "72 小時內法幣轉虛幣次數",
+    "crypto_dep_to_fiat_wdr_within_1h": "1 小時內虛幣入金後法幣出金次數",
+    "crypto_dep_to_fiat_wdr_within_6h": "6 小時內虛幣入金後法幣出金次數",
+    "crypto_dep_to_fiat_wdr_within_24h": "24 小時內虛幣入金後法幣出金次數",
+    "crypto_dep_to_fiat_wdr_within_72h": "72 小時內虛幣入金後法幣出金次數",
+    "fiat_dep_to_fiat_wdr_within_24h": "24 小時內法幣入金即出金次數 (疑似人頭帳戶)",
+    "fiat_dep_to_fiat_wdr_within_72h": "72 小時內法幣入金即出金次數 (疑似人頭帳戶)",
+    "dwell_hours": "首次入金到首次出金間隔 (小時)",
+    "early_3d_volume": "開戶前 3 天交易量",
+    "early_3d_count": "開戶前 3 天交易次數",
+    # --- Weekend activity ---
+    "twd_weekend_share": "法幣交易週末佔比",
+    "crypto_weekend_share": "虛幣交易週末佔比",
+    # --- Rule signals ---
+    "rule_fast_cash_out_2h": "規則: 快速提現 (2h)",
+    "rule_high_volume": "規則: 高額交易",
+    "rule_structuring": "規則: 疑似分拆交易",
+    "rule_new_device_withdrawal": "規則: 新裝置出金",
 }
 
 

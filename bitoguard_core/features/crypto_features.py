@@ -1,7 +1,7 @@
 # bitoguard_core/features/crypto_features.py
 from __future__ import annotations
 import pandas as pd
-from features.twd_features import _agg_stats, _gap_stats
+from features.twd_features import _agg_stats, _amount_entropy, _gap_stats
 
 TRX_ASSETS = frozenset({"TRX", "TRC20"})
 
@@ -59,6 +59,9 @@ def compute_crypto_features(
         else:
             row["crypto_from_wallet_conc"] = 0.0
 
+        # Amount entropy for crypto withdrawals: low entropy = repeated same-amount withdrawals
+        # (typical of automated layering); high entropy = naturally varied (legitimate trading).
+        row["crypto_wdr_amt_entropy"] = _amount_entropy(wdr["amount_twd_equiv"]) if not wdr.empty else 0.0
         row["crypto_dep_amt_median"] = float(dep["amount_twd_equiv"].median()) if not dep.empty else 0.0
         dep_mean = float(dep["amount_twd_equiv"].mean()) if not dep.empty else 1.0
         dep_std  = float(dep["amount_twd_equiv"].std(ddof=0)) if not dep.empty else 0.0
@@ -67,9 +70,10 @@ def compute_crypto_features(
             wdr["amount_twd_equiv"].sum() / max(1.0, dep["amount_twd_equiv"].sum())
         )
 
-        row["crypto_active_days"] = int(grp["occurred_at"].dt.date.nunique())
+        row["crypto_active_days"]   = int(grp["occurred_at"].dt.date.nunique())
         span = (grp["occurred_at"].max() - grp["occurred_at"].min()).total_seconds() / 86400
-        row["crypto_span_days"] = float(max(0.0, span))
+        row["crypto_span_days"]     = float(max(0.0, span))
+        row["crypto_weekend_share"] = float((grp["occurred_at"].dt.dayofweek >= 5).mean())
 
         for prefix, subset in [("crypto_all", grp), ("crypto_dep", dep), ("crypto_wdr", wdr)]:
             g = _gap_stats(subset["occurred_at"])

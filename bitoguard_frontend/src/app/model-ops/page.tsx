@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { AlertTriangle, CheckCircle, XCircle, Info } from "lucide-react"
+import { FEATURE_ZH } from "@/lib/labels"
 
 interface DriftFeature {
   feature: string
@@ -76,7 +77,7 @@ interface ModelMetrics {
   scenario_breakdown: ScenarioRow[]
   pr_curve?: { precision: number[]; recall: number[]; thresholds: number[] }
   // OOF stacker fields (true, leakage-free generalization metrics)
-  oof_metrics?: { catboost: OofMetrics; lgbm: OofMetrics; xgboost?: OofMetrics; stacker: OofMetrics }
+  oof_metrics?: { catboost: OofMetrics; lgbm: OofMetrics; xgboost?: OofMetrics; extratrees?: OofMetrics; randomforest?: OofMetrics; stacker: OofMetrics }
   oracle_precision_at_k?: Record<string, OraclePrecisionAtK>
   dataset_stats?: { users: number; positives: number; positive_rate: number; features: number }
 }
@@ -232,7 +233,7 @@ export default function ModelOpsPage() {
                 <p className="text-[13px] font-semibold text-[#b45309]">疑似特徵洩漏 — Holdout 指標偏高</p>
                 <p className="text-[11px] text-[#92400e] mt-0.5">
                   Holdout PR-AUC 達 {metrics.average_precision.toFixed(4)} 且 FN=0，可能因 peer-percentile 特徵在整體資料集計算時洩漏至驗證集。
-                  請參考 OOF Stacker 的真實泛化指標 (PR-AUC ≈ 0.216)。
+                  請參考 OOF Stacker 的真實泛化指標{metrics.oof_metrics ? ` (PR-AUC = ${metrics.oof_metrics.stacker.pr_auc.toFixed(4)})` : ""}。
                 </p>
               </div>
             </div>
@@ -246,15 +247,32 @@ export default function ModelOpsPage() {
                 <h2 className="text-[14px] font-semibold text-[#1a1d2e]">OOF 堆疊模型 — 真實泛化指標</h2>
                 <span className="ml-auto text-[11px] text-[#9ca3af]">5-fold StratifiedGroupKFold, leakage-free</span>
               </div>
-              <div className={`p-4 grid gap-4 ${metrics.oof_metrics?.xgboost ? "grid-cols-4" : "grid-cols-3"}`}>
-                {(["catboost", "lgbm", ...(metrics.oof_metrics?.xgboost ? ["xgboost"] : []), "stacker"] as const).map((branch) => {
+              <div className={`p-4 grid gap-4 ${
+                [metrics.oof_metrics?.xgboost, metrics.oof_metrics?.extratrees, metrics.oof_metrics?.randomforest].filter(Boolean).length === 3
+                  ? "grid-cols-6"
+                  : [metrics.oof_metrics?.xgboost, metrics.oof_metrics?.extratrees, metrics.oof_metrics?.randomforest].filter(Boolean).length === 2
+                    ? "grid-cols-5"
+                    : [metrics.oof_metrics?.xgboost, metrics.oof_metrics?.extratrees, metrics.oof_metrics?.randomforest].filter(Boolean).length === 1
+                      ? "grid-cols-4"
+                      : "grid-cols-3"
+              }`}>
+                {(["catboost", "lgbm",
+                   ...(metrics.oof_metrics?.xgboost      ? ["xgboost"]      : []),
+                   ...(metrics.oof_metrics?.extratrees   ? ["extratrees"]   : []),
+                   ...(metrics.oof_metrics?.randomforest ? ["randomforest"] : []),
+                   "stacker"] as const).map((branch) => {
                   const m = metrics.oof_metrics![branch as keyof typeof metrics.oof_metrics]
                   if (!m) return null
                   const isStacker = branch === "stacker"
+                  const BRANCH_LABEL: Record<string, string> = {
+                    catboost: "CatBoost", lgbm: "LightGBM",
+                    xgboost: "XGBoost", extratrees: "ExtraTrees",
+                    randomforest: "RandomForest", stacker: "Stacker (meta)",
+                  }
                   return (
                     <div key={branch} className={`rounded-lg p-3 ${isStacker ? "bg-[#eef0fa]" : "bg-[#f9fafb]"}`}>
                       <p className="text-[11px] font-semibold text-[#6b7280] uppercase tracking-wider mb-2">
-                        {branch === "catboost" ? "CatBoost" : branch === "lgbm" ? "LightGBM" : branch === "xgboost" ? "XGBoost" : "Stacker (meta)"}
+                        {BRANCH_LABEL[branch] ?? branch}
                       </p>
                       <div className="space-y-1.5">
                         <div className="flex justify-between items-baseline">
@@ -423,7 +441,7 @@ export default function ModelOpsPage() {
                   nonZeroFeatures.map((row) => (
                     <HBar
                       key={row.feature}
-                      label={row.feature}
+                      label={FEATURE_ZH[row.feature] ?? row.feature}
                       pct={(row.importance_pct / topFeatureMax) * 100}
                       color="#5c6bc0"
                       value={`${row.importance_pct.toFixed(2)}%`}
@@ -576,7 +594,9 @@ export default function ModelOpsPage() {
                 <tbody>
                   {drift.drifted_features.map((row) => (
                     <tr key={row.feature} className="border-t border-[#f3f4f6] hover:bg-[#fff8f8]">
-                      <td className="px-4 py-2 font-mono text-[#e53935] font-semibold">{row.feature}</td>
+                      <td className="px-4 py-2 font-semibold text-[#e53935]" title={row.feature}>
+                        {FEATURE_ZH[row.feature] ?? row.feature}
+                      </td>
                       <td className="px-4 py-2 font-mono">{(row.zero_rate_delta * 100).toFixed(2)}pp</td>
                       <td className="px-4 py-2 font-mono">
                         {row.mean_rel_change != null ? `${(row.mean_rel_change * 100).toFixed(1)}%` : "—"}

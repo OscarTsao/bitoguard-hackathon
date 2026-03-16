@@ -5,12 +5,33 @@ import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { useSearchParams } from "next/navigation"
 import { ErrorBanner } from "@/components/ErrorBanner"
-import { CASE_STATUS_ZH } from "@/lib/labels"
+import { CASE_STATUS_ZH, DECISION_ZH, RISK_LEVEL_ZH } from "@/lib/labels"
+
+const USER_FIELD_ZH: Record<string, string> = {
+  user_id: "用戶 ID", kyc_level: "KYC 等級", occupation: "職業",
+  income_source: "收入來源", monthly_income_twd: "月收入 (TWD)",
+  created_at: "開戶日期", country: "國家", is_vip: "VIP 狀態",
+  account_age_days: "帳戶天數",
+}
+
+const DIRECTION_ZH: Record<string, string> = {
+  deposit: "入金", withdrawal: "出金",
+}
+
+const RISK_COLOR: Record<string, string> = {
+  critical: "text-[#e53935]", high: "text-[#fb8c00]",
+  medium: "text-[#f59e0b]", low: "text-[#43a047]",
+}
 
 function walletRoleLabel(direction: unknown): string {
   if (direction === "withdrawal") return "目的錢包"
   if (direction === "deposit") return "來源錢包"
   return "交易對象錢包"
+}
+
+function formatDate(v: unknown): string {
+  if (!v) return "—"
+  try { return new Date(String(v)).toLocaleDateString("zh-TW") } catch { return String(v) }
 }
 
 function UsersPageContent() {
@@ -86,8 +107,12 @@ function UsersPageContent() {
               <div className="p-4 grid grid-cols-3 gap-4">
                 {Object.entries(user).map(([k, v]) => (
                   <div key={k}>
-                    <p className="text-[11px] text-[#9ca3af] font-semibold uppercase tracking-wider">{k}</p>
-                    <p className="text-[13px] text-[#1a1d2e] mt-0.5 truncate">{String(v ?? "—")}</p>
+                    <p className="text-[11px] text-[#9ca3af] font-semibold uppercase tracking-wider">
+                      {USER_FIELD_ZH[k] ?? k}
+                    </p>
+                    <p className="text-[13px] text-[#1a1d2e] mt-0.5 truncate">
+                      {k.endsWith("_at") || k === "created_at" ? formatDate(v) : String(v ?? "—")}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -97,16 +122,26 @@ function UsersPageContent() {
           {/* 最新風險預測 */}
           {prediction && (
             <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: "風險等級", value: String(prediction.risk_level ?? "N/A") },
-                { label: "風險分數", value: typeof prediction.risk_score === "number" ? Number(prediction.risk_score).toFixed(3) : String(prediction.risk_score ?? "N/A") },
-                { label: "快照日期", value: String(prediction.snapshot_date ?? "N/A") },
-              ].map(({ label, value }) => (
-                <div key={label} className="bg-white rounded-xl border border-[#e5e7eb] px-4 py-3 shadow-sm">
-                  <p className="text-[11px] text-[#9ca3af] font-semibold uppercase tracking-wider">{label}</p>
-                  <p className="text-[18px] font-semibold text-[#1a1d2e] mt-0.5">{value}</p>
-                </div>
-              ))}
+              <div className="bg-white rounded-xl border border-[#e5e7eb] px-4 py-3 shadow-sm">
+                <p className="text-[11px] text-[#9ca3af] font-semibold uppercase tracking-wider">風險等級</p>
+                <p className={`text-[18px] font-semibold mt-0.5 ${RISK_COLOR[String(prediction.risk_level ?? "")] ?? "text-[#1a1d2e]"}`}>
+                  {RISK_LEVEL_ZH[String(prediction.risk_level ?? "")] ?? String(prediction.risk_level ?? "N/A")}
+                </p>
+              </div>
+              <div className="bg-white rounded-xl border border-[#e5e7eb] px-4 py-3 shadow-sm">
+                <p className="text-[11px] text-[#9ca3af] font-semibold uppercase tracking-wider">風險分數</p>
+                <p className={`text-[18px] font-semibold mt-0.5 font-mono ${
+                  typeof prediction.risk_score === "number" && Number(prediction.risk_score) >= 80 ? "text-[#e53935]"
+                  : typeof prediction.risk_score === "number" && Number(prediction.risk_score) >= 50 ? "text-[#fb8c00]"
+                  : "text-[#1a1d2e]"
+                }`}>
+                  {typeof prediction.risk_score === "number" ? Number(prediction.risk_score).toFixed(2) : "—"}
+                </p>
+              </div>
+              <div className="bg-white rounded-xl border border-[#e5e7eb] px-4 py-3 shadow-sm">
+                <p className="text-[11px] text-[#9ca3af] font-semibold uppercase tracking-wider">快照日期</p>
+                <p className="text-[18px] font-semibold text-[#1a1d2e] mt-0.5">{formatDate(prediction.snapshot_date)}</p>
+              </div>
             </div>
           )}
 
@@ -129,8 +164,8 @@ function UsersPageContent() {
                     <tr key={i} className="border-b border-[#f3f4f6] hover:bg-[#f9fafb]">
                       <td className="px-4 py-2 font-mono">{String(c.case_id ?? "—")}</td>
                       <td className="px-4 py-2">{CASE_STATUS_ZH[String(c.status ?? "")] ?? String(c.status ?? "—")}</td>
-                      <td className="px-4 py-2">{String(c.latest_decision ?? "—")}</td>
-                      <td className="px-4 py-2 text-[#9ca3af]">{String(c.created_at ?? "—")}</td>
+                      <td className="px-4 py-2">{DECISION_ZH[String(c.latest_decision ?? "")] ?? String(c.latest_decision ?? "—")}</td>
+                      <td className="px-4 py-2 text-[#9ca3af]">{formatDate(c.created_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -155,7 +190,7 @@ function UsersPageContent() {
                 <tbody>
                   {loginEvents.map((e, i) => (
                     <tr key={i} className="border-b border-[#f3f4f6] hover:bg-[#f9fafb]">
-                      <td className="px-4 py-2 text-[#9ca3af]">{String(e.occurred_at ?? "—")}</td>
+                      <td className="px-4 py-2 text-[#9ca3af]">{formatDate(e.occurred_at)}</td>
                       <td className="px-4 py-2 font-mono">{String(e.ip_address ?? "—")}</td>
                       <td className="px-4 py-2 font-mono text-[12px]">{String(e.device_id ?? "—")}</td>
                       <td className="px-4 py-2">{String(e.ip_country ?? "—")}</td>
@@ -183,8 +218,8 @@ function UsersPageContent() {
                 <tbody>
                   {cryptoTxns.map((t, i) => (
                     <tr key={i} className="border-b border-[#f3f4f6] hover:bg-[#f9fafb]">
-                      <td className="px-4 py-2 text-[#9ca3af]">{String(t.occurred_at ?? "—")}</td>
-                      <td className="px-4 py-2">{String(t.direction ?? "—")}</td>
+                      <td className="px-4 py-2 text-[#9ca3af]">{formatDate(t.occurred_at)}</td>
+                      <td className="px-4 py-2">{DIRECTION_ZH[String(t.direction ?? "")] ?? String(t.direction ?? "—")}</td>
                       <td className="px-4 py-2 font-mono">{typeof t.amount_twd_equiv === "number" ? t.amount_twd_equiv.toFixed(2) : String(t.amount_twd_equiv ?? "—")}</td>
                       <td className="px-4 py-2 font-mono text-[12px] truncate max-w-[240px]" title={String(t.counterparty_wallet_id ?? "—")}>
                         {t.counterparty_wallet_id

@@ -2,7 +2,23 @@
 from __future__ import annotations
 import pandas as pd
 
+import numpy as np
+
 NIGHT_HOURS = frozenset(range(0, 6))  # 00:00–05:59 UTC
+
+
+def _amount_entropy(amounts: pd.Series, n_bins: int = 20) -> float:
+    """Shannon entropy of amount distribution (normalized to [0, 1]).
+
+    Low entropy = all transactions at similar amounts (mule / structuring signal).
+    High entropy = naturally varied amounts (typical legitimate user).
+    """
+    if len(amounts) < 2:
+        return 0.0
+    counts, _ = np.histogram(amounts.dropna(), bins=n_bins)
+    counts = counts[counts > 0]
+    p = counts / counts.sum()
+    return float(-np.sum(p * np.log(p)) / np.log(n_bins))
 
 
 def _gap_stats(times: pd.Series) -> dict:
@@ -65,7 +81,9 @@ def compute_twd_features(
         row["twd_span_days"]    = float(max(0.0, span))
         recency = (ref - grp["occurred_at"].max()).total_seconds() / 86400
         row["twd_recency_days"] = float(max(0.0, recency))
-        row["twd_night_share"]  = float((grp["occurred_at"].dt.hour.isin(NIGHT_HOURS)).mean())
+        row["twd_night_share"]   = float((grp["occurred_at"].dt.hour.isin(NIGHT_HOURS)).mean())
+        # Weekend share: AML bots and money mules operate on weekends; legitimate users skew weekdays
+        row["twd_weekend_share"] = float((grp["occurred_at"].dt.dayofweek >= 5).mean())
 
         for prefix, subset in [("twd_all", grp), ("twd_dep", dep), ("twd_wdr", wdr)]:
             g = _gap_stats(subset["occurred_at"])
@@ -97,6 +115,10 @@ def compute_twd_features(
         row["twd_dep_burst_ratio"] = float(
             row["twd_dep_7d_sum"] / max(daily_avg_dep * 7, 1.0)
         )
+
+        # Amount entropy: normalized Shannon entropy over binned deposit amounts.
+        # Low entropy → same amount repeated = structuring; High → naturally varied.
+        row["twd_dep_amt_entropy"] = _amount_entropy(dep["amount_twd"]) if not dep.empty else 0.0
 
         # Structuring score: fraction of deposits clustering near round NT$ thresholds
         # NT$500,000 is a common AML reporting threshold; structuring deposits appear

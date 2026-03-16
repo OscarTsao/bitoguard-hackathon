@@ -22,6 +22,9 @@ RULE_DEFINITIONS = {
     # ── Peer-deviation rules ──────────────────────────────────────────────────
     "extreme_fiat_peer_volume": "法幣流量顯著高於同 KYC 群組",
     "extreme_withdraw_peer_volume": "虛幣提領量顯著高於同 KYC 群組",
+    # ── Cross-channel layering rules (v2 features) ────────────────────────────
+    "fiat_passthrough": "法幣入金即出金 (人頭帳戶/快速過水)",
+    "layering_burst": "法幣入金同期虛幣出金爆發 (分層洗錢)",
 }
 
 # Severity levels: high=3, medium=2, low=1
@@ -37,6 +40,8 @@ RULE_SEVERITY: dict[str, int] = {
     "volume_vs_declared_mismatch": 2,
     "extreme_fiat_peer_volume": 2,
     "extreme_withdraw_peer_volume": 2,
+    "fiat_passthrough": 3,
+    "layering_burst": 3,
 }
 
 
@@ -87,6 +92,19 @@ def evaluate_rules(feature_frame: pd.DataFrame) -> pd.DataFrame:
 
     withdraw_peer_pct = _get(feature_frame, "crypto_withdraw_30d_peer_pct", 0.0)
     scored["extreme_withdraw_peer_volume"] = withdraw_peer_pct >= 0.99
+
+    # ── Cross-channel layering rules (v2 features) ─────────────────────────────
+    # Fiat pass-through: fiat in → fiat out within 24h ≥ 2 occurrences
+    # Threshold of 2+ prevents single legitimate same-day deposit+refund from firing
+    scored["fiat_passthrough"] = (
+        _get(feature_frame, "fiat_dep_to_fiat_wdr_within_24h") >= 2
+    )
+    # Layering burst: simultaneous spike in fiat inflows AND crypto outflows
+    # xch_layering_intensity = twd_dep_burst_ratio * crypto_wdr_burst_ratio
+    # >5 means both channels burst at >2x normal simultaneously (hallmark of layering)
+    scored["layering_burst"] = (
+        _get(feature_frame, "xch_layering_intensity") >= 5.0
+    )
 
     rule_cols = list(RULE_DEFINITIONS.keys())
     rule_severities = pd.Series(RULE_SEVERITY)

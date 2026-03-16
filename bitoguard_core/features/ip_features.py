@@ -20,15 +20,25 @@ def compute_ip_features(login_events: pd.DataFrame) -> pd.DataFrame:
     df["occurred_at"] = pd.to_datetime(df["occurred_at"], utc=True, errors="coerce")
     df = df.dropna(subset=["user_id", "ip_address", "occurred_at"])
 
-    rows = []
-    for uid, grp in df.groupby("user_id"):
-        counts = grp["ip_address"].value_counts(normalize=True)
-        rows.append({
-            "user_id":          uid,
-            "unique_ips":       int(grp["ip_address"].nunique()),
-            "ip_event_count":   int(len(grp)),
-            "ip_concentration": float(counts.iloc[0]) if not counts.empty else 0.0,
-            "ip_night_share":   float((grp["occurred_at"].dt.hour.isin(NIGHT_HOURS)).mean()),
-        })
+    # Vectorized aggregations — avoids O(n_users) Python for-loop overhead.
+    g = df.groupby("user_id")
+    unique_ips     = g["ip_address"].nunique()
+    ip_event_count = g.size()
 
-    return pd.DataFrame(rows).reset_index(drop=True)
+    # ip_concentration = share of most-common IP per user.
+    # Computed via (user, ip) counts then max share per user — all vectorized.
+    pair_counts = df.groupby(["user_id", "ip_address"]).size()
+    ip_concentration = (pair_counts / pair_counts.groupby(level="user_id").sum()).groupby(level="user_id").max()
+
+    # ip_night_share: fraction of events in NIGHT_HOURS (22-23 UTC).
+    df["_is_night"] = df["occurred_at"].dt.hour.isin(NIGHT_HOURS)
+    ip_night_share = g["_is_night"].mean()
+
+    result = pd.DataFrame({
+        "user_id":          unique_ips.index,
+        "unique_ips":       unique_ips.values,
+        "ip_event_count":   ip_event_count.values,
+        "ip_concentration": ip_concentration.reindex(unique_ips.index).fillna(0.0).values,
+        "ip_night_share":   ip_night_share.reindex(unique_ips.index).fillna(0.0).values,
+    })
+    return result.reset_index(drop=True)

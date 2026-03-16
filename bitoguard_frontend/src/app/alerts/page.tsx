@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { api, type RiskLevel } from "@/lib/api"
 import Link from "next/link"
@@ -23,18 +23,11 @@ const RISK_ZH: Record<NonNullable<RiskLevel>, string> = {
 export default function AlertCenterPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const [filter, setFilter] = useState<string>(searchParams.get("risk_level") ?? "all")
+  // Derive filter directly from URL — URL is the single source of truth
+  const filter = searchParams.get("risk_level") ?? "all"
   const [page, setPage] = useState<number>(1)
 
-  // Sync URL param changes (e.g. back button navigation)
-  useEffect(() => {
-    const rl = searchParams.get("risk_level")
-    setFilter(rl ?? "all")
-    setPage(1)
-  }, [searchParams])
-
   function changeFilter(value: string) {
-    setFilter(value)
     setPage(1)
     const params = new URLSearchParams()
     if (value !== "all") params.set("risk_level", value)
