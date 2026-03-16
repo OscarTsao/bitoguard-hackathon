@@ -8,7 +8,7 @@ BitoGuard is a production-minded Anti-Money Laundering (AML) / fraud-risk detect
 |--------|-------------|-----------|
 | M1: Rules | 11 deterministic AML rules, severity-weighted scoring | `bitoguard_core/models/rule_engine.py` |
 | M2: Statistical | Peer-deviation features, cohort percentile ranks, rolling windows | `bitoguard_core/features/build_features.py` |
-| M3: Supervised | LightGBM with leakage-safe temporal splits, P@K, calibration | `bitoguard_core/models/train.py`, `validate.py` |
+| M3: Supervised | CatBoost + LightGBM stacker, 5-fold OOF, AUC 0.9495 | `bitoguard_core/models/stacker.py`, `models/score.py` |
 | M4: Anomaly | IsolationForest novelty detection, anomaly score + type | `bitoguard_core/models/anomaly.py` |
 | M5: Graph | NetworkX heterogeneous graph (IP/wallet/user), blacklist proximity | `bitoguard_core/features/graph_features.py` |
 | M6: Ops | SHAP case reports, incremental refresh, drift detection, AWS prep | `bitoguard_core/services/`, `pipeline/refresh_live.py` |
@@ -24,6 +24,7 @@ docker compose up --build
 cd bitoguard_core
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+pip install -e bitoguard_core/
 
 # Run the backend test suite
 make test
@@ -55,8 +56,7 @@ cd bitoguard_frontend && npm install && npm run dev
 make test        # Run all 124 tests
 make sync        # Sync live BitoPro data
 make features    # Build feature snapshots + graph features
-make train       # Train LightGBM + IsolationForest
-make evaluate    # Holdout evaluation (P/R/F1/P@K/calibration)
+make train       # Train CatBoost + LightGBM stacker (v2 features)
 make ablation    # Module ablation study
 make refresh     # Incremental refresh (watermark-bounded)
 make score       # Score latest snapshot → alerts
@@ -89,14 +89,13 @@ make docker-up
 | Document | Location |
 |----------|----------|
 | Local runbook | `docs/RUNBOOK_LOCAL.md` |
-| AWS runbook | `docs/RUNBOOK_AWS.md` |
-| Evaluation report | `docs/EVALUATION_REPORT.md` |
-| Feature dictionary | `docs/FEATURE_DICTIONARY.md` |
 | Rule book | `docs/RULEBOOK.md` |
-| Graph schema | `docs/GRAPH_SCHEMA.md` |
 | Model card | `docs/MODEL_CARD.md` |
 | Data contract | `docs/DATA_CONTRACT.md` |
-| Release readiness checklist | `docs/RELEASE_READINESS_CHECKLIST.md` |
+| Graph trust boundary | `docs/GRAPH_TRUST_BOUNDARY.md` |
+| Graph recovery plan | `docs/GRAPH_RECOVERY_PLAN.md` |
+| ML pipeline summary | `docs/ML_PIPELINE_SUMMARY.md` |
+| SageMaker deployment guide | `docs/SAGEMAKER_DEPLOYMENT_GUIDE.md` |
 
 ## Validation
 
@@ -128,10 +127,8 @@ terraform output alb_url
 
 ### Documentation
 
-- [Quick Start Guide](docs/QUICK_START_AWS.md) - Get running in 30 minutes
-- [Deployment Guide](docs/AWS_DEPLOYMENT_GUIDE.md) - Complete documentation
+- [Deployment Guide](docs/SAGEMAKER_DEPLOYMENT_GUIDE.md) - Complete AWS/SageMaker documentation
 - [Architecture](infra/aws/ARCHITECTURE.md) - AWS architecture deep dive
-- [Cost Optimization](docs/COST_OPTIMIZATION.md) - Reduce costs by 30-75%
 
 ### What's Included
 

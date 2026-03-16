@@ -9,6 +9,7 @@ All Makefile targets run from the **project root** (`bitoguard-hackathon/`). The
 ### Setup
 ```bash
 make setup           # Create bitoguard_core/.venv and install Python deps (Python 3.13)
+pip install -e bitoguard_core/  # Install bitoguard_core as editable package
 cd bitoguard_frontend && npm install  # Install Node.js deps (Node 20+)
 cp bitoguard_frontend/.env.example bitoguard_frontend/.env.local  # Set BITOGUARD_INTERNAL_API_BASE=http://127.0.0.1:8001
 ```
@@ -33,24 +34,13 @@ make docker-up       # Full stack via Docker Compose
 ```
 
 ### Pipeline (run in order after first setup)
-
-**v1 pipeline** (LightGBM + IsolationForest, ~30 features):
 ```bash
 make sync            # Sync BitoPro data → raw.* tables in DuckDB
 make features        # Build graph + tabular feature snapshots
-make train           # Train LightGBM + IsolationForest
-make evaluate        # Temporal holdout evaluation (P@K, calibration)
+make train           # Train CatBoost + LightGBM stacker (v2 features)
 make score           # Score users → generate alerts
 make drift           # Feature drift detection between latest snapshots
 make refresh         # Incremental watermark-bounded refresh
-```
-
-**v2 pipeline** (CatBoost + LightGBM stacker, ~155 features):
-```bash
-make sync            # Same sync step
-make features-v2     # Build v2 feature snapshots → features.feature_snapshots_v2
-make train-stacker   # Train CatBoost + LightGBM OOF branches + LR meta-learner
-make score-v2        # Score latest v2 snapshot using stacker
 ```
 
 ### Linting
@@ -69,7 +59,7 @@ BitoGuard is a 6-module AML detection system for the BitoPro cryptocurrency exch
 |--------|---------|-----------|
 | M1: Rules | 11 deterministic AML rules, severity-weighted scoring | `models/rule_engine.py` |
 | M2: Statistical | Peer-deviation features, rolling windows, cohort percentiles | `features/build_features.py` |
-| M3: Supervised | LightGBM with leakage-safe temporal splits | `models/train.py`, `models/validate.py` |
+| M3: Supervised | CatBoost + LightGBM stacker, 5-fold OOF, AUC 0.9495 | `models/stacker.py`, `models/score.py` |
 | M4: Anomaly | IsolationForest novelty detection | `models/anomaly.py` |
 | M5: Graph | NetworkX heterogeneous graph (IP/wallet/device) | `features/graph_features.py` |
 | M6: Ops | SHAP case reports, drift detection, incremental refresh | `services/`, `pipeline/refresh_live.py` |
@@ -89,7 +79,7 @@ BitoPro API (https://aws-event-api.bitopro.com)
       ├─ graph_features.py    → features.graph_features
       └─ build_features.py    → features.feature_snapshots_user_30d
   └─ models/
-      ├─ train.py             → artifacts/models/lgbm_*.lgbm
+      ├─ stacker.py           → artifacts/models/stacker_*.joblib
       ├─ anomaly.py           → artifacts/models/iforest_*.joblib
       └─ score.py             → ops.model_predictions + ops.alerts
 ```
