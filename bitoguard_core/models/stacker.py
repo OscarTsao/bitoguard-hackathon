@@ -1,8 +1,12 @@
 # bitoguard_core/models/stacker.py
-"""Stacker: CatBoost + LightGBM OOF branches with label propagation (Branch C) -> Logistic Regression meta-learner.
+"""Stacker: CatBoost + LightGBM OOF branches -> Logistic Regression meta-learner.
 
-LEAKAGE CONTRACT: graph propagation features are computed inside each fold using
-ONLY training-fold labels. See graph_propagation.py.
+OOF models train on the same label-free feature set as the deployed final models
+so that OOF metrics reflect real-world generalization.
+
+Note: Branch C (graph label propagation) causes self-referential leakage in the
+OOF loop (training positives propagate their own labels back to themselves via
+shared entities). Branch C wiring into score.py is a tracked follow-up task.
 """
 from __future__ import annotations
 from datetime import datetime, timezone
@@ -15,32 +19,18 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score, average_precision_score
 from sklearn.model_selection import StratifiedGroupKFold
 
-from config import load_settings
-from db.store import DuckDBStore
-from features.graph_propagation import compute_label_propagation
 from models.common import (
     NON_FEATURE_COLUMNS, forward_date_splits, model_dir,
     save_joblib, save_json,
 )
 from models.train_catboost import load_v2_training_dataset, CAT_FEATURE_NAMES
 
-_PROP_FEATURE_COLS = [
-    "prop_ip", "prop_wallet", "prop_combined",
-    "ip_rep_max_rate", "wallet_rep_max_rate",
-    "rel_has_pos_neighbor", "rel_direct_pos_count",
-]
-
 
 def train_stacker(n_folds: int = 5) -> dict:
-    """OOF stacking: CatBoost + LightGBM branches with label propagation (Branch C) -> LR meta-learner.
-
-    This stacker uses CatBoost + LightGBM OOF branches with label propagation (Branch C)
-    per-fold -> Logistic Regression meta-learner.
-    """
+    """OOF stacking: CatBoost + LightGBM branches -> Logistic Regression meta-learner."""
     dataset = load_v2_training_dataset()
     feature_cols = [c for c in dataset.columns
                     if c not in NON_FEATURE_COLUMNS and c != "hidden_suspicious_label"]
-    # cat_indices are positional; _PROP_FEATURE_COLS appended later must remain numeric
     cat_indices  = [i for i, c in enumerate(feature_cols) if c in CAT_FEATURE_NAMES]
 
     date_splits   = forward_date_splits(dataset["snapshot_date"])
@@ -56,14 +46,6 @@ def train_stacker(n_folds: int = 5) -> dict:
     print(f"Training set: {len(y_train):,} samples, {int(y_train.sum()):,} positives ({y_train.mean():.2%})")
     print(f"Features: {len(feature_cols)}, Cat features: {len(cat_indices)}")
 
-    # Load entity_edges for Branch C (label propagation)
-    settings = load_settings()
-    _store = DuckDBStore(settings.db_path)
-    edges = _store.fetch_df(
-        "SELECT src_type, src_id, relation_type, dst_type, dst_id"
-        " FROM canonical.entity_edges"
-    )
-
     oof_cb   = np.zeros(len(x_train_df))
     oof_lgbm = np.zeros(len(x_train_df))
 
@@ -74,29 +56,18 @@ def train_stacker(n_folds: int = 5) -> dict:
         neg = max(1, len(tr_idx) - pos)
         print(f"\n[Fold {fold_i}/{n_folds}] train={len(tr_idx):,} val={len(val_idx):,} pos_rate={pos/len(tr_idx):.2%}")
 
-        # Branch C: compute label-propagation features using fold-train labels only
-        fold_train_labels = pd.Series(
-            y_train[tr_idx],
-            index=train_df["user_id"].iloc[tr_idx].values,
-        )
-        prop_df = compute_label_propagation(
-            edges, fold_train_labels,
-            user_ids=list(train_df["user_id"]),
-        )
-        prop_df = prop_df.set_index("user_id")[_PROP_FEATURE_COLS].fillna(0)
-        prop_df = prop_df[~prop_df.index.duplicated(keep="last")]
-        prop_aligned = prop_df.reindex(train_df["user_id"].values).fillna(0).reset_index(drop=True)
-        x_fold_aug = pd.concat(
-            [x_train_df.reset_index(drop=True), prop_aligned], axis=1,
-        )
-
+        # OOF models use the same label-free feature set as the deployed final models.
+        # Branch C (label propagation) causes self-referential leakage in the OOF loop:
+        # training positives propagate their labels through shared entities back to
+        # themselves, creating a spurious prop_ip≈1.0 signal that vanishes at val time.
+        # Branch C wiring into score.py is a separate TODO.
         cb = CatBoostClassifier(
             iterations=200, learning_rate=0.05, depth=6,
             scale_pos_weight=neg / pos, cat_features=cat_indices,
             random_seed=42, verbose=0,
         )
-        cb.fit(x_fold_aug.iloc[tr_idx], y_train[tr_idx])
-        oof_cb[val_idx] = cb.predict_proba(x_fold_aug.iloc[val_idx])[:, 1]
+        cb.fit(x_train_df.iloc[tr_idx], y_train[tr_idx])
+        oof_cb[val_idx] = cb.predict_proba(x_train_df.iloc[val_idx])[:, 1]
         cb_auc = roc_auc_score(y_train[val_idx], oof_cb[val_idx])
         cb_ap  = average_precision_score(y_train[val_idx], oof_cb[val_idx])
         print(f"  CatBoost   AUC={cb_auc:.4f}  PR-AUC={cb_ap:.4f}")
@@ -106,8 +77,8 @@ def train_stacker(n_folds: int = 5) -> dict:
             subsample=0.9, colsample_bytree=0.9,
             scale_pos_weight=neg / pos, random_state=42,
         )
-        lgbm.fit(x_fold_aug.iloc[tr_idx], y_train[tr_idx])
-        oof_lgbm[val_idx] = lgbm.predict_proba(x_fold_aug.iloc[val_idx])[:, 1]
+        lgbm.fit(x_train_df.iloc[tr_idx], y_train[tr_idx])
+        oof_lgbm[val_idx] = lgbm.predict_proba(x_train_df.iloc[val_idx])[:, 1]
         lgbm_auc = roc_auc_score(y_train[val_idx], oof_lgbm[val_idx])
         lgbm_ap  = average_precision_score(y_train[val_idx], oof_lgbm[val_idx])
         print(f"  LightGBM   AUC={lgbm_auc:.4f}  PR-AUC={lgbm_ap:.4f}")
@@ -140,9 +111,7 @@ def train_stacker(n_folds: int = 5) -> dict:
     print(f"OOF Stacker   AUC={oof_stacker_auc:.4f}  PR-AUC={oof_stacker_ap:.4f}")
     print(f"{'='*50}")
 
-    # Retrain full base models on all training data
-    # Branch C is used for OOF AUC measurement only. Final models use label-free features.
-    # Wiring Branch C into score.py is a known follow-up task.
+    # Retrain final models on all training data with more iterations
     pos_all = max(1, int(y_train.sum()))
     neg_all = max(1, len(y_train) - pos_all)
 
