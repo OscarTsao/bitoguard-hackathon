@@ -514,7 +514,27 @@ def alert_decision(alert_id: str, payload: DecisionRequest) -> dict[str, str]:
 def model_metrics() -> dict[str, Any]:
     settings = load_settings()
     store = DuckDBStore(settings.db_path)
-    return _load_validation_metrics(store)
+    base = _load_validation_metrics(store)
+    # Augment with OOF stacker metrics from the CV report (true generalization estimate,
+    # leakage-free). The holdout report may have inflated metrics due to peer-percentile
+    # feature leakage; OOF is the authoritative performance measure for production.
+    cv_candidates = sorted(
+        settings.artifact_dir.glob("5fold_cv_report_*.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if cv_candidates:
+        try:
+            cv_report = json.loads(cv_candidates[0].read_text(encoding="utf-8"))
+            oof = cv_report.get("cv_evaluation", {}).get("oof_metrics", {})
+            base["oof_metrics"] = oof
+            base["oracle_precision_at_k"] = (
+                cv_report.get("scoring_results", {}).get("oracle_precision_at_k", {})
+            )
+            base["dataset_stats"] = cv_report.get("dataset", {})
+        except Exception:
+            pass
+    return base
 
 
 @app.get("/metrics/threshold", dependencies=[Depends(_require_api_key)])

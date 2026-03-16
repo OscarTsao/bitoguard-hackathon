@@ -117,10 +117,22 @@ def score_latest_snapshot() -> pd.DataFrame:
     cb_model   = load_joblib(cb_path)
     lgbm_model = load_joblib(lgbm_path)
 
-    branch_matrix = np.column_stack([
+    branch_preds = [
         cb_model.predict_proba(x_score)[:, 1],
         lgbm_model.predict_proba(x_score)[:, 1],
-    ])
+    ]
+
+    # 3-branch stacker (optional XGBoost branch — present in v2 models)
+    if "xgboost" in stacker_meta.get("branch_models", {}):
+        xgb_path = Path(stacker_meta["branch_models"]["xgboost"])
+        xgb_model = load_joblib(xgb_path)
+        # XGBoost requires numeric-only features; encode categoricals as integer codes
+        x_score_np = x_score.copy()
+        for col in x_score_np.select_dtypes(include=["object", "category"]).columns:
+            x_score_np[col] = pd.Categorical(x_score_np[col]).codes.astype("float32")
+        branch_preds.append(xgb_model.predict_proba(x_score_np.values.astype("float32"))[:, 1])
+
+    branch_matrix = np.column_stack(branch_preds)
     model_probability = stacker_model.predict_proba(branch_matrix)[:, 1]
 
     if settings.m4_enabled:

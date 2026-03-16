@@ -45,6 +45,18 @@ interface FeatureImportanceRow {
   importance_pct: number
 }
 
+interface OofMetrics {
+  auc: number
+  pr_auc: number
+}
+
+interface OraclePrecisionAtK {
+  hits: number
+  k: number
+  precision: number
+  lift: number
+}
+
 interface ModelMetrics {
   model_version: string
   holdout_rows: number
@@ -63,6 +75,10 @@ interface ModelMetrics {
   threshold_sensitivity: ThresholdRow[]
   scenario_breakdown: ScenarioRow[]
   pr_curve?: { precision: number[]; recall: number[]; thresholds: number[] }
+  // OOF stacker fields (true, leakage-free generalization metrics)
+  oof_metrics?: { catboost: OofMetrics; lgbm: OofMetrics; stacker: OofMetrics }
+  oracle_precision_at_k?: Record<string, OraclePrecisionAtK>
+  dataset_stats?: { users: number; positives: number; positive_rate: number; features: number }
 }
 
 // ── SVG PR-Curve component ──────────────────────────────────────────────────
@@ -218,6 +234,97 @@ export default function ModelOpsPage() {
                   Holdout PR-AUC 達 {metrics.average_precision.toFixed(4)} 且 FN=0，可能因 peer-percentile 特徵在整體資料集計算時洩漏至驗證集。
                   請參考 OOF Stacker 的真實泛化指標 (PR-AUC ≈ 0.216)。
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* ── OOF Stacker metrics (true generalization, leakage-free) ── */}
+          {metrics.oof_metrics && (
+            <div className="bg-white rounded-xl border border-[#e5e7eb] shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#e5e7eb] flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#5c6bc0]" />
+                <h2 className="text-[14px] font-semibold text-[#1a1d2e]">OOF 堆疊模型 — 真實泛化指標</h2>
+                <span className="ml-auto text-[11px] text-[#9ca3af]">5-fold StratifiedGroupKFold, leakage-free</span>
+              </div>
+              <div className="p-4 grid grid-cols-3 gap-4">
+                {(["catboost", "lgbm", "stacker"] as const).map((branch) => {
+                  const m = metrics.oof_metrics![branch]
+                  const isStacker = branch === "stacker"
+                  return (
+                    <div key={branch} className={`rounded-lg p-3 ${isStacker ? "bg-[#eef0fa]" : "bg-[#f9fafb]"}`}>
+                      <p className="text-[11px] font-semibold text-[#6b7280] uppercase tracking-wider mb-2">
+                        {branch === "catboost" ? "CatBoost" : branch === "lgbm" ? "LightGBM" : "Stacker (meta)"}
+                      </p>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-[11px] text-[#9ca3af]">ROC-AUC</span>
+                          <span className={`text-[15px] font-semibold ${isStacker ? "text-[#5c6bc0]" : "text-[#1a1d2e]"}`}>
+                            {m.auc.toFixed(4)}
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-[#e5e7eb] rounded-full overflow-hidden">
+                          <div className="h-1.5 rounded-full" style={{ width: `${m.auc * 100}%`, backgroundColor: isStacker ? "#5c6bc0" : "#9ca3af" }} />
+                        </div>
+                        <div className="flex justify-between items-baseline mt-1.5">
+                          <span className="text-[11px] text-[#9ca3af]">PR-AUC</span>
+                          <span className={`text-[15px] font-semibold ${isStacker ? "text-[#5c6bc0]" : "text-[#1a1d2e]"}`}>
+                            {m.pr_auc.toFixed(4)}
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-[#e5e7eb] rounded-full overflow-hidden">
+                          <div className="h-1.5 rounded-full" style={{ width: `${Math.min(100, m.pr_auc / 0.5 * 100)}%`, backgroundColor: isStacker ? "#5c6bc0" : "#9ca3af" }} />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              {metrics.dataset_stats && (
+                <div className="px-4 pb-3 flex gap-6 text-[12px] text-[#9ca3af]">
+                  <span>{metrics.dataset_stats.users?.toLocaleString()} 使用者</span>
+                  <span>{metrics.dataset_stats.positives?.toLocaleString()} 正樣本 ({((metrics.dataset_stats.positive_rate ?? 0) * 100).toFixed(1)}%)</span>
+                  <span>{metrics.dataset_stats.features} 特徵</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Oracle P@K ── */}
+          {metrics.oracle_precision_at_k && Object.keys(metrics.oracle_precision_at_k).length > 0 && (
+            <div className="bg-white rounded-xl border border-[#e5e7eb] shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#e5e7eb]">
+                <h2 className="text-[14px] font-semibold text-[#1a1d2e]">Oracle Precision@K (線上評估)</h2>
+                <p className="text-[11px] text-[#9ca3af] mt-0.5">依模型分數排序後，前 K 名使用者中確認為可疑的比例</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="bg-[#f9fafb] border-b border-[#e5e7eb]">
+                      {["K", "命中", "Precision", "Lift vs Random", "精準度"].map((h) => (
+                        <th key={h} className="px-4 py-2 text-left text-[11px] font-semibold text-[#9ca3af] uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(metrics.oracle_precision_at_k).map(([k, v]) => (
+                      <tr key={k} className="border-b border-[#f3f4f6] hover:bg-[#f9fafb]">
+                        <td className="px-4 py-2 font-mono font-semibold text-[#5c6bc0]">{v.k}</td>
+                        <td className="px-4 py-2 font-mono text-[#43a047] font-semibold">{v.hits}/{v.k}</td>
+                        <td className="px-4 py-2 font-mono">{(v.precision * 100).toFixed(1)}%</td>
+                        <td className="px-4 py-2">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#eef0fa] text-[#5c6bc0]">
+                            {v.lift.toFixed(1)}×
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 w-40">
+                          <div className="h-1.5 bg-[#f3f4f6] rounded-full overflow-hidden">
+                            <div className="h-1.5 rounded-full" style={{ width: `${v.precision * 100}%`, backgroundColor: v.precision >= 0.9 ? "#43a047" : v.precision >= 0.7 ? "#fb8c00" : "#e53935" }} />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
