@@ -150,7 +150,33 @@ def build_v2_features(
         pass  # Rule features are best-effort; missing → 0 via fillna below
 
     # fillna(0) covers users absent from a partial module result
-    return base.fillna(0).reset_index(drop=True)
+    base = base.fillna(0)
+
+    # --- Cross-channel derived features ---
+    # These ratios require both fiat and crypto columns to be present; they capture
+    # the classic fiat-in→crypto-out layering pattern (core money laundering typology).
+    if "twd_dep_sum" in base.columns and "crypto_wdr_twd_sum" in base.columns:
+        base["xch_cashout_ratio_lifetime"] = (
+            base["crypto_wdr_twd_sum"] / (base["twd_dep_sum"] + 1.0)
+        ).clip(upper=10.0)
+
+    if "twd_dep_7d_sum" in base.columns and "crypto_wdr_7d_sum" in base.columns:
+        base["xch_cashout_ratio_7d"] = (
+            base["crypto_wdr_7d_sum"] / (base["twd_dep_7d_sum"] + 1.0)
+        ).clip(upper=10.0)
+
+    if "twd_dep_30d_sum" in base.columns and "crypto_wdr_30d_sum" in base.columns:
+        base["xch_cashout_ratio_30d"] = (
+            base["crypto_wdr_30d_sum"] / (base["twd_dep_30d_sum"] + 1.0)
+        ).clip(upper=10.0)
+
+    # Layering intensity: cross-channel velocity burst (crypto out burst + fiat in burst)
+    if "twd_dep_burst_ratio" in base.columns and "crypto_wdr_burst_ratio" in base.columns:
+        base["xch_layering_intensity"] = (
+            base["twd_dep_burst_ratio"] * base["crypto_wdr_burst_ratio"]
+        ).clip(upper=100.0)
+
+    return base.reset_index(drop=True)
 
 
 def build_and_store_v2_features(
