@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy bitoguard_core code
 COPY . .
-RUN pip install -e .
+RUN pip install .
 
 # Set environment variables for SageMaker
 ENV SAGEMAKER_PROGRAM=ml_pipeline/train_entrypoint.py

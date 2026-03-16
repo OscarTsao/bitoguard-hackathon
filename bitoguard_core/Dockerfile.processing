@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy bitoguard_core code
 COPY . .
-RUN pip install -e .
+RUN pip install .
 
 # SageMaker processing entry point
 ENTRYPOINT ["python", "ml_pipeline/preprocessing_entrypoint.py"]
