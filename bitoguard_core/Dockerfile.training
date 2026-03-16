@@ -1,0 +1,28 @@
+# Dockerfile for SageMaker Training
+FROM python:3.11-slim
+
+WORKDIR /opt/ml/code
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy bitoguard_core code
+COPY . .
+RUN pip install -e .
+
+# Set environment variables for SageMaker
+ENV PYTHONPATH=/opt/ml/code
+ENV SAGEMAKER_PROGRAM=ml_pipeline/train_entrypoint.py
+
+# SageMaker uses /opt/ml for input/output
+# /opt/ml/input/data/training - training data
+# /opt/ml/model - model artifacts output
+# /opt/ml/output - additional output
+
+ENTRYPOINT ["python", "ml_pipeline/train_entrypoint.py"]

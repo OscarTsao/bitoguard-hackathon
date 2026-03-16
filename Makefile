@@ -32,66 +32,66 @@ help:
 
 # ── Environment ──────────────────────────────────────────────────────────────
 
-setup: ## Create .venv and install Python dependencies
+setup: ## Create .venv, install Python dependencies, and install package
 	cd $(CORE_DIR) && python -m venv .venv && \
-	$(ACTIVATE) && pip install -r requirements.txt
+	$(ACTIVATE) && pip install -r requirements.txt && pip install -e .
 	@echo "Setup complete. Activate with: source bitoguard_core/.venv/bin/activate"
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 test: ## Run full backend test suite
-	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python -m pytest tests/ -v
+	cd $(CORE_DIR) && $(ACTIVATE) && python -m pytest tests/ -v
 
 test-quick: ## Run tests in quiet mode
-	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python -m pytest tests/ -q
+	cd $(CORE_DIR) && $(ACTIVATE) && python -m pytest tests/ -q
 
 test-rules: ## Run rule engine unit tests only
-	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python -m pytest tests/test_rule_engine.py -v
+	cd $(CORE_DIR) && $(ACTIVATE) && python -m pytest tests/test_rule_engine.py -v
 
 # ── Data Pipeline ─────────────────────────────────────────────────────────────
 
 sync: ## Full data sync from live BitoPro AWS Event API
-	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python pipeline/sync.py --full
+	cd $(CORE_DIR) && $(ACTIVATE) && python pipeline/sync.py --full
 
 features: ## Rebuild all feature snapshots (graph + tabular)
 	cd $(CORE_DIR) && $(ACTIVATE) && \
-	PYTHONPATH=. python features/graph_features.py && \
-	PYTHONPATH=. python features/build_features.py
+	python features/graph_features.py && \
+	python features/build_features.py
 
 refresh: ## Incremental live refresh (watermark-based, bounded)
-	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python pipeline/refresh_live.py
+	cd $(CORE_DIR) && $(ACTIVATE) && python pipeline/refresh_live.py
 
 # ── Model Training & Evaluation ───────────────────────────────────────────────
 
 train: ## Train LightGBM classifier + IsolationForest anomaly model
 	cd $(CORE_DIR) && $(ACTIVATE) && \
-	PYTHONPATH=. python models/train.py && \
-	PYTHONPATH=. python -c "from models.anomaly import train_anomaly_model; import json; print(json.dumps(train_anomaly_model()))"
+	python models/train.py && \
+	python -c "from models.anomaly import train_anomaly_model; import json; print(json.dumps(train_anomaly_model()))"
 
 evaluate: ## Run temporal holdout evaluation, save report
-	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python models/validate.py
+	cd $(CORE_DIR) && $(ACTIVATE) && python models/validate.py
 
 score: ## Score latest snapshot + generate alerts
-	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python models/score.py
+	cd $(CORE_DIR) && $(ACTIVATE) && python models/score.py
 
 features-v2: ## Build v2 feature snapshots (~155 columns per user)
-	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python features/build_features_v2.py
+	cd $(CORE_DIR) && $(ACTIVATE) && python features/build_features_v2.py
 
 train-stacker: ## Train CatBoost + LightGBM branches + LR stacker on v2 features
-	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python models/stacker.py
+	cd $(CORE_DIR) && $(ACTIVATE) && python models/stacker.py
 
 score-v2: ## Score latest snapshot using stacker (v2 features)
-	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python -c \
+	cd $(CORE_DIR) && $(ACTIVATE) && python -c \
 	    "from models.score import score_latest_snapshot_v2; r = score_latest_snapshot_v2(); print(f'Scored {len(r)} users')"
 
 drift: ## Run feature drift detection between two most recent snapshots
-	cd $(CORE_DIR) && $(ACTIVATE) && PYTHONPATH=. python services/drift.py
+	cd $(CORE_DIR) && $(ACTIVATE) && python services/drift.py
 
 # ── API / Frontend ────────────────────────────────────────────────────────────
 
 serve: ## Start FastAPI backend (http://localhost:8001)
 	cd $(CORE_DIR) && $(ACTIVATE) && \
-	PYTHONPATH=. uvicorn api.main:app --reload --port 8001
+	uvicorn api.main:app --reload --port 8001
 
 frontend: ## Start Next.js frontend (http://localhost:3000)
 	cd bitoguard_frontend && npm run dev

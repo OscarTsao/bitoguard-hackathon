@@ -1,0 +1,24 @@
+# Dockerfile for SageMaker Processing Jobs
+FROM python:3.11-slim
+
+WORKDIR /opt/ml/code
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy bitoguard_core code
+COPY . .
+RUN pip install -e .
+
+# Set Python path
+ENV PYTHONPATH=/opt/ml/code
+
+# SageMaker processing entry point
+ENTRYPOINT ["python", "ml_pipeline/preprocessing_entrypoint.py"]
