@@ -8,8 +8,7 @@ import pandas as pd
 
 from config import load_settings
 from db.store import DuckDBStore, make_id, utc_now
-from models.common import encode_features, feature_columns, load_feature_table, load_iforest, load_joblib, load_lgbm
-from models.dormancy import dormancy_series
+from models.common import encode_features, feature_columns, load_feature_table, load_iforest, load_joblib
 from models.rule_engine import evaluate_rules
 from services.alert_engine import generate_alerts
 
@@ -42,163 +41,6 @@ def _graph_risk_score(frame: pd.DataFrame) -> pd.Series:
 
 def _prediction_key(user_id: str, snapshot_date: object) -> tuple[str, object]:
     return (user_id, pd.Timestamp(snapshot_date).date())
-
-
-
-def _build_model_version(
-    *,
-    settings,
-    lgbm_meta: dict | None,
-    anomaly_meta: dict | None,
-) -> str:
-    components: list[str] = []
-    if settings.m0_enabled:
-        components.append("m0_dormancy")
-    if settings.m1_enabled:
-        components.append("m1_rules")
-    if settings.m3_enabled and lgbm_meta is not None:
-        components.append(lgbm_meta["model_version"])
-    if settings.m4_enabled and anomaly_meta is not None:
-        components.append(anomaly_meta["model_version"])
-    if settings.m5_enabled:
-        components.append("m5_graph")
-    return "+".join(components) if components else "score_disabled"
-
-
-def _composite_model_version(module_versions: list[str]) -> str:
-    if not module_versions:
-        return "manual_unconfigured"
-    return "+".join(module_versions)
-
-
-def _empty_rule_results(frame: pd.DataFrame) -> pd.DataFrame:
-    result = frame[["user_id", "snapshot_date"]].copy()
-    result["rule_score"] = 0.0
-    result["rule_hits"] = "[]"
-    return result
-
-
-def _reason_codes(row: pd.Series) -> str:
-    reasons: list[str] = []
-    if float(row.get("dormancy_score", 0.0) or 0.0) >= 1.0:
-        reasons.append("dormancy_baseline")
-    if row.get("rule_hits"):
-        reasons.extend(json.loads(row["rule_hits"]))
-    if float(row.get("anomaly_score", 0.0) or 0.0) >= 0.8:
-        reasons.append("anomaly_score_high")
-    if float(row.get("graph_risk", 0.0) or 0.0) > 0.0:
-        reasons.append("graph_risk")
-    if float(row.get("model_probability", 0.0) or 0.0) >= 0.8:
-        reasons.append("model_probability_high")
-    deduped = list(dict.fromkeys(reasons))
-    return json.dumps(deduped, ensure_ascii=False)
-
-
-def score_latest_snapshot() -> pd.DataFrame:
-    settings = load_settings()
-    store = DuckDBStore(settings.db_path)
-    features = load_feature_table("features.feature_snapshots_user_day")
-    if features.empty:
-        raise ValueError("No feature snapshots found. Run feature build first.")
-    latest_date = features["snapshot_date"].max()
-    scoring_frame = features[features["snapshot_date"] == latest_date].copy()
-    result = scoring_frame[["user_id", "snapshot_date"]].copy()
-    result["dormancy_score"] = dormancy_series(scoring_frame) if settings.m0_enabled else 0.0
-
-    module_versions: list[str] = []
-    if settings.m0_enabled:
-        module_versions.append("m0:dormancy_baseline")
-
-    rule_results = evaluate_rules(scoring_frame) if settings.m1_enabled else _empty_rule_results(scoring_frame)
-    if settings.m1_enabled:
-        module_versions.append("m1:behavioral_rules")
-    result = result.merge(rule_results[["user_id", "snapshot_date", "rule_score", "rule_hits"]], on=["user_id", "snapshot_date"], how="left")
-    result["rule_score"] = result["rule_score"].fillna(0.0)
-    result["rule_hits"] = result["rule_hits"].fillna("[]")
-
-    feature_cols = feature_columns(scoring_frame)
-    result["model_probability"] = 0.0
-    result["anomaly_score"] = 0.0
-    result["graph_risk"] = 0.0
-
-    if settings.m3_enabled:
-        lgbm_path, lgbm_meta = _load_latest_model("lgbm", "lgbm")
-        x_score, _ = encode_features(scoring_frame, feature_cols, reference_columns=lgbm_meta["encoded_columns"])
-        lgbm = load_lgbm(lgbm_path)
-        model_probability = lgbm.predict(x_score)
-        assert model_probability.min() >= 0.0 and model_probability.max() <= 1.0, (
-            "LightGBM predictions out of [0,1] range — model may not have binary objective"
-        )
-        result["model_probability"] = model_probability
-        module_versions.append(f"m3:{lgbm_meta['model_version']}")
-
-    if settings.m4_enabled:
-        anomaly_path, anomaly_meta = _load_latest_model("iforest", "joblib")
-        x_anomaly, _ = encode_features(scoring_frame, feature_cols, reference_columns=anomaly_meta["encoded_columns"])
-        anomaly_model = load_iforest(anomaly_path)
-        anomaly_raw = -anomaly_model.score_samples(x_anomaly)
-        anomaly_score = (anomaly_raw - anomaly_raw.min()) / (anomaly_raw.max() - anomaly_raw.min() + 1e-9)
-        result["anomaly_score"] = anomaly_score
-        module_versions.append(f"m4:{anomaly_meta['model_version']}")
-
-    if settings.m5_enabled:
-        result["graph_risk"] = _graph_risk_score(scoring_frame)
-        module_versions.append("m5:graph_risk")
-
-    component_weights = {
-        "rule_score": 0.35 if settings.m1_enabled else 0.0,
-        "model_probability": 0.45 if settings.m3_enabled else 0.0,
-        "anomaly_score": 0.10 if settings.m4_enabled else 0.0,
-        "graph_risk": 0.10 if settings.m5_enabled else 0.0,
-    }
-    total_weight = sum(component_weights.values())
-    if total_weight > 0:
-        combined_score = sum(result[column] * weight for column, weight in component_weights.items()) / total_weight
-    else:
-        combined_score = pd.Series(0.0, index=result.index, dtype=float)
-    result["risk_score"] = combined_score * 100.0
-    if settings.m0_enabled:
-        result.loc[result["dormancy_score"] >= 1.0, "risk_score"] = 100.0
-    result["risk_level"] = pd.cut(
-        result["risk_score"],
-        bins=[-1, 35, 60, 80, 100],
-        labels=["low", "medium", "high", "critical"],
-    ).astype(str)
-    result["top_reason_codes"] = result.apply(_reason_codes, axis=1)
-    result["prediction_time"] = utc_now()
-    result["model_version"] = _composite_model_version(module_versions)
-
-    existing_predictions = store.fetch_df(
-        "SELECT prediction_id, user_id, snapshot_date FROM ops.model_predictions WHERE snapshot_date = ?",
-        (latest_date.date(),),
-    )
-    existing_prediction_ids = {
-        _prediction_key(row["user_id"], row["snapshot_date"]): row["prediction_id"]
-        for _, row in existing_predictions.iterrows()
-    }
-    result["prediction_id"] = result.apply(
-        lambda row: existing_prediction_ids.get(
-            _prediction_key(row["user_id"], row["snapshot_date"]),
-            make_id(f"pred_{row['user_id'][-4:]}"),
-        ),
-        axis=1,
-    )
-
-    prediction_rows = result[[
-        "prediction_id", "user_id", "snapshot_date", "prediction_time", "model_version",
-        "risk_score", "risk_level", "rule_hits", "top_reason_codes",
-        "model_probability", "anomaly_score", "graph_risk",
-    ]].copy()
-    with store.transaction() as conn:
-        conn.execute(
-            "DELETE FROM ops.model_predictions WHERE snapshot_date = ?",
-            (latest_date.date(),),
-        )
-        conn.register("pred_df", prediction_rows)
-        conn.execute("INSERT INTO ops.model_predictions SELECT * FROM pred_df")
-        conn.unregister("pred_df")
-    generate_alerts()
-    return prediction_rows
 
 
 def _build_rule_compat_frame(v2_frame: pd.DataFrame) -> pd.DataFrame:
@@ -247,10 +89,10 @@ def _build_rule_compat_frame(v2_frame: pd.DataFrame) -> pd.DataFrame:
     return f
 
 
-def score_latest_snapshot_v2() -> pd.DataFrame:
+def score_latest_snapshot() -> pd.DataFrame:
     """Score using stacker (CatBoost + LightGBM) over v2 feature table.
 
-    Returns same schema as score_latest_snapshot() for API compatibility.
+    Returns same schema as the former v1 score_latest_snapshot() for API compatibility.
     Rule engine runs via compat shim; IsolationForest provides anomaly_score.
     """
     settings = load_settings()

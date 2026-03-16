@@ -18,10 +18,8 @@ from config import load_settings
 from db.store import DuckDBStore
 from features.build_features import build_feature_snapshots
 from features.graph_features import build_graph_features
-from models.anomaly import train_anomaly_model
 from models.score import score_latest_snapshot
-from models.train import train_model
-from models.validate import validate_model
+from models.stacker import train_stacker
 from pipeline.sync import run_sync
 from services.alert_engine import apply_case_decision
 from services.diagnosis import build_risk_diagnosis
@@ -359,18 +357,12 @@ def rebuild_features() -> dict[str, int]:
 
 @app.post("/model/train", dependencies=[Depends(_require_api_key)])
 def model_train() -> dict[str, Any]:
-    model_info = train_model()
-    anomaly_info = train_anomaly_model()
-    validation = validate_model()
+    result = train_stacker()
     return {
-        "model": model_info,
-        "anomaly_model": anomaly_info,
-        "validation_summary": {
-            "precision": validation["precision"],
-            "recall": validation["recall"],
-            "f1": validation["f1"],
-            "fpr": validation["fpr"],
-        },
+        "model": result["stacker_version"],
+        "stacker_path": result["stacker_path"],
+        "branch_models": result["branch_models"],
+        "cv_results": result["cv_results"],
     }
 
 

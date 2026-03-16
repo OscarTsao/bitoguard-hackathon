@@ -455,7 +455,7 @@ def test_api_key_enforcement_when_configured(tmp_path: Path, monkeypatch) -> Non
 
 
 def test_score_v2_uses_transaction_for_db_write():
-    """score_latest_snapshot_v2 must use store.transaction() not bare execute+append."""
+    """score_latest_snapshot must use store.transaction() not bare execute+append."""
     import numpy as np
     import pandas as pd
     from unittest.mock import MagicMock, patch
@@ -505,11 +505,11 @@ def test_score_v2_uses_transaction_for_db_write():
 
         MockStore.return_value = store
 
-        from models.score import score_latest_snapshot_v2
-        score_latest_snapshot_v2()
+        from models.score import score_latest_snapshot
+        score_latest_snapshot()
 
         assert store.transaction.called, (
-            "score_latest_snapshot_v2 must use store.transaction() for atomic write"
+            "score_latest_snapshot must use store.transaction() for atomic write"
         )
         assert not store.execute.called or all(
             "DELETE" not in str(call) for call in store.execute.call_args_list

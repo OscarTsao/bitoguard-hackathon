@@ -12,12 +12,12 @@ from models.common import (
 )
 
 _V2_TABLE = "features.feature_snapshots_v2"
-_CAT_FEATURE_NAMES = frozenset({
+CAT_FEATURE_NAMES = frozenset({
     "kyc_level_code", "occupation_code", "income_source_code", "user_source_code",
 })
 
 
-def _load_v2_training_dataset() -> "pd.DataFrame":
+def load_v2_training_dataset() -> "pd.DataFrame":
     import pandas as pd
     settings = load_settings()
     store    = DuckDBStore(settings.db_path)
@@ -43,10 +43,10 @@ def _load_v2_training_dataset() -> "pd.DataFrame":
 
 def train_catboost_model() -> dict:
     import pandas as pd
-    dataset      = _load_v2_training_dataset()
+    dataset      = load_v2_training_dataset()
     feature_cols = [c for c in dataset.columns
                     if c not in NON_FEATURE_COLUMNS and c != "hidden_suspicious_label"]
-    cat_indices  = [i for i, c in enumerate(feature_cols) if c in _CAT_FEATURE_NAMES]
+    cat_indices  = [i for i, c in enumerate(feature_cols) if c in CAT_FEATURE_NAMES]
     date_splits  = forward_date_splits(dataset["snapshot_date"])
     train_dates  = set(date_splits["train"])
 

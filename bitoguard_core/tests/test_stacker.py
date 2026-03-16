@@ -91,12 +91,12 @@ def test_stacker_no_user_leakage(tmp_path, monkeypatch):
     import numpy as np
     from sklearn.model_selection import StratifiedGroupKFold
     from models.common import NON_FEATURE_COLUMNS, forward_date_splits
-    from models.train_catboost import _load_v2_training_dataset
+    from models.train_catboost import load_v2_training_dataset
 
     store = _configure(tmp_path, monkeypatch)
     _seed_v2(store)
 
-    dataset = _load_v2_training_dataset()
+    dataset = load_v2_training_dataset()
     feature_cols = [c for c in dataset.columns
                     if c not in NON_FEATURE_COLUMNS and c != "hidden_suspicious_label"]
     date_splits = forward_date_splits(dataset["snapshot_date"])

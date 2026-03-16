@@ -16,7 +16,7 @@ from typing import Dict, Any
 # Add parent directory to path for imports
 sys.path.insert(0, '/opt/ml/code')
 
-from models.train import train_model
+from models.stacker import train_stacker
 from models.train_catboost import train_catboost_model as train_catboost
 from models.anomaly import train_anomaly_model as train_anomaly
 from ml_pipeline.config_loader import get_config
@@ -148,23 +148,22 @@ def load_hyperparameters(model_type: str, override_json: str, args) -> Dict[str,
 
 def train_lgbm(hyperparams: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Train LightGBM model.
-    
+    Train stacker (CatBoost + LightGBM branches + LR meta-learner).
+
     Args:
         hyperparams: Hyperparameters for training
-        
+
     Returns:
         Training result dictionary
     """
-    print(f"Training LightGBM with hyperparameters: {hyperparams}")
-    
+    print(f"Training stacker with hyperparameters: {hyperparams}")
+
     # Set environment variables for hyperparameters if needed
-    # The existing train_model() function may read from config
     for key, value in hyperparams.items():
         os.environ[f"LGBM_{key.upper()}"] = str(value)
-    
-    # Call existing training function
-    result = train_model()
+
+    # Call stacker training function
+    result = train_stacker()
     
     # Print metrics in SageMaker-compatible format for hyperparameter tuning
     if 'precision_at_100' in result:

@@ -11,8 +11,7 @@ from features.build_features import build_feature_snapshots
 from features.graph_features import build_graph_features
 from models.anomaly import train_anomaly_model
 from models.common import forward_date_splits, training_dataset
-from models.train import train_model
-from models.validate import validate_model
+from models.stacker import train_stacker
 from services.drift import detect_drift, FeatureDriftResult
 
 
@@ -584,29 +583,6 @@ def test_forward_date_splits_keep_future_validation_and_holdout_segments() -> No
     assert [len(minimum_dates[name]) for name in ["train", "valid", "holdout"]] == [1, 1, 1]
 
 
-def test_model_training_and_validation_use_dynamic_forward_splits(tmp_path: Path, monkeypatch) -> None:
-    store = _configure_model_store(tmp_path, monkeypatch)
-    _seed_model_tables(store)
-
-    train_info = train_model()
-    anomaly_info = train_anomaly_model()
-    report = validate_model()
-
-    train_meta = json.loads(Path(train_info["meta_path"]).read_text(encoding="utf-8"))
-    anomaly_meta = json.loads(Path(anomaly_info["meta_path"]).read_text(encoding="utf-8"))
-
-    assert train_meta["train_dates"] == ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"]
-    assert train_meta["valid_dates"] == ["2026-01-05"]
-    assert train_meta["holdout_dates"] == ["2026-01-06"]
-    assert train_meta["holdout_rows"] == 2
-    assert anomaly_meta["train_dates"] == train_meta["train_dates"]
-    assert report["model_version"] == train_info["model_version"]
-    assert sum(report["confusion_matrix"].values()) == 2
-    assert {item["scenario"] for item in report["scenario_breakdown"]} == {"clean", "structured_ring"}
-
-    validation_reports = store.read_table("ops.validation_reports")
-    assert len(validation_reports) == 1
-
 
 def test_snapshot_builders_limit_population_to_recent_activity_or_prior_blacklist(tmp_path: Path, monkeypatch) -> None:
     store = _configure_model_store(tmp_path, monkeypatch)
@@ -975,9 +951,6 @@ def test_refresh_live_main_uses_incremental_path_without_training_chain(tmp_path
     monkeypatch.setattr(refresh_live_module, "build_graph_features", fake_build_graph_features)
     monkeypatch.setattr(refresh_live_module, "build_feature_snapshots", fake_build_feature_snapshots)
     monkeypatch.setattr(refresh_live_module, "score_latest_snapshot", fake_score_latest_snapshot)
-    monkeypatch.setattr(refresh_live_module, "train_model", fail_if_called, raising=False)
-    monkeypatch.setattr(refresh_live_module, "train_anomaly_model", fail_if_called, raising=False)
-    monkeypatch.setattr(refresh_live_module, "validate_model", fail_if_called, raising=False)
 
     summary = refresh_live_module.main()
     printed = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
@@ -1063,13 +1036,6 @@ def test_iforest_contamination_is_fixed() -> None:
     assert "hidden_suspicious_label" not in src.split("contamination")[1].split("IsolationForest")[0], \
         "IsolationForest contamination must not depend on hidden_suspicious_label"
 
-
-def test_validate_model_includes_split_used_in_report() -> None:
-    """validate_model output must include split_used so callers know which data was evaluated."""
-    import inspect
-    from models.validate import validate_model
-    src = inspect.getsource(validate_model)
-    assert "split_used" in src, "validate_model must include 'split_used' field in report output"
 
 
 def test_graph_risk_score_is_reproducible() -> None:

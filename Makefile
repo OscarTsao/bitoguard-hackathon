@@ -6,8 +6,7 @@
 #   make test              Run full backend test suite
 #   make sync              Full data sync from live BitoPro API
 #   make features          Rebuild all feature snapshots
-#   make train             Train LightGBM + IsolationForest models
-#   make evaluate          Run temporal holdout evaluation
+#   make train             Train CatBoost + LightGBM stacker (v2 features)
 #   make refresh           Incremental live refresh (watermark-based)
 #   make score             Score latest snapshot + generate alerts
 #   make serve             Start backend API (port 8001)
@@ -21,7 +20,7 @@ PYTHON     := .venv/bin/python
 ACTIVATE   := source .venv/bin/activate
 CORE_DIR   := bitoguard_core
 
-.PHONY: help setup test test-quick test-rules sync features train evaluate refresh score features-v2 train-stacker score-v2 serve frontend docker-up docker-build docker-down drift lint clean
+.PHONY: help setup test test-quick test-rules sync features train refresh score features-v2 serve frontend docker-up docker-build docker-down drift lint clean
 
 help:
 	@echo ""
@@ -63,26 +62,14 @@ refresh: ## Incremental live refresh (watermark-based, bounded)
 
 # ── Model Training & Evaluation ───────────────────────────────────────────────
 
-train: ## Train LightGBM classifier + IsolationForest anomaly model
-	cd $(CORE_DIR) && $(ACTIVATE) && \
-	python models/train.py && \
-	python -c "from models.anomaly import train_anomaly_model; import json; print(json.dumps(train_anomaly_model()))"
-
-evaluate: ## Run temporal holdout evaluation, save report
-	cd $(CORE_DIR) && $(ACTIVATE) && python models/validate.py
+train: ## Train CatBoost + LightGBM branches + LR stacker (v2 features)
+	cd $(CORE_DIR) && $(ACTIVATE) && python models/stacker.py
 
 score: ## Score latest snapshot + generate alerts
 	cd $(CORE_DIR) && $(ACTIVATE) && python models/score.py
 
 features-v2: ## Build v2 feature snapshots (~155 columns per user)
 	cd $(CORE_DIR) && $(ACTIVATE) && python features/build_features_v2.py
-
-train-stacker: ## Train CatBoost + LightGBM branches + LR stacker on v2 features
-	cd $(CORE_DIR) && $(ACTIVATE) && python models/stacker.py
-
-score-v2: ## Score latest snapshot using stacker (v2 features)
-	cd $(CORE_DIR) && $(ACTIVATE) && python -c \
-	    "from models.score import score_latest_snapshot_v2; r = score_latest_snapshot_v2(); print(f'Scored {len(r)} users')"
 
 drift: ## Run feature drift detection between two most recent snapshots
 	cd $(CORE_DIR) && $(ACTIVATE) && python services/drift.py
