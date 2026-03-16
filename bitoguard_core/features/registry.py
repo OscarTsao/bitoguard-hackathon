@@ -1,7 +1,8 @@
 # bitoguard_core/features/registry.py
-"""Feature registry: assembles all v2 label-free modules into one master table.
+"""Feature registry: assembles all v2 feature modules into one master table.
 
-build_v2_features() -> one row per user_id, ~155 columns (label-free).
+build_v2_features() -> one row per user_id, ~168 columns.
+  Modules: profile, twd, crypto, swap, trading, ip, sequence, bipartite, rule_signals.
 build_and_store_v2_features() -> writes to features.feature_snapshots_v2.
 
 Note: graph_propagation (label-aware, 7 features) is NOT included here.
@@ -20,6 +21,7 @@ from features.trading_features  import compute_trading_features
 from features.ip_features       import compute_ip_features
 from features.sequence_features import compute_sequence_features
 from features.graph_bipartite   import compute_bipartite_features
+from features.rule_features     import compute_rule_features
 
 FEATURE_VERSION_V2 = "v2"
 
@@ -135,6 +137,17 @@ def build_v2_features(
             continue
         new_cols = [c for c in module_df.columns if c not in base.columns or c == "user_id"]
         base = base.merge(module_df[new_cols], on="user_id", how="left")
+
+    # Rule signals: evaluate M1 rules on the assembled v2 frame and add outputs
+    # as features. This lets the stacker learn interactions between rule firings
+    # and behavioral features (e.g., fast_cash_out_2h AND high crypto volume).
+    try:
+        rule_df = compute_rule_features(base, snapshot_date=snapshot_date)
+        if rule_df is not None and not rule_df.empty:
+            new_rule_cols = [c for c in rule_df.columns if c not in base.columns or c == "user_id"]
+            base = base.merge(rule_df[new_rule_cols], on="user_id", how="left")
+    except Exception:
+        pass  # Rule features are best-effort; missing → 0 via fillna below
 
     # fillna(0) covers users absent from a partial module result
     return base.fillna(0).reset_index(drop=True)
