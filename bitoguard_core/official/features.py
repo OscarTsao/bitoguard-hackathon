@@ -245,6 +245,27 @@ def build_official_features(
 
     fast_cashout = _fast_cashout_features(twd_transfer, crypto_transfer)
 
+    # ── Taiwan-time corrected swap night ratio (sep=+0.179, r=0.116 w/ anomaly) ──
+    # Existing swap_night_ratio uses UTC 0-5 = Taiwan 8-13 (morning). Correct to:
+    # Taiwan night 22:00-05:59 = UTC 14:00-21:59.
+    swap_night_tw = _boolean_ratio(
+        usdt_swap, "user_id",
+        usdt_swap["created_at"].dt.hour.isin(range(14, 22)),
+        "swap_night_ratio_tw",
+    )
+
+    # ── External withdrawal fraction: proportion of crypto withdrawals that go off-exchange ──
+    # Fraudsters cash-out externally more (sep=+0.108, r=0.120 w/ anomaly — orthogonal)
+    _ct_wd_all = crypto_transfer[crypto_transfer["kind_label"] == "withdrawal"].copy()
+    _ct_wd_ext = _ct_wd_all[_ct_wd_all["is_external_transfer"].eq(True)]
+    _ct_wd_all_cnt = _ct_wd_all.groupby("user_id")["user_id"].count().rename("_all")
+    _ct_wd_ext_cnt = _ct_wd_ext.groupby("user_id")["user_id"].count().rename("_ext")
+    _ct_wd_frac = pd.DataFrame({"_all": _ct_wd_all_cnt, "_ext": _ct_wd_ext_cnt}).fillna(0)
+    _ct_wd_frac["crypto_wd_ext_frac"] = (
+        _ct_wd_frac["_ext"] / (_ct_wd_frac["_all"] + 1e-9)
+    ).clip(0, 1).astype("float32")
+    crypto_wd_ext_frac = _ct_wd_frac[["crypto_wd_ext_frac"]].reset_index()
+
     # ── Taiwan-time night & weekend TWD deposit/withdrawal timing features ─────
     # Taiwan = UTC+8. Night = Taiwan 22:00-05:59 = UTC 14:00-21:59.
     # Weekend adjustment: UTC hour >= 16 means Taiwan has crossed midnight.
@@ -330,6 +351,7 @@ def build_official_features(
         swap_stats, swap_buy, swap_sell, swap_days, swap_night,
         fast_cashout, twd_dep_cv,
         crypto_txn_velocity, twd_txn_velocity, twd_round_ratio,
+        swap_night_tw, crypto_wd_ext_frac,
     ]
     resolved_cutoff = cutoff_ts or list_event_cutoffs()[1]
     for window_days, window_tag in ROLLING_WINDOWS:
