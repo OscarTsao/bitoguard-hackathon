@@ -332,19 +332,24 @@ def build_official_features(
     # ── FATF AML typology proxy features ─────────────────────────────────────
     _dep_count = features["twd_deposit_count"].fillna(0)
     _dep_sum   = features["twd_deposit_sum"].fillna(0)
+    _dep_avg   = features["twd_deposit_avg"].fillna(0)
+    _dep_max   = features["twd_deposit_max"].fillna(0)
+    _age       = features["age"].fillna(0)
     # 1. Structuring ratio: many small sub-50k TWD deposits vs total volume
     features["typology_structuring_ratio"] = (
         (_dep_count / (_dep_sum / 50_000.0 + 1.0)).clip(0, 10) / 10.0
     ).astype("float32")
-    # 2. Dormancy-burst: old account (>90 days) with sudden 7-day burst
-    _dep_7d = features["twd_total_7d_count"].fillna(0)
-    _age    = features["age"].fillna(0)
+    # 2. Dormancy-burst: old account with recent transfer activity
+    #    Uses days_since_last_twd_transfer (low = recent); twd_total_{7d} unavailable
+    _days_since = features["days_since_last_twd_transfer"].fillna(999)
     features["typology_dormancy_burst"] = (
-        (_dep_7d > 0) & (_age > 90) & (_dep_7d / (_dep_count + 1.0) > 0.5)
-    ).astype("float32")
+        (_age / 365.0).clip(0, 1)
+        * (1.0 / (_days_since / 7.0 + 1.0))
+        * (_dep_count > 0).astype(float)
+    ).clip(0, 1).astype("float32")
     # 3. Round-amount proxy: avg deposit near NT$10k multiples
-    _avg_dep   = _dep_sum / (_dep_count + 1.0)
-    _remainder = _avg_dep % 10_000.0
+    _avg_dep_val = _dep_sum / (_dep_count + 1.0)
+    _remainder   = _avg_dep_val % 10_000.0
     features["typology_round_amount"] = (
         (1.0 - _remainder / 10_000.0).clip(0, 1)
     ).astype("float32")
@@ -354,16 +359,24 @@ def build_official_features(
     features["typology_multi_asset_layering"] = (
         (_swap_cnt * _cashout_rate).clip(0, 10)
     ).astype("float32")
-    # 5. Velocity acceleration: 7d volume vs older 30d baseline
-    _dep_7d_sum  = features["twd_total_7d_sum"].fillna(0)
-    _dep_30d_sum = features["twd_total_30d_sum"].fillna(0)
-    _older_vol   = (_dep_30d_sum - _dep_7d_sum).clip(lower=0)
+    # 5. Deposit spike: max/avg ratio indicates burst deposits (velocity proxy)
+    #    twd_total_{7d,30d} are 100% null; use max-to-avg concentration instead.
     features["typology_velocity_accel"] = (
-        ((_dep_7d_sum + 1.0) / (_older_vol + 1.0)).clip(0, 10)
+        (_dep_max / (_dep_avg + 1.0)).clip(0, 10)
     ).astype("float32")
     # 6. Same-day cycle: rapid fiat-in → crypto-out indicator
     features["typology_same_day_cycle"] = (
         features["fast_cashout_24h_count"].fillna(0).clip(0, 10)
+    ).astype("float32")
+    # 7. Cashout ratio: fraction of total TWD that is withdrawal (layering signal)
+    features["typology_cashout_ratio"] = safe_ratio(
+        features["twd_withdraw_sum"].fillna(0),
+        features["twd_total_sum"].fillna(0),
+    ).astype("float32")
+    # 8. Deposit concentration: largest single deposit / total (burst indicator)
+    features["typology_deposit_spike"] = safe_ratio(
+        _dep_max,
+        _dep_sum,
     ).astype("float32")
 
     features["snapshot_cutoff_at"] = resolved_cutoff
