@@ -17,6 +17,7 @@ from models.common import load_pickle
 from tests.test_smoke import _configure_temp_db
 
 
+@pytest.mark.integration
 def test_anomaly_feature_snapshots_are_numeric_and_id_free(tmp_path: Path, monkeypatch) -> None:
     _configure_temp_db(tmp_path, monkeypatch)
     build_graph_features()
@@ -30,6 +31,7 @@ def test_anomaly_feature_snapshots_are_numeric_and_id_free(tmp_path: Path, monke
     assert all(str(frame[column].dtype) in {"bool", "int64", "float64"} for column in model_columns)
 
 
+@pytest.mark.integration
 def test_anomaly_percentile_scoring_is_order_stable(tmp_path: Path, monkeypatch) -> None:
     _configure_temp_db(tmp_path, monkeypatch)
     build_graph_features()

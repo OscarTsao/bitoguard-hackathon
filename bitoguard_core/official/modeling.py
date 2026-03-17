@@ -113,7 +113,7 @@ def fit_catboost(
         iterations=500,
         random_seed=RANDOM_SEED,
         verbose=False,
-        class_weights=[1.0, negatives / positives],
+        class_weights=[1.0, min(negatives / positives, 10.0)],
         **runtime_params,
     )
     model_kwargs = _base_kwargs
