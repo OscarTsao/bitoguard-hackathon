@@ -21,15 +21,22 @@ class ModelFitResult:
     validation_probabilities: list[float] | None
 
 
+def _pu_sample_weight(y_train: pd.Series, negative_weight: float) -> np.ndarray:
+    labels = y_train.astype(int).to_numpy()
+    positives = max(1, int(labels.sum()))
+    negatives = max(1, len(labels) - positives)
+    return np.where(labels == 1, negatives / positives, float(negative_weight)).astype(np.float32)
+
+
 def fit_lgbm(
     train_frame: pd.DataFrame,
     valid_frame: pd.DataFrame | None,
     feature_columns: list[str],
+    negative_weight: float = 1.0,
 ) -> ModelFitResult:
     x_train, encoded_columns = encode_frame(train_frame, feature_columns)
     y_train = train_frame["status"].astype(int)
-    positives = max(1, int(y_train.sum()))
-    negatives = max(1, len(y_train) - positives)
+    sample_weight = _pu_sample_weight(y_train, negative_weight)
     runtime_params = lightgbm_runtime_params()
     model_kwargs = dict(
         n_estimators=400,
@@ -38,7 +45,6 @@ def fit_lgbm(
         subsample=0.9,
         colsample_bytree=0.9,
         random_state=RANDOM_SEED,
-        scale_pos_weight=negatives / positives,
         verbosity=-1,
         **runtime_params,
     )
@@ -51,10 +57,10 @@ def fit_lgbm(
         y_valid = valid_frame["status"].astype(int)
     try:
         if x_valid is not None and y_valid is not None:
-            model.fit(x_train, y_train, eval_set=[(x_valid, y_valid)], eval_metric="binary_logloss")
+            model.fit(x_train, y_train, sample_weight=sample_weight, eval_set=[(x_valid, y_valid)], eval_metric="binary_logloss")
             validation_probabilities = model.predict_proba(x_valid)[:, 1].tolist()
         else:
-            model.fit(x_train, y_train)
+            model.fit(x_train, y_train, sample_weight=sample_weight)
     except Exception:
         # GPU may be unavailable at runtime despite detection; retry on CPU.
         if runtime_params.get("device_type") != "gpu":
@@ -66,10 +72,10 @@ def fit_lgbm(
             "device_type": "cpu",
         })
         if x_valid is not None and y_valid is not None:
-            model.fit(x_train, y_train, eval_set=[(x_valid, y_valid)], eval_metric="binary_logloss")
+            model.fit(x_train, y_train, sample_weight=sample_weight, eval_set=[(x_valid, y_valid)], eval_metric="binary_logloss")
             validation_probabilities = model.predict_proba(x_valid)[:, 1].tolist()
         else:
-            model.fit(x_train, y_train)
+            model.fit(x_train, y_train, sample_weight=sample_weight)
     return ModelFitResult(
         model_name="lgbm",
         model=model,
@@ -85,6 +91,7 @@ def fit_catboost(
     valid_frame: pd.DataFrame | None,
     feature_columns: list[str],
     focal_gamma: float = 0.0,
+    negative_weight: float = 1.0,
 ) -> ModelFitResult:
     try:
         from catboost import CatBoostClassifier  # type: ignore
@@ -98,8 +105,7 @@ def fit_catboost(
         or pd.api.types.is_categorical_dtype(train_frame[column])
     ]
     y_train = train_frame["status"].astype(int)
-    positives = max(1, int(y_train.sum()))
-    negatives = max(1, len(y_train) - positives)
+    sample_weight = _pu_sample_weight(y_train, negative_weight)
     # Use Logloss + class_weights for all cases. CatBoost's built-in Focal loss
     # causes "Logloss metric shouldn't have focal_gamma parameter" validation errors
     # in catboost 1.2.x when combined with AUC eval_metric. More importantly,
@@ -107,44 +113,42 @@ def fit_catboost(
     # Solution: Logloss + class_weights handles imbalance cleanly.
     # focal_gamma param is accepted but ignored (kept for API compatibility).
     runtime_params = catboost_runtime_params()
-    _base_kwargs: dict = dict(
+    model = CatBoostClassifier(
         loss_function="Logloss",
         eval_metric="Logloss",
-        iterations=500,
         random_seed=RANDOM_SEED,
         verbose=False,
-        class_weights=[1.0, min(negatives / positives, 10.0)],
         **runtime_params,
     )
-    model_kwargs = _base_kwargs
-    model = CatBoostClassifier(**model_kwargs)
     validation_probabilities: list[float] | None = None
-    train_x = train_frame[feature_columns]
-    valid_x = None
-    y_valid = None
     if valid_frame is not None and not valid_frame.empty:
-        valid_x = valid_frame[feature_columns]
         y_valid = valid_frame["status"].astype(int)
-    try:
-        if valid_x is not None and y_valid is not None:
-            model.fit(train_x, y_train, cat_features=cat_features, eval_set=(valid_x, y_valid), use_best_model=True, early_stopping_rounds=50)
-            validation_probabilities = model.predict_proba(valid_x)[:, 1].tolist()
-        else:
-            model.fit(train_x, y_train, cat_features=cat_features)
-    except Exception:
-        # Retry on CPU when GPU training is not usable on this runtime.
-        if runtime_params.get("task_type") != "GPU":
-            raise
-        cpu_runtime = {"task_type": "CPU", "thread_count": hardware_profile().cpu_threads}
-        model = CatBoostClassifier(**{
-            **model_kwargs,
-            **cpu_runtime,
-        })
-        if valid_x is not None and y_valid is not None:
-            model.fit(train_x, y_train, cat_features=cat_features, eval_set=(valid_x, y_valid), use_best_model=True, early_stopping_rounds=50)
-            validation_probabilities = model.predict_proba(valid_x)[:, 1].tolist()
-        else:
-            model.fit(train_x, y_train, cat_features=cat_features)
+        try:
+            model.fit(train_frame[feature_columns], y_train, sample_weight=sample_weight, cat_features=cat_features,
+                      eval_set=(valid_frame[feature_columns], y_valid), use_best_model=False)
+        except Exception:
+            if runtime_params.get("task_type") != "GPU":
+                raise
+            model = CatBoostClassifier(
+                loss_function="Logloss", eval_metric="Logloss",
+                random_seed=RANDOM_SEED, verbose=False,
+                task_type="CPU", thread_count=hardware_profile().cpu_threads,
+            )
+            model.fit(train_frame[feature_columns], y_train, sample_weight=sample_weight, cat_features=cat_features,
+                      eval_set=(valid_frame[feature_columns], y_valid), use_best_model=False)
+        validation_probabilities = model.predict_proba(valid_frame[feature_columns])[:, 1].tolist()
+    else:
+        try:
+            model.fit(train_frame[feature_columns], y_train, sample_weight=sample_weight, cat_features=cat_features)
+        except Exception:
+            if runtime_params.get("task_type") != "GPU":
+                raise
+            model = CatBoostClassifier(
+                loss_function="Logloss", eval_metric="Logloss",
+                random_seed=RANDOM_SEED, verbose=False,
+                task_type="CPU", thread_count=hardware_profile().cpu_threads,
+            )
+            model.fit(train_frame[feature_columns], y_train, sample_weight=sample_weight, cat_features=cat_features)
     # Sanity: warn if model outputs near-constant probabilities (indicates training failure)
     if validation_probabilities:
         _vp = np.array(validation_probabilities, dtype=float)

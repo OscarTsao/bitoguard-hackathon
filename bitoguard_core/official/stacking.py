@@ -96,7 +96,7 @@ def choose_best_calibration_and_threshold(
             c_estimate = None
             pu_calibrated = calibrated
 
-        threshold_report = search_threshold(labels, pu_calibrated, group_ids, beta=2.0)
+        threshold_report = search_threshold(labels, pu_calibrated, group_ids, beta=1.0)
         selected_row = threshold_report["selected_row"]
         ap = float(average_precision_score(labels, pu_calibrated))
         candidate_report = {
