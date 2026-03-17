@@ -40,6 +40,7 @@ def test_runtime_param_helpers_reflect_profile(monkeypatch) -> None:
     monkeypatch.setattr(hardware, "_detect_gpus", lambda: ["GPU 0"])
     monkeypatch.setenv("BITOGUARD_USE_GPU", "1")
     monkeypatch.setenv("BITOGUARD_CPU_THREADS", "6")
+    monkeypatch.setenv("BITOGUARD_CATBOOST_CPU_ONLY", "0")
 
     assert hardware.lightgbm_runtime_params()["device_type"] == "gpu"
     assert hardware.lightgbm_runtime_params()["n_jobs"] == 6
