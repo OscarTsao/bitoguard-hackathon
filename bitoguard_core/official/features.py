@@ -329,6 +329,43 @@ def build_official_features(
     features["fast_cashout_24h_flag"] = (features["fast_cashout_24h_count"] > 0).astype(int)
     features["fast_cashout_72h_flag"] = (features["fast_cashout_72h_count"] > 0).astype(int)
 
+    # ── FATF AML typology proxy features ─────────────────────────────────────
+    _dep_count = features["twd_deposit_count"].fillna(0)
+    _dep_sum   = features["twd_deposit_sum"].fillna(0)
+    # 1. Structuring ratio: many small sub-50k TWD deposits vs total volume
+    features["typology_structuring_ratio"] = (
+        (_dep_count / (_dep_sum / 50_000.0 + 1.0)).clip(0, 10) / 10.0
+    ).astype("float32")
+    # 2. Dormancy-burst: old account (>90 days) with sudden 7-day burst
+    _dep_7d = features["twd_total_7d_count"].fillna(0)
+    _age    = features["age"].fillna(0)
+    features["typology_dormancy_burst"] = (
+        (_dep_7d > 0) & (_age > 90) & (_dep_7d / (_dep_count + 1.0) > 0.5)
+    ).astype("float32")
+    # 3. Round-amount proxy: avg deposit near NT$10k multiples
+    _avg_dep   = _dep_sum / (_dep_count + 1.0)
+    _remainder = _avg_dep % 10_000.0
+    features["typology_round_amount"] = (
+        (1.0 - _remainder / 10_000.0).clip(0, 1)
+    ).astype("float32")
+    # 4. Multi-asset layering: swap activity × cashout intensity
+    _swap_cnt     = features["swap_total_count"].fillna(0)
+    _cashout_rate = features["fast_cashout_72h_count"].fillna(0) / (_dep_count + 1.0)
+    features["typology_multi_asset_layering"] = (
+        (_swap_cnt * _cashout_rate).clip(0, 10)
+    ).astype("float32")
+    # 5. Velocity acceleration: 7d volume vs older 30d baseline
+    _dep_7d_sum  = features["twd_total_7d_sum"].fillna(0)
+    _dep_30d_sum = features["twd_total_30d_sum"].fillna(0)
+    _older_vol   = (_dep_30d_sum - _dep_7d_sum).clip(lower=0)
+    features["typology_velocity_accel"] = (
+        ((_dep_7d_sum + 1.0) / (_older_vol + 1.0)).clip(0, 10)
+    ).astype("float32")
+    # 6. Same-day cycle: rapid fiat-in → crypto-out indicator
+    features["typology_same_day_cycle"] = (
+        features["fast_cashout_24h_count"].fillna(0).clip(0, 10)
+    ).astype("float32")
+
     features["snapshot_cutoff_at"] = resolved_cutoff
     features["snapshot_cutoff_tag"] = cutoff_tag
     features.to_parquet(feature_output_path("official_user_features", cutoff_tag), index=False)

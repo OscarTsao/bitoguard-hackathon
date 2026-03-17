@@ -40,7 +40,10 @@ def _spread_sample(series: pd.Series, count: int) -> pd.Series:
 
 
 def _sample_users() -> dict[str, set[int]]:
-    user_index = pd.read_parquet(Path(__file__).resolve().parents[2] / "data" / "aws_event" / "clean" / "user_index.parquet")
+    _clean_root = Path(__file__).resolve().parents[2] / "data" / "aws_event" / "clean"
+    if not (_clean_root / "user_index.parquet").exists():
+        _clean_root = _clean_root / "clean"
+    user_index = pd.read_parquet(_clean_root / "user_index.parquet")
     train_only = user_index[user_index["status"].notna() & ~user_index["needs_prediction"]]
     train_positive = _spread_sample(train_only[train_only["status"] == 1]["user_id"].astype(int), 24)
     train_negative = _spread_sample(train_only[train_only["status"] == 0]["user_id"].astype(int), 96)
@@ -55,6 +58,10 @@ def _prepare_official_subset(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
     source_root = Path(__file__).resolve().parents[2]
     raw_source = source_root / "data" / "aws_event" / "raw"
     clean_source = source_root / "data" / "aws_event" / "clean"
+    if not (clean_source / "user_index.parquet").exists():
+        clean_source = clean_source / "clean"
+    if not (raw_source / "user_info.parquet").exists() and (raw_source / "raw" / "user_info.parquet").exists():
+        raw_source = raw_source / "raw"
     raw_target = tmp_path / "raw"
     clean_target = tmp_path / "clean"
     raw_target.mkdir()

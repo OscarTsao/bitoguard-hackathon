@@ -40,6 +40,8 @@ def _spread_sample(series: pd.Series, count: int) -> pd.Series:
 def _prepare_subset(tmp_path: Path, monkeypatch) -> Path:
     source_root = Path(__file__).resolve().parents[2]
     clean_source = source_root / "data" / "aws_event" / "clean"
+    if not (clean_source / "user_info.parquet").exists():
+        clean_source = clean_source / "clean"
     clean_target = tmp_path / "clean"
     clean_target.mkdir(parents=True, exist_ok=True)
 
