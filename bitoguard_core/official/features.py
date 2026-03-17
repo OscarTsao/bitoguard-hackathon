@@ -279,15 +279,28 @@ def build_official_features(
     ].copy()
     crypto_wd_wallets = _nunique_or_empty(ct_ext_wd, "user_id", "to_wallet_hash", "crypto_unique_withdraw_wallets")
 
+    # ── Crypto external transfer IP diversity (high separation for fraud) ───────
+    # Fraudsters use more unique IPs for external crypto transfers (sep=0.87 on labeled data)
+    ct_ext_all = crypto_transfer[crypto_transfer["is_external_transfer"].eq(True)].copy()
+    crypto_ext_ip_diversity = _nunique_or_empty(ct_ext_all, "user_id", "source_ip_hash", "crypto_ext_ip_diversity")
+
+    # ── TWD deposit coefficient of variation (irregular deposit amounts) ────────
+    twd_dep_cv = (
+        twd_transfer[twd_transfer["kind_label"] == "deposit"]
+        .groupby("user_id")["amount_twd"]
+        .agg(lambda x: float(x.std() / (x.mean() + 1)) if len(x) > 1 else 0.0)
+        .reset_index(name="twd_deposit_cv")
+    )
+
     frames = [
         twd_stats, twd_deposit, twd_withdraw, twd_days, twd_last,
         twd_deposit_night, twd_deposit_weekend, twd_withdraw_night,
         crypto_stats, crypto_withdraw, crypto_deposit, crypto_days, crypto_last, crypto_protocols,
         crypto_currencies, crypto_internal_ratio, relation_counts, relation_users,
-        crypto_dep_wallets, crypto_wd_wallets,
+        crypto_dep_wallets, crypto_wd_wallets, crypto_ext_ip_diversity,
         trade_stats, trade_buy, trade_sell, trade_days, trade_night, trade_market, trade_source_api, trade_concentration,
         swap_stats, swap_buy, swap_sell, swap_days, swap_night,
-        fast_cashout,
+        fast_cashout, twd_dep_cv,
     ]
     resolved_cutoff = cutoff_ts or list_event_cutoffs()[1]
     for window_days, window_tag in ROLLING_WINDOWS:

@@ -24,6 +24,7 @@ OUTLIER_BASE_COLUMNS = [
     "relation_unique_counterparty_count",
     "crypto_unique_deposit_wallets",
     "crypto_unique_withdraw_wallets",
+    "crypto_ext_ip_diversity",
 ]
 
 
