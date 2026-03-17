@@ -11,7 +11,7 @@ from sklearn.metrics import average_precision_score, brier_score_loss, confusion
 from official.bundle import load_selected_bundle, save_selected_bundle
 from official.common import feature_output_path, feature_report_path, save_json
 from official.graph_dataset import build_transductive_graph
-from official.stacking import build_stacker_oof, choose_best_calibration_and_threshold
+from official.stacking import STACKER_FEATURE_COLUMNS, build_stacker_oof, choose_best_calibration_and_threshold
 from official.train import PRIMARY_GRAPH_MAX_EPOCHS, _load_dataset, _label_free_feature_columns, run_transductive_oof_pipeline
 from official.transductive_features import build_transductive_feature_frame
 from official.transductive_validation import build_secondary_strict_splits

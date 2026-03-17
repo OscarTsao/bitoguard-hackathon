@@ -37,7 +37,7 @@ def ingest_official_scores() -> pd.DataFrame:
     rows: list[dict] = []
     for _, r in raw.iterrows():
         user_id = str(r["user_id"])
-        prediction_id = f"pred_{user_id[-4:]}_{snapshot_date.isoformat().replace('-', '')}"
+        prediction_id = f"pred_{user_id}_{snapshot_date.isoformat().replace('-', '')}"
         rule_hits = r.get("top_reason_codes", [])
         if isinstance(rule_hits, str):
             try:
