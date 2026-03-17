@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from config import load_settings
 from db.store import DuckDBStore
+from features.build_anomaly_features import build_anomaly_feature_snapshots
 from features.build_features import build_feature_snapshots
 from features.graph_features import build_graph_features
 from models.anomaly import train_anomaly_model
@@ -237,10 +238,12 @@ def pipeline_sync(payload: SyncRequest) -> dict[str, Any]:
 def rebuild_features() -> dict[str, int]:
     graph_df = build_graph_features()
     day_df, rolling_df = build_feature_snapshots()
+    anomaly_df = build_anomaly_feature_snapshots()
     return {
         "graph_feature_rows": len(graph_df),
         "user_day_rows": len(day_df),
         "user_30d_rows": len(rolling_df),
+        "user_anomaly_rows": len(anomaly_df),
     }
 
 

@@ -97,7 +97,7 @@ def _velocity_features(
     large_gap = (
         large_deposit[["user_id", "fiat_txn_id"]]
         .merge(earliest[["user_id", "fiat_txn_id", "gap_hours"]], on=["user_id", "fiat_txn_id"], how="left")
-        .rename(columns={"gap_hours": "large_deposit_withdraw_gap"})
+        .rename(columns={"gap_hours": "large_deposit_withdraw_gap"})[["user_id", "large_deposit_withdraw_gap"]]
     )
     flags = earliest.groupby("user_id")[["within_2h", "within_6h", "within_24h"]].max().reset_index()
     flags = flags.rename(columns={
@@ -270,6 +270,12 @@ def build_feature_snapshots() -> tuple[pd.DataFrame, pd.DataFrame]:
                 "user_id", "shared_device_count", "shared_bank_count", "shared_wallet_count",
                 "blacklist_1hop_count", "blacklist_2hop_count", "component_size", "fan_out_ratio"
             ]], on="user_id", how="left")
+        leaked_id_columns = [
+            column for column in result_30.columns
+            if column.endswith("_id") and column not in {"feature_snapshot_id", "user_id"}
+        ]
+        if leaked_id_columns:
+            result_30 = result_30.drop(columns=leaked_id_columns)
         result_30 = result_30.fillna({
             "fiat_in_1d": 0.0, "fiat_out_1d": 0.0, "fiat_in_7d": 0.0, "fiat_out_7d": 0.0, "fiat_in_30d": 0.0, "fiat_out_30d": 0.0,
             "trade_count_30d": 0, "trade_notional_30d": 0.0, "crypto_withdraw_30d": 0.0,

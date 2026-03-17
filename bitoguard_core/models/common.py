@@ -39,7 +39,12 @@ def training_dataset() -> pd.DataFrame:
 
 
 def feature_columns(frame: pd.DataFrame) -> list[str]:
-    return [column for column in frame.columns if column not in NON_FEATURE_COLUMNS | {"hidden_suspicious_label", "scenario_types"}]
+    return [
+        column
+        for column in frame.columns
+        if column not in NON_FEATURE_COLUMNS | {"hidden_suspicious_label", "scenario_types"}
+        and not column.endswith("_id")
+    ]
 
 
 def encode_features(frame: pd.DataFrame, columns: list[str], reference_columns: list[str] | None = None) -> tuple[pd.DataFrame, list[str]]:

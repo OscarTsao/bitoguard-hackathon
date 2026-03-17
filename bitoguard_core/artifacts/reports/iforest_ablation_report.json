@@ -1,0 +1,322 @@
+{
+  "artifacts": {
+    "lgbm_model_path": "/home/david/aws/bitoguard-hackathon/bitoguard_core/artifacts/models/lgbm_20260307T055657Z.pkl",
+    "iforest_model_path": "/home/david/aws/bitoguard-hackathon/bitoguard_core/artifacts/models/iforest_20260307T055658Z.pkl"
+  },
+  "data_summary": {
+    "rows": 7200,
+    "positive_rows": 216,
+    "negative_rows": 6984,
+    "holdout_dates": [
+      "2026-01-25",
+      "2026-01-26",
+      "2026-01-27",
+      "2026-01-28",
+      "2026-01-29",
+      "2026-01-30"
+    ]
+  },
+  "weights": {
+    "current_blend": {
+      "rule_score": 0.35,
+      "model_probability": 0.45,
+      "anomaly_score": 0.1,
+      "graph_risk": 0.1
+    },
+    "blend_without_iforest": {
+      "rule_score": 0.35,
+      "model_probability": 0.45,
+      "graph_risk": 0.1
+    },
+    "blend_without_iforest_reallocated": {
+      "rule_score": 0.35,
+      "model_probability": 0.55,
+      "graph_risk": 0.1
+    }
+  },
+  "component_signal_summary": {
+    "iforest_positive_mean": 0.20837131481842466,
+    "iforest_negative_mean": 0.16893489405213707,
+    "lgbm_positive_mean": 0.9483134924837705,
+    "lgbm_negative_mean": 0.00023055592134303576,
+    "rule_positive_mean": 0.06296296296296296,
+    "rule_negative_mean": 0.004066437571592211,
+    "graph_positive_mean": 0.12920875420875422,
+    "graph_negative_mean": 0.0
+  },
+  "results": {
+    "lgbm_only": {
+      "name": "lgbm_only",
+      "average_precision": 1.0,
+      "roc_auc": 1.0,
+      "score_mean": 0.028673044018215854,
+      "score_std": 0.16301589557572124,
+      "best_threshold": {
+        "threshold": 0.02378962200367524,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "fpr": 0.0,
+        "tp": 216,
+        "fp": 0,
+        "tn": 6984,
+        "fn": 0,
+        "predicted_positive_rate": 0.03
+      },
+      "operational_threshold": {
+        "threshold": 0.5,
+        "precision": 1.0,
+        "recall": 0.9768518518518519,
+        "f1": 0.9882903981264637,
+        "fpr": 0.0,
+        "tp": 211,
+        "fp": 0,
+        "tn": 6984,
+        "fn": 5,
+        "predicted_positive_rate": 0.029305555555555557
+      },
+      "top_k_precision": [
+        {
+          "top_k": 50,
+          "positives": 50,
+          "precision": 1.0
+        },
+        {
+          "top_k": 100,
+          "positives": 100,
+          "precision": 1.0
+        },
+        {
+          "top_k": 200,
+          "positives": 200,
+          "precision": 1.0
+        },
+        {
+          "top_k": 500,
+          "positives": 216,
+          "precision": 0.432
+        }
+      ]
+    },
+    "iforest_only": {
+      "name": "iforest_only",
+      "average_precision": 0.0403365116321413,
+      "roc_auc": 0.5731214999363625,
+      "score_mean": 0.1701179866751257,
+      "score_std": 0.14986784990797453,
+      "best_threshold": {
+        "threshold": 0.2881130009185412,
+        "precision": 0.061979648473635525,
+        "recall": 0.3101851851851852,
+        "f1": 0.10331534309946029,
+        "fpr": 0.14518900343642613,
+        "tp": 67,
+        "fp": 1014,
+        "tn": 5970,
+        "fn": 149,
+        "predicted_positive_rate": 0.15013888888888888
+      },
+      "operational_threshold": {
+        "threshold": 0.6,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "fpr": 0.030784650630011456,
+        "tp": 0,
+        "fp": 215,
+        "tn": 6769,
+        "fn": 216,
+        "predicted_positive_rate": 0.029861111111111113
+      },
+      "top_k_precision": [
+        {
+          "top_k": 50,
+          "positives": 0,
+          "precision": 0.0
+        },
+        {
+          "top_k": 100,
+          "positives": 0,
+          "precision": 0.0
+        },
+        {
+          "top_k": 200,
+          "positives": 0,
+          "precision": 0.0
+        },
+        {
+          "top_k": 500,
+          "positives": 26,
+          "precision": 0.052
+        }
+      ]
+    },
+    "current_blend": {
+      "name": "current_blend",
+      "average_precision": 0.999874874874875,
+      "roc_auc": 0.9999960226549574,
+      "score_mean": 0.03234396140500263,
+      "score_std": 0.0827619804178838,
+      "best_threshold": {
+        "threshold": 0.221793755566648,
+        "precision": 0.9953703703703703,
+        "recall": 0.9953703703703703,
+        "f1": 0.9953703703703703,
+        "fpr": 0.000143184421534937,
+        "tp": 215,
+        "fp": 1,
+        "tn": 6983,
+        "fn": 1,
+        "predicted_positive_rate": 0.03
+      },
+      "operational_threshold": {
+        "threshold": 0.6,
+        "precision": 1.0,
+        "recall": 0.06944444444444445,
+        "f1": 0.12987012987012986,
+        "fpr": 0.0,
+        "tp": 15,
+        "fp": 0,
+        "tn": 6984,
+        "fn": 201,
+        "predicted_positive_rate": 0.0020833333333333333
+      },
+      "top_k_precision": [
+        {
+          "top_k": 50,
+          "positives": 50,
+          "precision": 1.0
+        },
+        {
+          "top_k": 100,
+          "positives": 100,
+          "precision": 1.0
+        },
+        {
+          "top_k": 200,
+          "positives": 200,
+          "precision": 1.0
+        },
+        {
+          "top_k": 500,
+          "positives": 216,
+          "precision": 0.432
+        }
+      ]
+    },
+    "blend_without_iforest": {
+      "name": "blend_without_iforest",
+      "average_precision": 1.0,
+      "roc_auc": 0.9999999999999999,
+      "score_mean": 0.015332162737490065,
+      "score_std": 0.07995929204840097,
+      "best_threshold": {
+        "threshold": 0.14101840023572834,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "fpr": 0.0,
+        "tp": 216,
+        "fp": 0,
+        "tn": 6984,
+        "fn": 0,
+        "predicted_positive_rate": 0.03
+      },
+      "operational_threshold": {
+        "threshold": 0.6,
+        "precision": 1.0,
+        "recall": 0.018518518518518517,
+        "f1": 0.03636363636363636,
+        "fpr": 0.0,
+        "tp": 4,
+        "fp": 0,
+        "tn": 6984,
+        "fn": 212,
+        "predicted_positive_rate": 0.0005555555555555556
+      },
+      "top_k_precision": [
+        {
+          "top_k": 50,
+          "positives": 50,
+          "precision": 1.0
+        },
+        {
+          "top_k": 100,
+          "positives": 100,
+          "precision": 1.0
+        },
+        {
+          "top_k": 200,
+          "positives": 200,
+          "precision": 1.0
+        },
+        {
+          "top_k": 500,
+          "positives": 216,
+          "precision": 0.432
+        }
+      ]
+    },
+    "blend_without_iforest_reallocated": {
+      "name": "blend_without_iforest_reallocated",
+      "average_precision": 1.0,
+      "roc_auc": 0.9999999999999999,
+      "score_mean": 0.01819946713931165,
+      "score_std": 0.09599026784814008,
+      "best_threshold": {
+        "threshold": 0.14217804473254894,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "fpr": 0.0,
+        "tp": 216,
+        "fp": 0,
+        "tn": 6984,
+        "fn": 0,
+        "predicted_positive_rate": 0.03
+      },
+      "operational_threshold": {
+        "threshold": 0.6,
+        "precision": 1.0,
+        "recall": 0.18981481481481483,
+        "f1": 0.31906614785992216,
+        "fpr": 0.0,
+        "tp": 41,
+        "fp": 0,
+        "tn": 6984,
+        "fn": 175,
+        "predicted_positive_rate": 0.005694444444444445
+      },
+      "top_k_precision": [
+        {
+          "top_k": 50,
+          "positives": 50,
+          "precision": 1.0
+        },
+        {
+          "top_k": 100,
+          "positives": 100,
+          "precision": 1.0
+        },
+        {
+          "top_k": 200,
+          "positives": 200,
+          "precision": 1.0
+        },
+        {
+          "top_k": 500,
+          "positives": 216,
+          "precision": 0.432
+        }
+      ]
+    }
+  },
+  "recommendation": {
+    "verdict": "remove_iforest_from_primary_score",
+    "reason": "iforest_signal_is_weak_and_blend_does_not_improve",
+    "delta_average_precision_vs_drop": -0.00012512512512496965,
+    "delta_average_precision_vs_reallocated": -0.00012512512512496965,
+    "delta_operational_f1_vs_drop": 0.0935064935064935,
+    "delta_operational_f1_vs_reallocated": -0.1891960179897923
+  }
+}

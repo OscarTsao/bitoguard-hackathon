@@ -17,6 +17,9 @@ class FeatureBuildResult:
     latest_event_at: str
 
 
+ROLLING_WINDOWS = ((1, "1d"), (3, "3d"), (7, "7d"), (30, "30d"))
+
+
 def _normalize_user_id(frame: pd.DataFrame) -> pd.DataFrame:
     copied = frame.copy()
     if "user_id" in copied.columns:
@@ -129,6 +132,16 @@ def _fast_cashout_features(
     return grouped.reset_index()
 
 
+def _window_frame(
+    frame: pd.DataFrame,
+    time_col: str,
+    cutoff_ts: pd.Timestamp,
+    days: int,
+) -> pd.DataFrame:
+    start = cutoff_ts - pd.Timedelta(days=days)
+    return frame[(frame[time_col] >= start) & (frame[time_col] < cutoff_ts)].copy()
+
+
 def build_official_features(
     cutoff_ts: pd.Timestamp | None = None,
     cutoff_tag: str = "full",
@@ -239,19 +252,59 @@ def build_official_features(
         swap_stats, swap_buy, swap_sell, swap_days, swap_night,
         fast_cashout,
     ]
+    resolved_cutoff = cutoff_ts or list_event_cutoffs()[1]
+    for window_days, window_tag in ROLLING_WINDOWS:
+        twd_window = _window_frame(twd_transfer, "created_at", resolved_cutoff, window_days)
+        crypto_window = _window_frame(crypto_transfer, "created_at", resolved_cutoff, window_days)
+        trade_window = _window_frame(usdt_twd_trading, "updated_at", resolved_cutoff, window_days)
+        swap_window = _window_frame(usdt_swap, "created_at", resolved_cutoff, window_days)
+        frames.extend(
+            [
+                _add_group_aggregations(twd_window, "user_id", "amount_twd", f"twd_total_{window_tag}"),
+                _add_group_aggregations(
+                    twd_window[twd_window["kind_label"] == "withdrawal"],
+                    "user_id",
+                    "amount_twd",
+                    f"twd_withdraw_{window_tag}",
+                ),
+                _add_group_aggregations(crypto_window, "user_id", "amount_twd_equiv", f"crypto_total_{window_tag}"),
+                _add_group_aggregations(
+                    crypto_window[crypto_window["kind_label"] == "withdrawal"],
+                    "user_id",
+                    "amount_twd_equiv",
+                    f"crypto_withdraw_{window_tag}",
+                ),
+                _add_group_aggregations(trade_window, "user_id", "trade_notional_twd", f"order_total_{window_tag}"),
+                _add_group_aggregations(swap_window, "user_id", "twd_amount", f"swap_total_{window_tag}"),
+                _activity_days(twd_window, "user_id", "created_at", f"twd_active_days_{window_tag}"),
+                _activity_days(crypto_window, "user_id", "created_at", f"crypto_active_days_{window_tag}"),
+                _activity_days(trade_window, "user_id", "updated_at", f"trade_active_days_{window_tag}"),
+                _activity_days(swap_window, "user_id", "created_at", f"swap_active_days_{window_tag}"),
+            ]
+        )
     features = base
     for frame in frames:
         features = features.merge(frame, on="user_id", how="left")
 
+    protected_columns = {
+        "user_id",
+        "cohort",
+        "status",
+        "is_known_blacklist",
+        "needs_prediction",
+        "in_train_label",
+        "in_predict_label",
+        "is_shadow_overlap",
+    }
     numeric_fill_zero = [
         column
         for column in features.columns
-        if column not in {"user_id", "cohort"} and pd.api.types.is_numeric_dtype(features[column]) and not pd.api.types.is_bool_dtype(features[column])
+        if column not in protected_columns and pd.api.types.is_numeric_dtype(features[column]) and not pd.api.types.is_bool_dtype(features[column])
     ]
     bool_fill_false = [
         column
         for column in features.columns
-        if column not in {"user_id", "cohort"} and pd.api.types.is_bool_dtype(features[column])
+        if column not in protected_columns and pd.api.types.is_bool_dtype(features[column])
     ]
     features[numeric_fill_zero] = features[numeric_fill_zero].fillna(0.0)
     for column in bool_fill_false:
@@ -276,7 +329,7 @@ def build_official_features(
     features["fast_cashout_24h_flag"] = (features["fast_cashout_24h_count"] > 0).astype(int)
     features["fast_cashout_72h_flag"] = (features["fast_cashout_72h_count"] > 0).astype(int)
 
-    features["snapshot_cutoff_at"] = cutoff_ts or list_event_cutoffs()[1]
+    features["snapshot_cutoff_at"] = resolved_cutoff
     features["snapshot_cutoff_tag"] = cutoff_tag
     features.to_parquet(feature_output_path("official_user_features", cutoff_tag), index=False)
     return features

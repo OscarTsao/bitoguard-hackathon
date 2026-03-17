@@ -11,12 +11,18 @@ from official.common import RANDOM_SEED, feature_output_path, load_clean_table, 
 
 
 DEFAULT_GROUPING_PARAMS = {
-    "max_strong_ip_users": 5,
+    "hard_wallet_user_min": 2,
+    "hard_wallet_user_max": 10,
+    "soft_wallet_user_min": 11,
+    "soft_wallet_user_max": 50,
+    "hard_ip_user_min": 2,
+    "hard_ip_user_max": 5,
     "min_ip_event_count": 2,
-    "max_strong_wallet_users": 10,
-    "weak_ip_user_min": 6,
-    "weak_ip_user_max": 30,
-    "shadow_dev_ratio": 0.7,
+    "soft_ip_user_min": 6,
+    "soft_ip_user_max": 30,
+    "n_splits": 5,
+    "split_seed_candidates": (42, 52, 62, 72, 82),
+    "min_positive_per_fold": 250,
 }
 
 
@@ -102,19 +108,24 @@ def build_strong_groups(
 
     wallet_edges = graph_inputs["wallet_edges"].copy()
     wallet_edges["user_id"] = pd.to_numeric(wallet_edges["user_id"], errors="coerce").astype("Int64")
+    wallet_edges = wallet_edges[wallet_edges["user_id"].isin(list(allowed_users))].copy()
     for _, frame in wallet_edges.groupby("entity_id"):
-        edge_users = sorted({int(user_id) for user_id in frame["user_id"].dropna().tolist() if int(user_id) in allowed_users})
-        if 1 < len(edge_users) <= params["max_strong_wallet_users"]:
+        edge_users = sorted({int(user_id) for user_id in frame["user_id"].dropna().tolist()})
+        if params["hard_wallet_user_min"] <= len(edge_users) <= params["hard_wallet_user_max"]:
             head = edge_users[0]
             for user_id in edge_users[1:]:
                 uf.union(head, user_id)
 
     ip_edges = graph_inputs["ip_edges"].copy()
     ip_edges["user_id"] = pd.to_numeric(ip_edges["user_id"], errors="coerce").astype("Int64")
+    ip_edges = ip_edges[ip_edges["user_id"].isin(list(allowed_users))].copy()
     for _, frame in ip_edges.groupby("entity_id"):
-        edge_users = sorted({int(user_id) for user_id in frame["user_id"].dropna().tolist() if int(user_id) in allowed_users})
+        edge_users = sorted({int(user_id) for user_id in frame["user_id"].dropna().tolist()})
         event_count = int(frame["event_id"].nunique())
-        if 1 < len(edge_users) <= params["max_strong_ip_users"] and event_count >= params["min_ip_event_count"]:
+        if (
+            params["hard_ip_user_min"] <= len(edge_users) <= params["hard_ip_user_max"]
+            and event_count >= params["min_ip_event_count"]
+        ):
             head = edge_users[0]
             for user_id in edge_users[1:]:
                 uf.union(head, user_id)
@@ -138,26 +149,44 @@ def build_strong_groups(
 
 def reserve_shadow_groups(group_index: pd.DataFrame) -> pd.DataFrame:
     result = group_index.copy()
-    result["group_role"] = "inference_only"
-    shadow_groups = set(result[result["group_has_shadow_overlap"].astype(bool)]["strong_group_id"].tolist())
-    labeled_groups = set(result[result["group_has_labeled"].astype(bool)]["strong_group_id"].tolist())
-    result.loc[result["strong_group_id"].isin(shadow_groups), "group_role"] = "shadow_reserved"
-    result.loc[result["strong_group_id"].isin(labeled_groups.difference(shadow_groups)), "group_role"] = "core_trainable"
-
-    shadow_reserved = result[result["group_role"] == "shadow_reserved"][["user_id", "status", "strong_group_id"]].copy()
-    shadow_reserved["shadow_split"] = "shadow_dev"
-    labeled_shadow = shadow_reserved[shadow_reserved["status"].notna()].copy()
-    if not labeled_shadow.empty:
-        n_splits = 3 if labeled_shadow["strong_group_id"].nunique() >= 3 else 2
-        splitter = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=RANDOM_SEED)
-        train_idx, holdout_idx = next(splitter.split(labeled_shadow, labeled_shadow["status"].astype(int), labeled_shadow["strong_group_id"]))
-        holdout_groups = set(labeled_shadow.iloc[holdout_idx]["strong_group_id"].tolist())
-        shadow_reserved.loc[shadow_reserved["strong_group_id"].isin(holdout_groups), "shadow_split"] = "shadow_holdout"
-    result = result.merge(shadow_reserved[["user_id", "shadow_split"]], on="user_id", how="left")
+    result["group_role"] = "core_trainable"
+    result["shadow_split"] = None
     return result
 
 
-def make_core_group_folds(labeled_core: pd.DataFrame, n_splits: int = 5) -> pd.DataFrame:
+def _is_valid_fold_assignment(
+    frame: pd.DataFrame,
+    fold_assignments: list[pd.DataFrame],
+    min_positive_per_fold: int,
+) -> bool:
+    for summary in _fold_label_summary(frame, fold_assignments):
+        positive_count = summary["positive_count"]
+        negative_count = summary["negative_count"]
+        if positive_count < min_positive_per_fold or negative_count == 0:
+            return False
+    return True
+
+
+def _fold_label_summary(frame: pd.DataFrame, fold_assignments: list[pd.DataFrame]) -> list[dict[str, int]]:
+    summaries: list[dict[str, int]] = []
+    for assignment in fold_assignments:
+        fold_frame = frame.iloc[assignment["row_index"].tolist()]
+        summaries.append(
+            {
+                "core_fold": int(assignment["core_fold"].iloc[0]),
+                "positive_count": int(fold_frame["status"].astype(int).eq(1).sum()),
+                "negative_count": int(fold_frame["status"].astype(int).eq(0).sum()),
+            }
+        )
+    return summaries
+
+
+def make_core_group_folds(
+    labeled_core: pd.DataFrame,
+    n_splits: int = 5,
+    seed_candidates: tuple[int, ...] = (RANDOM_SEED,),
+    min_positive_per_fold: int = 250,
+) -> pd.DataFrame:
     frame = labeled_core.copy()
     if frame.empty:
         return pd.DataFrame(columns=["user_id", "strong_group_id", "core_fold"])
@@ -166,14 +195,40 @@ def make_core_group_folds(labeled_core: pd.DataFrame, n_splits: int = 5) -> pd.D
     positive_groups = frame[y == 1]["strong_group_id"].nunique()
     negative_groups = frame[y == 0]["strong_group_id"].nunique()
     resolved_splits = max(2, min(n_splits, int(positive_groups or 1), int(negative_groups or 1), int(frame["strong_group_id"].nunique())))
-    splitter = StratifiedGroupKFold(n_splits=resolved_splits, shuffle=True, random_state=RANDOM_SEED)
+    best_assignments: list[pd.DataFrame] | None = None
+    best_rank: tuple[int, int, int] | None = None
+    for seed in seed_candidates:
+        splitter = StratifiedGroupKFold(n_splits=resolved_splits, shuffle=True, random_state=int(seed))
+        fold_assignments: list[pd.DataFrame] = []
+        for fold_index, (_, valid_idx) in enumerate(splitter.split(frame, y, frame["strong_group_id"])):
+            fold_frame = frame.iloc[valid_idx][["user_id", "strong_group_id"]].copy()
+            fold_frame["core_fold"] = fold_index
+            fold_frame["row_index"] = valid_idx
+            fold_assignments.append(fold_frame)
+        if _is_valid_fold_assignment(frame, fold_assignments, min_positive_per_fold=min_positive_per_fold):
+            return pd.concat(
+                [fold.drop(columns=["row_index"]) for fold in fold_assignments],
+                ignore_index=True,
+            )
+        summary = _fold_label_summary(frame, fold_assignments)
+        rank = (
+            min(item["positive_count"] for item in summary),
+            -max(item["positive_count"] for item in summary) + min(item["positive_count"] for item in summary),
+            min(item["negative_count"] for item in summary),
+        )
+        if best_rank is None or rank > best_rank:
+            best_rank = rank
+            best_assignments = fold_assignments
 
-    folds: list[pd.DataFrame] = []
-    for fold_index, (_, valid_idx) in enumerate(splitter.split(frame, y, frame["strong_group_id"])):
-        fold_frame = frame.iloc[valid_idx][["user_id", "strong_group_id"]].copy()
-        fold_frame["core_fold"] = fold_index
-        folds.append(fold_frame)
-    return pd.concat(folds, ignore_index=True)
+    if best_assignments is None:
+        raise ValueError(
+            "Unable to find any grouped split with the configured seeds."
+        )
+
+    return pd.concat(
+        [fold.drop(columns=["row_index"]) for fold in best_assignments],
+        ignore_index=True,
+    )
 
 
 def compute_weak_purge_map(
@@ -195,6 +250,34 @@ def compute_weak_purge_map(
     return {group_id: set(sorted(user_ids)) for group_id, user_ids in purge_map.items()}
 
 
+def _build_soft_purge_edges(
+    graph_inputs: dict[str, pd.DataFrame],
+    allowed_users: set[int],
+    params: dict[str, Any],
+) -> pd.DataFrame:
+    wallet_edges = graph_inputs["wallet_edges"].copy()
+    wallet_edges["user_id"] = pd.to_numeric(wallet_edges["user_id"], errors="coerce").astype("Int64")
+    wallet_edges = wallet_edges[wallet_edges["user_id"].isin(list(allowed_users))][["user_id", "entity_id"]].drop_duplicates()
+    wallet_sizes = wallet_edges.groupby("entity_id")["user_id"].nunique()
+    wallet_entities = wallet_sizes[
+        (wallet_sizes >= params["soft_wallet_user_min"]) & (wallet_sizes <= params["soft_wallet_user_max"])
+    ].index
+    wallet_edges = wallet_edges[wallet_edges["entity_id"].isin(wallet_entities)].copy()
+    wallet_edges["entity_id"] = "wallet:" + wallet_edges["entity_id"].astype(str)
+
+    ip_edges = graph_inputs["ip_edges"].copy()
+    ip_edges["user_id"] = pd.to_numeric(ip_edges["user_id"], errors="coerce").astype("Int64")
+    ip_edges = ip_edges[ip_edges["user_id"].isin(list(allowed_users))][["user_id", "entity_id"]].drop_duplicates()
+    ip_sizes = ip_edges.groupby("entity_id")["user_id"].nunique()
+    ip_entities = ip_sizes[
+        (ip_sizes >= params["soft_ip_user_min"]) & (ip_sizes <= params["soft_ip_user_max"])
+    ].index
+    ip_edges = ip_edges[ip_edges["entity_id"].isin(ip_entities)].copy()
+    ip_edges["entity_id"] = "ip:" + ip_edges["entity_id"].astype(str)
+
+    return pd.concat([wallet_edges, ip_edges], ignore_index=True)
+
+
 def build_split_artifacts(
     dataset: pd.DataFrame,
     cutoff_ts: pd.Timestamp | None = None,
@@ -204,19 +287,21 @@ def build_split_artifacts(
 ) -> tuple[pd.DataFrame, dict[int, set[int]], dict[str, pd.DataFrame]]:
     params = {**DEFAULT_GROUPING_PARAMS, **(params or {})}
     graph_inputs = build_graph_inputs(cutoff_ts=cutoff_ts)
-    group_index = build_strong_groups(dataset, graph_inputs, params)
+    labeled_dataset = dataset[dataset["status"].notna()].copy()
+    group_index = build_strong_groups(labeled_dataset, graph_inputs, params)
     group_index = reserve_shadow_groups(group_index)
 
-    weak_edges = graph_inputs["ip_edges"].copy()
-    weak_group_sizes = weak_edges.groupby("entity_id")["user_id"].nunique()
-    weak_entities = weak_group_sizes[
-        (weak_group_sizes >= params["weak_ip_user_min"]) & (weak_group_sizes <= params["weak_ip_user_max"])
-    ].index
-    weak_edges = weak_edges[weak_edges["entity_id"].isin(weak_entities)][["user_id", "entity_id"]].drop_duplicates()
+    allowed_users = set(group_index["user_id"].astype(int).tolist())
+    weak_edges = _build_soft_purge_edges(graph_inputs, allowed_users, params)
     purge_map = compute_weak_purge_map(group_index, weak_edges)
 
     labeled_core = group_index[(group_index["group_role"] == "core_trainable") & (group_index["status"].notna())].copy()
-    fold_index = make_core_group_folds(labeled_core, n_splits=5)
+    fold_index = make_core_group_folds(
+        labeled_core,
+        n_splits=int(params["n_splits"]),
+        seed_candidates=tuple(int(seed) for seed in params["split_seed_candidates"]),
+        min_positive_per_fold=int(params["min_positive_per_fold"]),
+    )
     group_index = group_index.merge(fold_index[["user_id", "core_fold"]], on="user_id", how="left")
 
     if write_outputs:

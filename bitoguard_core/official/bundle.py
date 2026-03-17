@@ -10,7 +10,10 @@ from official.common import bundle_file_path, save_json
 REQUIRED_BUNDLE_KEYS = {
     "bundle_version",
     "selected_model",
-    "model_paths",
+    "primary_validation_protocol",
+    "base_model_paths",
+    "graph_model_path",
+    "stacker_path",
     "shadow_protocol",
     "grouping_params",
 }

@@ -90,6 +90,9 @@ FEATURE_TABLE_SPECS: tuple[TableSpec, ...] = (
     TableSpec("features", "feature_snapshots_user_30d", "feature_snapshot_id", (
         ("feature_snapshot_id", "VARCHAR"), ("user_id", "VARCHAR"), ("snapshot_date", "DATE"), ("feature_version", "VARCHAR")
     )),
+    TableSpec("features", "feature_snapshots_user_anomaly_30d", "feature_snapshot_id", (
+        ("feature_snapshot_id", "VARCHAR"), ("user_id", "VARCHAR"), ("snapshot_date", "DATE"), ("feature_version", "VARCHAR")
+    )),
 )
 
 

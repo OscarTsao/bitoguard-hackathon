@@ -8,31 +8,13 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score, brier_score_loss, confusion_matrix, f1_score, precision_score, recall_score
 
-from official.anomaly import score_anomaly_frame
 from official.bundle import load_selected_bundle, save_selected_bundle
-from official.calibration import choose_calibrator
-from official.common import default_temporal_cutoff, encode_frame, feature_report_path, load_pickle, save_json
-from official.features import build_official_features
-from official.graph_features import build_official_graph_features
-from official.rules import evaluate_official_rules
-from official.thresholding import search_threshold
-from official.train import _load_dataset
-
-
-def _load_selected_model(bundle: dict[str, Any]) -> tuple[object, dict[str, Any]]:
-    if bundle["selected_model"] != "lgbm":
-        raise NotImplementedError(f"Selected model not yet supported: {bundle['selected_model']}")
-    model_path = bundle["model_paths"]["lgbm"]
-    model = load_pickle(Path(model_path))
-    meta = json.loads(Path(model_path).with_suffix(".json").read_text(encoding="utf-8"))
-    return model, meta
-
-
-def _predict_raw_probability(frame: pd.DataFrame, bundle: dict[str, Any], model: object) -> np.ndarray:
-    feature_columns = bundle["feature_columns_lgbm"]
-    encoded_columns = bundle["encoded_columns_lgbm"]
-    encoded, _ = encode_frame(frame, feature_columns, reference_columns=encoded_columns)
-    return model.predict_proba(encoded)[:, 1]
+from official.common import feature_output_path, feature_report_path, save_json
+from official.graph_dataset import build_transductive_graph
+from official.stacking import build_stacker_oof, choose_best_calibration_and_threshold
+from official.train import PRIMARY_GRAPH_MAX_EPOCHS, _load_dataset, _label_free_feature_columns, run_transductive_oof_pipeline
+from official.transductive_features import build_transductive_feature_frame
+from official.transductive_validation import build_secondary_strict_splits
 
 
 def _classification_metrics(labels: np.ndarray, probabilities: np.ndarray, threshold: float) -> dict[str, Any]:
@@ -49,79 +31,76 @@ def _classification_metrics(labels: np.ndarray, probabilities: np.ndarray, thres
     }
 
 
-def _temporal_stress_metrics(bundle: dict[str, Any], model: object, calibrator: Any, threshold: float, split_frame: pd.DataFrame) -> dict[str, Any]:
-    cutoff = default_temporal_cutoff()
-    temporal_features = build_official_features(cutoff_ts=cutoff, cutoff_tag="temporal")
-    temporal_graph = build_official_graph_features(cutoff_ts=cutoff, cutoff_tag="temporal")
-    temporal = temporal_features.merge(temporal_graph, on=["user_id", "snapshot_cutoff_at", "snapshot_cutoff_tag"], how="left")
-    anomaly = score_anomaly_frame(temporal).drop(columns=["snapshot_cutoff_at", "snapshot_cutoff_tag"])
-    temporal = temporal.merge(anomaly, on="user_id", how="left")
-    temporal = temporal.merge(evaluate_official_rules(temporal), on="user_id", how="left")
-    holdout_ids = set(split_frame[split_frame["shadow_split"] == "shadow_holdout"]["user_id"].tolist())
-    frame = temporal[(temporal["status"].notna()) & (temporal["user_id"].isin(holdout_ids))].copy()
-    if frame.empty:
-        return {"cutoff_at": cutoff.isoformat(), "shadow_holdout_rows": 0}
-    raw_probability = _predict_raw_probability(frame, bundle, model)
-    calibrated_probability = calibrator.predict(raw_probability)
-    metrics = _classification_metrics(frame["status"].astype(int).to_numpy(), calibrated_probability, threshold)
-    return {
-        "cutoff_at": cutoff.isoformat(),
-        "shadow_holdout_rows": int(len(frame)),
-        **metrics,
-    }
+def _metric_delta(primary: dict[str, Any], secondary: dict[str, Any]) -> dict[str, float]:
+    keys = ["precision", "recall", "f1", "fpr", "average_precision", "brier_score"]
+    return {f"{key}_delta": float(primary[key] - secondary[key]) for key in keys}
 
 
 def validate_official_model() -> dict[str, Any]:
     dataset = _load_dataset("full")
     bundle = load_selected_bundle(require_ready=False)
-    split_frame = pd.read_parquet(bundle["split_path"])
-    oof_predictions = pd.read_parquet(bundle["oof_predictions_path"])
-    shadow_predictions = pd.read_parquet(bundle["shadow_predictions_path"])
+    primary_oof = pd.read_parquet(bundle["oof_predictions_path"])
 
-    model, _ = _load_selected_model(bundle)
-    shadow_dev = shadow_predictions[shadow_predictions["shadow_split"] == "shadow_dev"].copy()
-    shadow_holdout = shadow_predictions[shadow_predictions["shadow_split"] == "shadow_holdout"].copy()
-
-    calibrator_report, calibrator = choose_calibrator(
-        shadow_dev["raw_probability"].to_numpy(),
-        shadow_dev["status"].astype(int).to_numpy(),
+    calibration_report, calibrator, primary_calibrated = choose_best_calibration_and_threshold(
+        primary_oof["stacker_raw_probability"].to_numpy(),
+        primary_oof["status"].astype(int).to_numpy(),
+        primary_oof["primary_fold"].to_numpy(),
     )
-    shadow_dev["submission_probability"] = calibrator.predict(shadow_dev["raw_probability"].to_numpy())
-    threshold_report = search_threshold(
-        shadow_dev["status"].astype(int).to_numpy(),
-        shadow_dev["submission_probability"].to_numpy(),
-        shadow_dev["strong_group_id"].to_numpy(),
-    )
-    selected_threshold = float(threshold_report["selected_threshold"])
-
-    shadow_holdout["submission_probability"] = calibrator.predict(shadow_holdout["raw_probability"].to_numpy())
-    shadow_holdout_metrics = _classification_metrics(
-        shadow_holdout["status"].astype(int).to_numpy(),
-        shadow_holdout["submission_probability"].to_numpy(),
+    selected_threshold = float(calibration_report["selected_threshold"])
+    primary_oof["submission_probability"] = primary_calibrated
+    primary_metrics = _classification_metrics(
+        primary_oof["status"].astype(int).to_numpy(),
+        primary_oof["submission_probability"].to_numpy(),
         selected_threshold,
     )
 
-    oof_predictions["submission_probability"] = calibrator.predict(oof_predictions["raw_probability"].to_numpy())
-    core_oof_metrics = {
-        "raw_average_precision": float(average_precision_score(oof_predictions["status"].astype(int), oof_predictions["raw_probability"])),
-        "calibrated_average_precision": float(average_precision_score(oof_predictions["status"].astype(int), oof_predictions["submission_probability"])),
-        "fold_count": int(oof_predictions["core_fold"].nunique()),
-    }
+    secondary_split = build_secondary_strict_splits(dataset, cutoff_tag="full", write_outputs=True)
+    graph = build_transductive_graph(dataset)
+    base_a_feature_columns = _label_free_feature_columns(dataset)
+    base_b_feature_columns = bundle["feature_columns_base_b"]
+    secondary_oof, _ = run_transductive_oof_pipeline(
+        dataset,
+        graph,
+        secondary_split[["user_id", "secondary_fold"]].copy(),
+        fold_column="secondary_fold",
+        base_a_feature_columns=base_a_feature_columns,
+        base_b_feature_columns=base_b_feature_columns,
+        graph_max_epochs=PRIMARY_GRAPH_MAX_EPOCHS,
+    )
+    secondary_oof, _ = build_stacker_oof(
+        secondary_oof,
+        secondary_split[["user_id", "secondary_fold"]].copy(),
+        fold_column="secondary_fold",
+    )
+    secondary_oof["submission_probability"] = calibrator.predict(secondary_oof["stacker_raw_probability"].to_numpy())
+    secondary_metrics = _classification_metrics(
+        secondary_oof["status"].astype(int).to_numpy(),
+        secondary_oof["submission_probability"].to_numpy(),
+        selected_threshold,
+    )
+    secondary_oof_path = feature_output_path("official_secondary_oof_predictions", "full")
+    secondary_oof.to_parquet(secondary_oof_path, index=False)
 
-    bundle["calibrator"] = calibrator_report
+    bundle["calibrator"] = calibration_report
     bundle["selected_threshold"] = selected_threshold
+    bundle["calibration_selection_basis"] = calibration_report["selection_basis"]
+    bundle["secondary_stress_summary"] = {
+        "secondary_oof_predictions_path": str(secondary_oof_path),
+        "secondary_group_stress_metrics": secondary_metrics,
+    }
     save_selected_bundle(bundle)
 
     report = {
         "bundle_version": bundle["bundle_version"],
         "selected_model": bundle["selected_model"],
         "selected_threshold": selected_threshold,
-        "core_oof_metrics": core_oof_metrics,
-        "calibrator": calibrator_report,
-        "threshold_report": threshold_report,
-        "shadow_holdout_metrics": shadow_holdout_metrics,
-        "temporal_stress_test": _temporal_stress_metrics(bundle, model, calibrator, selected_threshold, split_frame),
+        "primary_validation_protocol": bundle["primary_validation_protocol"],
+        "calibrator": calibration_report,
+        "primary_transductive_oof_metrics": primary_metrics,
+        "secondary_group_stress_metrics": secondary_metrics,
+        "primary_vs_secondary_delta": _metric_delta(primary_metrics, secondary_metrics),
     }
+    report["grouped_oof_metrics"] = report["primary_transductive_oof_metrics"]
     save_json(report, feature_report_path("official_validation_report.json"))
     return report
 

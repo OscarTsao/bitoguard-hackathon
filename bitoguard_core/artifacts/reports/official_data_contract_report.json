@@ -1,0 +1,96 @@
+{
+  "cohort_counts": {
+    "train_only": 51017,
+    "shadow_overlap": 0,
+    "predict_only": 12753,
+    "unlabeled_only": 0,
+    "all_users": 63770
+  },
+  "primary_key_checks": {
+    "user_info": {
+      "rows": 63770,
+      "primary_key": "user_id",
+      "duplicate_primary_keys": 0
+    },
+    "train_label": {
+      "rows": 51017,
+      "primary_key": "user_id",
+      "duplicate_primary_keys": 0
+    },
+    "predict_label": {
+      "rows": 12753,
+      "primary_key": "user_id",
+      "duplicate_primary_keys": 0
+    },
+    "twd_transfer": {
+      "rows": 195601,
+      "primary_key": "id",
+      "duplicate_primary_keys": 0
+    },
+    "crypto_transfer": {
+      "rows": 239958,
+      "primary_key": "id",
+      "duplicate_primary_keys": 0
+    },
+    "usdt_swap": {
+      "rows": 53841,
+      "primary_key": "id",
+      "duplicate_primary_keys": 0
+    },
+    "usdt_twd_trading": {
+      "rows": 217634,
+      "primary_key": "id",
+      "duplicate_primary_keys": 0
+    }
+  },
+  "user_integrity_checks": {
+    "train_label": {
+      "orphan_user_rows": 0
+    },
+    "predict_label": {
+      "orphan_user_rows": 0
+    },
+    "twd_transfer": {
+      "orphan_user_rows": 0
+    },
+    "crypto_transfer": {
+      "orphan_user_rows": 0
+    },
+    "usdt_swap": {
+      "orphan_user_rows": 0
+    },
+    "usdt_twd_trading": {
+      "orphan_user_rows": 0
+    }
+  },
+  "scaling_checks": {
+    "twd_transfer": {
+      "amount_twd_max_abs_error": 0.0
+    },
+    "crypto_transfer": {
+      "amount_asset_max_abs_error": 0.0,
+      "twd_rate_max_abs_error": 0.0
+    },
+    "usdt_swap": {
+      "twd_amount_max_abs_error": 0.0,
+      "currency_amount_max_abs_error": 0.0
+    },
+    "usdt_twd_trading": {
+      "trade_amount_usdt_max_abs_error": 0.0,
+      "twd_rate_max_abs_error": 0.0
+    }
+  },
+  "null_summary": {
+    "user_info": {},
+    "train_label": {},
+    "predict_label": {},
+    "twd_transfer": {},
+    "crypto_transfer": {
+      "relation_user_id": 0.981359,
+      "from_wallet_hash": 0.018641,
+      "source_ip_hash": 0.32006
+    },
+    "usdt_swap": {},
+    "usdt_twd_trading": {}
+  }
+}

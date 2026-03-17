@@ -61,9 +61,10 @@ def _group_bootstrap_f1(
 
 
 def _threshold_candidates(probabilities: np.ndarray) -> list[float]:
-    base = np.linspace(0.05, 0.95, 19)
-    quantiles = np.quantile(probabilities, np.linspace(0.05, 0.95, 19))
-    merged = sorted({round(float(x), 4) for x in np.concatenate([base, quantiles])})
+    low_grid = np.arange(0.01, 0.30 + 1e-9, 0.01)
+    high_grid = np.arange(0.35, 0.95 + 1e-9, 0.05)
+    quantiles = np.quantile(probabilities, np.linspace(0.005, 0.995, 199))
+    merged = sorted({round(float(x), 4) for x in np.concatenate([low_grid, high_grid, quantiles]) if 0.0 < float(x) < 1.0})
     return merged
 
 
@@ -86,6 +87,7 @@ def search_threshold(
     group_ids: np.ndarray | None,
     constraints: dict[str, float | None] | None = None,
     n_bootstrap: int = 50,
+    positive_rate_sanity_bounds: tuple[float, float] = (0.005, 0.10),
 ) -> dict[str, Any]:
     labels = np.asarray(y_true, dtype=int)
     probabilities = np.asarray(p_cal, dtype=float)
@@ -115,10 +117,20 @@ def search_threshold(
     plateau = [row for row in candidate_pool if row["bootstrap_mean_f1"] >= best_mean * 0.99]
     plateau.sort(key=lambda row: (-row["bootstrap_mean_f1"], row["bootstrap_std_f1"], row["fpr"], -row["precision"]))
     selected = plateau[0]
+    sanity_min, sanity_max = positive_rate_sanity_bounds
+    positive_rate = float(selected["predicted_positive_rate"])
+    sanity = {
+        "min_expected_predicted_positive_rate": float(sanity_min),
+        "max_expected_predicted_positive_rate": float(sanity_max),
+        "selected_predicted_positive_rate": positive_rate,
+        "requires_manual_review": bool(positive_rate < sanity_min or positive_rate > sanity_max),
+    }
     return {
         "selected_threshold": selected["threshold"],
+        "selected_row": dict(selected),
         "constraints": constraints,
         "rows": rows,
+        "predicted_positive_rate_sanity": sanity,
         "selection_basis": {
             "best_mean_f1": best_mean,
             "plateau_fraction": 0.99,

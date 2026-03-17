@@ -51,7 +51,7 @@ def _sync_existing_alerts(store: DuckDBStore, predictions: pd.DataFrame) -> None
         conn.unregister("current_predictions")
 
 
-def generate_alerts() -> pd.DataFrame:
+def generate_alerts(create_missing: bool = True) -> pd.DataFrame:
     settings = load_settings()
     store = DuckDBStore(settings.db_path)
     predictions = store.read_table("ops.model_predictions")
@@ -59,6 +59,8 @@ def generate_alerts() -> pd.DataFrame:
         return pd.DataFrame()
 
     _sync_existing_alerts(store, predictions)
+    if not create_missing:
+        return pd.DataFrame()
 
     high_risk = predictions[predictions["risk_level"].isin(["high", "critical"])].copy()
     if high_risk.empty:

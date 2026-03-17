@@ -7,6 +7,8 @@ import pandas as pd
 
 from config import load_settings
 from db.store import DuckDBStore, make_id, utc_now
+from features.build_anomaly_features import build_anomaly_feature_snapshots
+from models.anomaly_common import apply_anomaly_model, apply_legacy_anomaly_model, has_transform_metadata, load_anomaly_source_table, load_user_cohort_frame
 from models.common import encode_features, feature_columns, load_feature_table, load_pickle
 from models.rule_engine import evaluate_rules
 from services.alert_engine import generate_alerts
@@ -45,18 +47,28 @@ def score_latest_snapshot() -> pd.DataFrame:
     latest_date = features["snapshot_date"].max()
     scoring_frame = features[features["snapshot_date"] == latest_date].copy()
     rule_results = evaluate_rules(scoring_frame)
+    anomaly_features = load_anomaly_source_table()
+    if anomaly_features.empty:
+        anomaly_features = build_anomaly_feature_snapshots()
+    scoring_anomaly_frame = anomaly_features[anomaly_features["snapshot_date"] == latest_date].copy()
 
     lgbm_path, lgbm_meta = _load_latest_model("lgbm")
     anomaly_path, anomaly_meta = _load_latest_model("iforest")
     feature_cols = feature_columns(scoring_frame)
     x_score, _ = encode_features(scoring_frame, feature_cols, reference_columns=lgbm_meta["encoded_columns"])
-    x_anomaly, _ = encode_features(scoring_frame, feature_cols, reference_columns=anomaly_meta["encoded_columns"])
 
     lgbm = load_pickle(lgbm_path)
     anomaly_model = load_pickle(anomaly_path)
     model_probability = lgbm.predict_proba(x_score)[:, 1]
-    anomaly_raw = -anomaly_model.score_samples(x_anomaly)
-    anomaly_score = (anomaly_raw - anomaly_raw.min()) / (anomaly_raw.max() - anomaly_raw.min() + 1e-9)
+    if has_transform_metadata(anomaly_meta) and not scoring_anomaly_frame.empty:
+        user_cohorts = load_user_cohort_frame()
+        _, anomaly_percentile = apply_anomaly_model(anomaly_model, scoring_anomaly_frame, user_cohorts, anomaly_meta)
+        anomaly_scores = scoring_anomaly_frame[["user_id", "snapshot_date"]].copy()
+        anomaly_scores["anomaly_score"] = anomaly_percentile
+        scoring_frame = scoring_frame.merge(anomaly_scores, on=["user_id", "snapshot_date"], how="left")
+        anomaly_score = scoring_frame["anomaly_score"].fillna(0.0).to_numpy()
+    else:
+        _, anomaly_score = apply_legacy_anomaly_model(anomaly_model, scoring_frame, anomaly_meta)
     graph_risk = _graph_risk_score(scoring_frame)
 
     result = scoring_frame[["user_id", "snapshot_date"]].copy()
@@ -66,8 +78,7 @@ def score_latest_snapshot() -> pd.DataFrame:
     result = result.merge(rule_results[["user_id", "snapshot_date", "rule_score", "rule_hits"]], on=["user_id", "snapshot_date"], how="left")
     result["risk_score"] = (
         0.35 * result["rule_score"]
-        + 0.45 * result["model_probability"]
-        + 0.10 * result["anomaly_score"]
+        + 0.55 * result["model_probability"]
         + 0.10 * result["graph_risk"]
     ) * 100.0
     result["risk_level"] = pd.cut(
@@ -87,6 +98,7 @@ def score_latest_snapshot() -> pd.DataFrame:
         _prediction_key(row["user_id"], row["snapshot_date"]): row["prediction_id"]
         for _, row in existing_predictions.iterrows()
     }
+    is_rescore = bool(existing_prediction_ids)
     result["prediction_id"] = result.apply(
         lambda row: existing_prediction_ids.get(
             _prediction_key(row["user_id"], row["snapshot_date"]),
@@ -102,7 +114,7 @@ def score_latest_snapshot() -> pd.DataFrame:
     ]].copy()
     store.execute("DELETE FROM ops.model_predictions WHERE snapshot_date = ?", (latest_date.date(),))
     store.append_dataframe("ops.model_predictions", prediction_rows)
-    generate_alerts()
+    generate_alerts(create_missing=not is_rescore)
     return prediction_rows
 
 
