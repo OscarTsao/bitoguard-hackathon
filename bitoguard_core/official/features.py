@@ -172,6 +172,7 @@ def build_official_features(
         "has_level2_kyc",
         "days_email_to_level1",
         "days_level1_to_level2",
+        "confirmed_at",
     ]
     profile = user_info[[column for column in profile_columns if column in user_info.columns]].copy()
     base = cohorts.drop(
@@ -467,6 +468,21 @@ def build_official_features(
     features["crypto_withdraw_vs_career_peer"] = safe_ratio(
         features["crypto_withdraw_sum"], _career_med_ct_wd + 1.0,
     ).clip(0, 100).astype("float32")
+
+    # ── Account age features (newer accounts + faster first-crypto = higher risk) ──
+    # account_age_days: sep=-234 (fraudsters have younger accounts)
+    # days_to_first_crypto: sep=-54 (fraudsters start crypto faster after signup)
+    _ct_first = crypto_transfer.groupby("user_id")["created_at"].min().reset_index(name="_first_crypto_at")
+    features = features.merge(_ct_first, on="user_id", how="left")
+    _confirmed = pd.to_datetime(features.get("confirmed_at"), errors="coerce", utc=True)
+    _snapshot_ts = pd.Timestamp(resolved_cutoff, tz="UTC") if not isinstance(resolved_cutoff, pd.Timestamp) else resolved_cutoff.tz_localize("UTC") if resolved_cutoff.tzinfo is None else resolved_cutoff
+    features["account_age_days"] = (
+        (_snapshot_ts - _confirmed).dt.days.clip(0, 3650).fillna(0)
+    ).astype("float32")
+    features["days_to_first_crypto"] = (
+        pd.to_datetime(features["_first_crypto_at"], errors="coerce", utc=True) - _confirmed
+    ).dt.days.clip(0, 3650).fillna(0).astype("float32")
+    features = features.drop(columns=["_first_crypto_at", "confirmed_at"], errors="ignore")
 
     features["snapshot_cutoff_at"] = resolved_cutoff
     features["snapshot_cutoff_tag"] = cutoff_tag
