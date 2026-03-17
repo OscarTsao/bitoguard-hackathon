@@ -283,6 +283,41 @@ def build_official_features(
         .reset_index(name="twd_deposit_cv")
     )
 
+    # ── Transaction velocity features (txns per active day — sep=0.22-0.28) ────
+    _ct_days = crypto_transfer.groupby("user_id")["created_at"].transform(lambda x: x.dt.date.nunique())
+    _ct_per_day = (
+        crypto_transfer.assign(_active_days=_ct_days)
+        .groupby("user_id")
+        .agg(_count=("created_at", "count"), _days=("_active_days", "first"))
+        .reset_index()
+    )
+    _ct_per_day["crypto_txn_velocity"] = (
+        _ct_per_day["_count"] / (_ct_per_day["_days"] + 1)
+    ).astype("float32")
+    crypto_txn_velocity = _ct_per_day[["user_id", "crypto_txn_velocity"]]
+
+    _twd_days = twd_transfer.groupby("user_id")["created_at"].transform(lambda x: x.dt.date.nunique())
+    _twd_per_day = (
+        twd_transfer.assign(_active_days=_twd_days)
+        .groupby("user_id")
+        .agg(_count=("created_at", "count"), _days=("_active_days", "first"))
+        .reset_index()
+    )
+    _twd_per_day["twd_txn_velocity"] = (
+        _twd_per_day["_count"] / (_twd_per_day["_days"] + 1)
+    ).astype("float32")
+    twd_txn_velocity = _twd_per_day[["user_id", "twd_txn_velocity"]]
+
+    # ── Round-number TWD amount ratio (structuring signal, sep=+0.108) ──────────
+    _twd_round = twd_transfer.copy()
+    _twd_round["_is_round"] = (_twd_round["amount_twd"] % 10000 == 0).astype(float)
+    twd_round_ratio = (
+        _twd_round.groupby("user_id")["_is_round"]
+        .mean()
+        .reset_index(name="twd_round_10k_ratio")
+        .assign(twd_round_10k_ratio=lambda df: df["twd_round_10k_ratio"].astype("float32"))
+    )
+
     frames = [
         twd_stats, twd_deposit, twd_withdraw, twd_days, twd_last,
         twd_deposit_night,
@@ -292,6 +327,7 @@ def build_official_features(
         trade_stats, trade_buy, trade_sell, trade_days, trade_night, trade_market, trade_source_api, trade_concentration,
         swap_stats, swap_buy, swap_sell, swap_days, swap_night,
         fast_cashout, twd_dep_cv,
+        crypto_txn_velocity, twd_txn_velocity, twd_round_ratio,
     ]
     resolved_cutoff = cutoff_ts or list_event_cutoffs()[1]
     for window_days, window_tag in ROLLING_WINDOWS:
