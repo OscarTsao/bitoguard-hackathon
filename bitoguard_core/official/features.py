@@ -429,6 +429,18 @@ def build_official_features(
         _dep_sum,
     ).astype("float32")
 
+    # ── Career-peer comparison features ─────────────────────────────────────
+    # Fraudsters transact much more than career peers (sep=14-28 on labeled data).
+    # Group-median is label-free (no status used) — safe for Base A.
+    _career_med_dep = features.groupby("career")["twd_deposit_sum"].transform("median").fillna(0.0)
+    features["twd_deposit_vs_career_peer"] = safe_ratio(
+        features["twd_deposit_sum"], _career_med_dep + 1.0,
+    ).clip(0, 100).astype("float32")
+    _career_med_ct_wd = features.groupby("career")["crypto_withdraw_sum"].transform("median").fillna(0.0)
+    features["crypto_withdraw_vs_career_peer"] = safe_ratio(
+        features["crypto_withdraw_sum"], _career_med_ct_wd + 1.0,
+    ).clip(0, 100).astype("float32")
+
     features["snapshot_cutoff_at"] = resolved_cutoff
     features["snapshot_cutoff_tag"] = cutoff_tag
     features.to_parquet(feature_output_path("official_user_features", cutoff_tag), index=False)
