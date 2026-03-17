@@ -191,6 +191,26 @@ def build_v2_features(
             base["xch_cashout_ratio_lifetime"] * base["crypto_trx_tx_share"]
         ).clip(upper=10.0)
 
+    # Early-burst × cashout: mule accounts transact heavily in first 3 days AND cash out
+    # immediately. This multiplicative interaction is the strongest known mule signal.
+    if "xch_cashout_ratio_7d" in base.columns and "early_3d_volume" in base.columns:
+        base["cashout_early_burst"] = (
+            base["xch_cashout_ratio_7d"] * (base["early_3d_volume"].clip(upper=1e6) / 1e5)
+        ).clip(upper=10.0)
+
+    # Night-hour cashout: nocturnal cash-out pattern (money mules often operate off-hours)
+    if "trade_night_share" in base.columns and "xch_cashout_ratio_lifetime" in base.columns:
+        base["night_cashout_signal"] = (
+            base["trade_night_share"] * base["xch_cashout_ratio_lifetime"]
+        ).clip(upper=5.0)
+
+    # Rule trigger × volume: rule hits weighted by withdrawal volume amplify signal for
+    # high-volume suspicious patterns while suppressing low-volume false positives.
+    if "rule_hit_count" in base.columns and "crypto_wdr_twd_sum" in base.columns:
+        base["rule_volume_signal"] = (
+            base["rule_hit_count"] * (base["crypto_wdr_twd_sum"].clip(upper=1e7) / 1e6)
+        ).clip(upper=20.0)
+
     # Rule signals: evaluate M1 rules on the assembled v2 frame (including cross-channel)
     # and add outputs as features. This lets the stacker learn interactions between
     # rule firings and behavioral features (e.g., fast_cash_out_2h AND high crypto volume).

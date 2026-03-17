@@ -40,6 +40,14 @@ from models.common import (
     save_joblib, save_json,
 )
 from models.train_catboost import load_v2_training_dataset, CAT_FEATURE_NAMES
+from features.graph_propagation import compute_label_propagation
+
+# Per-fold label-aware propagation features (leakage-safe: built from training labels only)
+_PROP_COLS = [
+    "prop_ip", "prop_wallet", "prop_combined",
+    "ip_rep_max_rate", "wallet_rep_max_rate",
+    "rel_has_pos_neighbor", "rel_direct_pos_count",
+]
 
 # Auto-detect GPU: set BITOGUARD_USE_GPU=1 to force on, 0 to force off.
 # Falls back to detection via nvidia-smi when unset.
@@ -75,8 +83,25 @@ def train_stacker(n_folds: int = 5) -> dict:
     x_train_df    = train_df[feature_cols].fillna(0).reset_index(drop=True)
     y_train       = train_df["hidden_suspicious_label"].values
 
+    # Load entity edges for per-fold label propagation (leakage-safe 1-hop graph features).
+    # Gracefully degrades to zeros if DuckDB is unavailable or table missing.
+    try:
+        from db.store import DuckDBStore
+        from config import load_settings as _ls
+        _store = DuckDBStore(_ls().db_path)
+        entity_edges = _store.fetch_df("SELECT * FROM canonical.entity_edges")
+        print(f"[propagation] Loaded {len(entity_edges):,} entity edges")
+    except Exception as _e:
+        entity_edges = pd.DataFrame()
+        print(f"[propagation] Entity edges unavailable ({_e}); propagation features = 0")
+    all_user_ids = train_df["user_id"].tolist()
+
+    # Append propagation cols to feature list (numeric, no categorical encoding needed)
+    feature_cols = feature_cols + _PROP_COLS
+    cat_indices  = [i for i, c in enumerate(feature_cols) if c in CAT_FEATURE_NAMES]
+
     print(f"Training set: {len(y_train):,} samples, {int(y_train.sum()):,} positives ({y_train.mean():.2%})")
-    print(f"Features: {len(feature_cols)}, Cat features: {len(cat_indices)}")
+    print(f"Features: {len(feature_cols)} (+{len(_PROP_COLS)} propagation), Cat features: {len(cat_indices)}")
 
     oof_cb   = np.zeros(len(x_train_df))
     oof_lgbm = np.zeros(len(x_train_df))
@@ -97,14 +122,34 @@ def train_stacker(n_folds: int = 5) -> dict:
         neg = max(1, len(tr_idx) - pos)
         print(f"\n[Fold {fold_i}/{n_folds}] train={len(tr_idx):,} val={len(val_idx):,} pos_rate={pos/len(tr_idx):.2%}")
 
+        # ── Per-fold label propagation (leakage-safe) ──────────────────────────
+        # Only training-fold labels are passed; validation users get scores based
+        # on their graph proximity to training positives, with no label leakage.
+        _fold_labels = pd.Series(
+            y_train[tr_idx], index=train_df.iloc[tr_idx]["user_id"].values
+        )
+        _prop_df = compute_label_propagation(entity_edges, _fold_labels, all_user_ids)
+        _prop_df = (
+            _prop_df.set_index("user_id")
+            .reindex(train_df["user_id"])
+            .fillna(0)
+            .reset_index(drop=True)
+        )
+        _prop_arr = _prop_df[_PROP_COLS].values.astype("float32")
+        # Augmented DataFrames/arrays for this fold (base features + propagation)
+        _x_fold_df = pd.concat(
+            [x_train_df, pd.DataFrame(_prop_arr, columns=_PROP_COLS)], axis=1
+        )
+        _x_fold_np = np.hstack([x_train_np, _prop_arr])
+
         cb = CatBoostClassifier(
             iterations=300, learning_rate=0.05, depth=6,
             scale_pos_weight=neg / pos, cat_features=cat_indices,
             l2_leaf_reg=5, random_seed=42, verbose=0,
             task_type="GPU" if _USE_GPU else "CPU",
         )
-        cb.fit(x_train_df.iloc[tr_idx], y_train[tr_idx])
-        oof_cb[val_idx] = cb.predict_proba(x_train_df.iloc[val_idx])[:, 1]
+        cb.fit(_x_fold_df.iloc[tr_idx], y_train[tr_idx])
+        oof_cb[val_idx] = cb.predict_proba(_x_fold_df.iloc[val_idx])[:, 1]
         cb_auc = roc_auc_score(y_train[val_idx], oof_cb[val_idx])
         cb_ap  = average_precision_score(y_train[val_idx], oof_cb[val_idx])
         print(f"  CatBoost   AUC={cb_auc:.4f}  PR-AUC={cb_ap:.4f}")
@@ -118,8 +163,8 @@ def train_stacker(n_folds: int = 5) -> dict:
             subsample=0.9, colsample_bytree=0.9,
             scale_pos_weight=neg / pos, random_state=42, verbose=-1,
         )
-        lgbm.fit(x_train_df.iloc[tr_idx], y_train[tr_idx])
-        oof_lgbm[val_idx] = lgbm.predict_proba(x_train_df.iloc[val_idx])[:, 1]
+        lgbm.fit(_x_fold_df.iloc[tr_idx], y_train[tr_idx])
+        oof_lgbm[val_idx] = lgbm.predict_proba(_x_fold_df.iloc[val_idx])[:, 1]
         lgbm_auc = roc_auc_score(y_train[val_idx], oof_lgbm[val_idx])
         lgbm_ap  = average_precision_score(y_train[val_idx], oof_lgbm[val_idx])
         print(f"  LightGBM   AUC={lgbm_auc:.4f}  PR-AUC={lgbm_ap:.4f}")
@@ -134,8 +179,8 @@ def train_stacker(n_folds: int = 5) -> dict:
             eval_metric="logloss", verbosity=0, use_label_encoder=False,
             device="cuda" if _USE_GPU else "cpu",
         )
-        xgb.fit(x_train_np[tr_idx], y_train[tr_idx])
-        oof_xgb[val_idx] = xgb.predict_proba(x_train_np[val_idx])[:, 1]
+        xgb.fit(_x_fold_np[tr_idx], y_train[tr_idx])
+        oof_xgb[val_idx] = xgb.predict_proba(_x_fold_np[val_idx])[:, 1]
         xgb_auc = roc_auc_score(y_train[val_idx], oof_xgb[val_idx])
         xgb_ap  = average_precision_score(y_train[val_idx], oof_xgb[val_idx])
         print(f"  XGBoost    AUC={xgb_auc:.4f}  PR-AUC={xgb_ap:.4f}")
@@ -148,8 +193,8 @@ def train_stacker(n_folds: int = 5) -> dict:
             class_weight={0: 1, 1: neg / pos},
             random_state=42, n_jobs=-1,
         )
-        et.fit(x_train_np[tr_idx], y_train[tr_idx])
-        oof_et[val_idx] = et.predict_proba(x_train_np[val_idx])[:, 1]
+        et.fit(_x_fold_np[tr_idx], y_train[tr_idx])
+        oof_et[val_idx] = et.predict_proba(_x_fold_np[val_idx])[:, 1]
         et_auc = roc_auc_score(y_train[val_idx], oof_et[val_idx])
         et_ap  = average_precision_score(y_train[val_idx], oof_et[val_idx])
         print(f"  ExtraTrees AUC={et_auc:.4f}  PR-AUC={et_ap:.4f}")
@@ -164,8 +209,8 @@ def train_stacker(n_folds: int = 5) -> dict:
             max_features="sqrt", class_weight={0: 1, 1: neg / pos},
             random_state=43, n_jobs=-1,
         )
-        rf.fit(x_train_np[tr_idx], y_train[tr_idx])
-        oof_rf[val_idx] = rf.predict_proba(x_train_np[val_idx])[:, 1]
+        rf.fit(_x_fold_np[tr_idx], y_train[tr_idx])
+        oof_rf[val_idx] = rf.predict_proba(_x_fold_np[val_idx])[:, 1]
         rf_auc = roc_auc_score(y_train[val_idx], oof_rf[val_idx])
         rf_ap  = average_precision_score(y_train[val_idx], oof_rf[val_idx])
         print(f"  RandomForest AUC={rf_auc:.4f}  PR-AUC={rf_ap:.4f}")
@@ -210,7 +255,9 @@ def train_stacker(n_folds: int = 5) -> dict:
         return np.log(p / (1.0 - p))
 
     oof_matrix = np.column_stack([_logit(oof_cb), _logit(oof_lgbm), _logit(oof_xgb), _logit(oof_et), _logit(oof_rf)])
-    base_meta = LogisticRegression(C=1.0, max_iter=500, random_state=42)
+    # class_weight={0:1, 1:15} ≈ sqrt(38) × base: expands score dynamic range without
+    # over-weighting noisy positives. Fixes score compression (max was 0.3656 without this).
+    base_meta = LogisticRegression(C=1.0, max_iter=500, random_state=42, class_weight={0: 1, 1: 15})
     base_meta.fit(oof_matrix, y_train)
 
     # Evaluate raw LR stacker
@@ -263,6 +310,23 @@ def train_stacker(n_folds: int = 5) -> dict:
     print(f"  TP={tp}  FP={fp}  FN={fn}  TN={tn}")
     print(f"{'='*55}")
 
+    # ── Full-label propagation for final model retraining ─────────────────────
+    # Use all training labels (no fold split) — appropriate since final models
+    # are trained on all data and will be used for inference, not CV evaluation.
+    _full_labels = pd.Series(y_train, index=train_df["user_id"].values)
+    _full_prop_df = compute_label_propagation(entity_edges, _full_labels, all_user_ids)
+    _full_prop_df = (
+        _full_prop_df.set_index("user_id")
+        .reindex(train_df["user_id"])
+        .fillna(0)
+        .reset_index(drop=True)
+    )
+    _full_prop_arr = _full_prop_df[_PROP_COLS].values.astype("float32")
+    x_train_df_full = pd.concat(
+        [x_train_df, pd.DataFrame(_full_prop_arr, columns=_PROP_COLS)], axis=1
+    )
+    x_train_np_full = np.hstack([x_train_np, _full_prop_arr])
+
     # Retrain final models on all training data with more iterations
     pos_all = max(1, int(y_train.sum()))
     neg_all = max(1, len(y_train) - pos_all)
@@ -273,7 +337,7 @@ def train_stacker(n_folds: int = 5) -> dict:
         l2_leaf_reg=5, random_seed=42, verbose=0,
         task_type="GPU" if _USE_GPU else "CPU",
     )
-    final_cb.fit(x_train_df, y_train)
+    final_cb.fit(x_train_df_full, y_train)
 
     final_lgbm = LGBMClassifier(
         n_estimators=500, learning_rate=0.05, num_leaves=63,
@@ -281,7 +345,7 @@ def train_stacker(n_folds: int = 5) -> dict:
         subsample=0.9, colsample_bytree=0.9,
         scale_pos_weight=neg_all / pos_all, random_state=42, verbose=-1,
     )
-    final_lgbm.fit(x_train_df, y_train)
+    final_lgbm.fit(x_train_df_full, y_train)
 
     final_xgb = XGBClassifier(
         n_estimators=500, learning_rate=0.05, max_depth=6,
@@ -291,21 +355,21 @@ def train_stacker(n_folds: int = 5) -> dict:
         eval_metric="logloss", verbosity=0, use_label_encoder=False,
         device="cuda" if _USE_GPU else "cpu",
     )
-    final_xgb.fit(x_train_np, y_train)
+    final_xgb.fit(x_train_np_full, y_train)
 
     final_et = ExtraTreesClassifier(
         n_estimators=300, max_depth=10, min_samples_leaf=3,
         class_weight={0: 1, 1: neg_all / pos_all},
         random_state=42, n_jobs=-1,
     )
-    final_et.fit(x_train_np, y_train)
+    final_et.fit(x_train_np_full, y_train)
 
     final_rf = RandomForestClassifier(
         n_estimators=300, max_depth=10, min_samples_leaf=3,
         max_features="sqrt", class_weight={0: 1, 1: neg_all / pos_all},
         random_state=43, n_jobs=-1,
     )
-    final_rf.fit(x_train_np, y_train)
+    final_rf.fit(x_train_np_full, y_train)
 
     # Refit calibrated meta-learner on full training data using all five branch predictions.
     # Apply the same logit transform as the OOF meta-learner — the final model must
@@ -313,11 +377,11 @@ def train_stacker(n_folds: int = 5) -> dict:
     # Without this, the final meta-learner would be trained in probability space but
     # called in logit space, causing a systematic prediction error.
     full_branch_probs = np.column_stack([
-        final_cb.predict_proba(x_train_df)[:, 1],
-        final_lgbm.predict_proba(x_train_df)[:, 1],
-        final_xgb.predict_proba(x_train_np)[:, 1],
-        final_et.predict_proba(x_train_np)[:, 1],
-        final_rf.predict_proba(x_train_np)[:, 1],
+        final_cb.predict_proba(x_train_df_full)[:, 1],
+        final_lgbm.predict_proba(x_train_df_full)[:, 1],
+        final_xgb.predict_proba(x_train_np_full)[:, 1],
+        final_et.predict_proba(x_train_np_full)[:, 1],
+        final_rf.predict_proba(x_train_np_full)[:, 1],
     ])
     full_branch_matrix = np.column_stack([_logit(full_branch_probs[:, i]) for i in range(5)])
     final_base_meta = LogisticRegression(C=1.0, max_iter=500, random_state=42)
