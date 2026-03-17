@@ -254,18 +254,9 @@ def build_official_features(
         _dep_utc_hour.isin(range(14, 22)),
         "twd_deposit_night_ratio_tw",
     )
-    _dep_utc_weekday = twd_dep["created_at"].dt.dayofweek
-    _dep_tw_weekday = (_dep_utc_weekday + (_dep_utc_hour >= 16).astype(int)) % 7
-    twd_deposit_weekend = _boolean_ratio(
-        twd_dep, "user_id", _dep_tw_weekday.isin([5, 6]), "twd_deposit_weekend_ratio",
-    )
-    twd_wd = twd_transfer[twd_transfer["kind_label"] == "withdrawal"].copy()
-    _wd_utc_hour = twd_wd["created_at"].dt.hour
-    twd_withdraw_night = _boolean_ratio(
-        twd_wd, "user_id",
-        _wd_utc_hour.isin(range(14, 22)),
-        "twd_withdraw_night_ratio_tw",
-    )
+    # NOTE: twd_deposit_weekend_ratio removed (sep=-0.058: fraudsters deposit LESS on weekends,
+    # hurts the model by adding inverted noise). twd_withdraw_night_ratio removed (sep=+0.019,
+    # too weak to help and adds noise).
 
     # ── External crypto wallet diversity (structuring / layering signals) ──────
     ct_ext_dep = crypto_transfer[
@@ -294,7 +285,7 @@ def build_official_features(
 
     frames = [
         twd_stats, twd_deposit, twd_withdraw, twd_days, twd_last,
-        twd_deposit_night, twd_deposit_weekend, twd_withdraw_night,
+        twd_deposit_night,
         crypto_stats, crypto_withdraw, crypto_deposit, crypto_days, crypto_last, crypto_protocols,
         crypto_currencies, crypto_internal_ratio, relation_counts, relation_users,
         crypto_dep_wallets, crypto_wd_wallets, crypto_ext_ip_diversity,
