@@ -37,6 +37,14 @@ LABEL_FREE_EXCLUDED_COLUMNS = {
     "in_predict_label",
     "is_shadow_overlap",
     "top_reason_codes",
+    # High anomaly-score correlation (r>0.35) — captured by anomaly_score +
+    # their *_robust_z / *_pct_rank derivatives; raw values add redundant signal
+    # that dilutes Base A's focus on complementary features (v18 ablation).
+    "crypto_ext_ip_diversity",
+    "crypto_unique_deposit_wallets",
+    "crypto_unique_withdraw_wallets",
+    "twd_deposit_vs_career_peer",
+    "crypto_withdraw_vs_career_peer",
 }
 
 PRIMARY_GRAPH_MAX_EPOCHS = 40
