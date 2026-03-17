@@ -4,10 +4,12 @@ from datetime import datetime, timezone
 
 from lightgbm import LGBMClassifier
 
+from hardware import describe_hardware, lightgbm_runtime_params
 from models.common import encode_features, feature_columns, model_dir, save_json, save_pickle, training_dataset
 
 
 def train_model() -> dict:
+    print(f"[train_model] runtime: {describe_hardware()}")
     dataset = training_dataset().sort_values("snapshot_date").reset_index(drop=True)
     feature_cols = feature_columns(dataset)
     unique_dates = sorted(dataset["snapshot_date"].dt.date.unique())
@@ -35,6 +37,7 @@ def train_model() -> dict:
         colsample_bytree=0.9,
         random_state=42,
         scale_pos_weight=negatives / positives,
+        **lightgbm_runtime_params(),
     )
     model.fit(
         x_train,

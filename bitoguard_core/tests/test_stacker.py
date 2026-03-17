@@ -79,7 +79,7 @@ from models.stacker import train_stacker
 def test_stacker_trains_and_saves(tmp_path, monkeypatch):
     store = _configure(tmp_path, monkeypatch)
     _seed_v2(store)
-    result = train_stacker(n_folds=2)
+    result = train_stacker(n_folds=2, n_estimators=10)
     assert "stacker_version" in result
     assert Path(result["stacker_path"]).exists()
     assert "branch_models" in result

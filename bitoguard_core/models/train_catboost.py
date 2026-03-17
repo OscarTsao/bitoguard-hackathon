@@ -6,6 +6,7 @@ from catboost import CatBoostClassifier
 
 from config import load_settings
 from db.store import DuckDBStore
+from hardware import catboost_runtime_params, describe_hardware
 from models.common import (
     NON_FEATURE_COLUMNS, forward_date_splits, model_dir,
     save_joblib, save_json,
@@ -43,6 +44,7 @@ def load_v2_training_dataset() -> "pd.DataFrame":
 
 def train_catboost_model() -> dict:
     import pandas as pd
+    print(f"[train_catboost_model] runtime: {describe_hardware()}")
     dataset      = load_v2_training_dataset()
     feature_cols = [c for c in dataset.columns
                     if c not in NON_FEATURE_COLUMNS and c != "hidden_suspicious_label"]
@@ -64,6 +66,7 @@ def train_catboost_model() -> dict:
         cat_features=cat_indices,
         random_seed=42,
         verbose=0,
+        **catboost_runtime_params(),
     )
     model.fit(x_train, y_train)
 

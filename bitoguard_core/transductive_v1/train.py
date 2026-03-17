@@ -10,6 +10,7 @@ from typing import Any
 
 import pandas as pd
 
+from hardware import describe_hardware, fold_worker_count, fold_worker_env
 from official.rules import evaluate_official_rules
 from transductive_v1.branch_tabular import fit_catboost
 from transductive_v1.common import RANDOM_SEED, bundle_path, feature_path, model_path, report_path, save_json, save_pickle
@@ -158,6 +159,7 @@ def run_primary_base_oof(
     gc.collect()
     split_path = feature_path(split_artifact_name, cutoff_tag)
     primary_split.to_parquet(split_path, index=False)
+    job_specs: list[dict[str, Any]] = []
     for fold_id in sorted(int(value) for value in primary_split[fold_column].dropna().unique()):
         output_path = feature_path(f"{split_artifact_name}_fold_{fold_id}_oof", cutoff_tag)
         job_path = feature_path(f"{split_artifact_name}_fold_{fold_id}_job", cutoff_tag).with_suffix(".json")
@@ -171,27 +173,67 @@ def run_primary_base_oof(
             "base_b_feature_columns": base_b_feature_columns,
         }
         job_path.write_text(json.dumps(job_config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        subprocess.run(
-            [sys.executable, "-m", "transductive_v1.fold_worker", "--job-config", str(job_path)],
-            cwd=str(Path(__file__).resolve().parents[1]),
-            check=True,
-        )
-        fold_frame = pd.read_parquet(output_path)
-        rows.append(fold_frame)
-        fold_summaries.append(
+        job_specs.append(
             {
-                "primary_fold": int(fold_id),
+                "fold_id": fold_id,
+                "job_path": job_path,
+                "output_path": output_path,
                 "train_rows": int(primary_split[primary_split[fold_column] != fold_id]["user_id"].nunique()),
                 "valid_rows": int(primary_split[primary_split[fold_column] == fold_id]["user_id"].nunique()),
-                "positive_count": int(fold_frame["status"].astype(int).eq(1).sum()),
-                "negative_count": int(fold_frame["status"].astype(int).eq(0).sum()),
             }
         )
-        if output_path.exists():
-            output_path.unlink()
-        if job_path.exists():
-            job_path.unlink()
-        gc.collect()
+
+    worker_count = min(fold_worker_count(), max(1, len(job_specs)))
+    worker_env = fold_worker_env()
+    print(f"[transductive_v1] fold workers={worker_count} ({describe_hardware()})")
+
+    try:
+        if worker_count <= 1 or len(job_specs) <= 1:
+            for job in job_specs:
+                subprocess.run(
+                    [sys.executable, "-m", "transductive_v1.fold_worker", "--job-config", str(job["job_path"])],
+                    cwd=str(Path(__file__).resolve().parents[1]),
+                    check=True,
+                    env=worker_env,
+                )
+        else:
+            for start in range(0, len(job_specs), worker_count):
+                batch = job_specs[start:start + worker_count]
+                processes: list[tuple[dict[str, Any], subprocess.Popen[Any]]] = []
+                for job in batch:
+                    process = subprocess.Popen(
+                        [sys.executable, "-m", "transductive_v1.fold_worker", "--job-config", str(job["job_path"])],
+                        cwd=str(Path(__file__).resolve().parents[1]),
+                        env=worker_env,
+                    )
+                    processes.append((job, process))
+                for job, process in processes:
+                    return_code = process.wait()
+                    if return_code != 0:
+                        raise subprocess.CalledProcessError(
+                            return_code,
+                            [sys.executable, "-m", "transductive_v1.fold_worker", "--job-config", str(job["job_path"])],
+                        )
+
+        for job in job_specs:
+            fold_frame = pd.read_parquet(job["output_path"])
+            rows.append(fold_frame)
+            fold_summaries.append(
+                {
+                    "primary_fold": int(job["fold_id"]),
+                    "train_rows": int(job["train_rows"]),
+                    "valid_rows": int(job["valid_rows"]),
+                    "positive_count": int(fold_frame["status"].astype(int).eq(1).sum()),
+                    "negative_count": int(fold_frame["status"].astype(int).eq(0).sum()),
+                }
+            )
+            gc.collect()
+    finally:
+        for job in job_specs:
+            if job["output_path"].exists():
+                job["output_path"].unlink()
+            if job["job_path"].exists():
+                job["job_path"].unlink()
     oof = pd.concat(rows, ignore_index=True).sort_values("user_id").reset_index(drop=True)
     return oof, fold_summaries, base_a_feature_columns, base_b_feature_columns
 

@@ -139,12 +139,20 @@ class TestTrustedOnlyMode:
             source_url="http://localhost",
             db_path=Path("/tmp/test.duckdb"),
             artifact_dir=Path("/tmp"),
+            aws_event_raw_dir=Path("/tmp/raw"),
+            aws_event_clean_dir=Path("/tmp/clean"),
             label_source="hidden_suspicious_label",
             internal_api_port=8001,
             cors_origins=["http://localhost:3000"],
             graph_max_nodes=120,
             graph_max_edges=240,
             graph_trusted_only=trusted_only,
+            api_key=None,
+            m0_enabled=True,
+            m1_enabled=True,
+            m3_enabled=True,
+            m4_enabled=True,
+            m5_enabled=False,
         )
 
     def test_config_default_is_trusted_only(self):

@@ -7,6 +7,11 @@ from sklearn.ensemble import IsolationForest
 
 from config import load_settings
 from db.store import DuckDBStore
+from models.anomaly_common import (
+    fit_anomaly_transform_metadata,
+    load_anomaly_source_table,
+    load_user_cohort_frame,
+)
 from models.common import forward_date_splits, model_dir, save_iforest, save_json
 
 
@@ -112,35 +117,37 @@ def build_raw_iforest_features(
 
 
 def train_anomaly_model() -> dict:
-    """Train IsolationForest on raw user-level aggregates (all users).
+    """Train IsolationForest using the anomaly_common 47-feature pipeline.
 
-    Uses first-order aggregates from canonical tables instead of engineered
-    features, so the anomaly signal is orthogonal to the supervised stacker.
-    All users are included — IsolationForest finds statistical outliers on its
-    own without any label guidance. contamination=0.05 is a domain estimate
-    used only to set the predict() threshold, not to filter training data.
+    Uses feature_snapshots_user_anomaly_30d (built by build_anomaly_feature_snapshots)
+    as the training source so the model is compatible with apply_anomaly_model().
+    Saves full transform metadata (clip_bounds, cohort_stats, global_stats,
+    score_reference_quantiles) alongside the model.
     """
-    settings = load_settings()
-    store = DuckDBStore(settings.db_path)
+    import numpy as np
 
-    # Use the latest available date as snapshot
-    max_date_df = store.fetch_df(
-        "SELECT MAX(occurred_at) AS max_dt FROM canonical.fiat_transactions"
+    from models.anomaly_common import (
+        ANOMALY_MODEL_FEATURE_COLUMNS,
+        REFERENCE_QUANTILES,
+        transform_anomaly_source_frame,
     )
-    raw_max = max_date_df["max_dt"].iloc[0]
-    if raw_max is None:
-        raise ValueError("canonical.fiat_transactions is empty — run 'make sync' first.")
-    snapshot_date = pd.Timestamp(raw_max).normalize()
 
-    # Build raw features for ALL users — no label filtering.
-    # IsolationForest is purely unsupervised: it isolates statistically rare
-    # points regardless of whether they are known positives.
-    features_df = build_raw_iforest_features(store, snapshot_date)
-    if features_df.empty:
-        raise ValueError("No users found for IsolationForest training.")
+    source_frame = load_anomaly_source_table()
+    if source_frame.empty:
+        raise ValueError(
+            "feature_snapshots_user_anomaly_30d is empty — run build_anomaly_feature_snapshots() first."
+        )
 
-    X = features_df[_RAW_FEATURE_COLUMNS].fillna(0).values
-    print(f"IsolationForest training: {len(X):,} users, {len(_RAW_FEATURE_COLUMNS)} raw features")
+    user_cohort_frame = load_user_cohort_frame()
+
+    # Use latest snapshot date
+    latest_date = source_frame["snapshot_date"].max()
+    latest = source_frame[source_frame["snapshot_date"] == latest_date].copy().reset_index(drop=True)
+
+    transform_meta = fit_anomaly_transform_metadata(latest, user_cohort_frame)
+    X_frame = transform_anomaly_source_frame(latest, user_cohort_frame, transform_meta)
+    X = X_frame.values
+    print(f"IsolationForest training: {len(X):,} users, {X.shape[1]} features")
 
     model = IsolationForest(
         n_estimators=200,
@@ -149,16 +156,25 @@ def train_anomaly_model() -> dict:
     )
     model.fit(X)
 
+    # Compute reference quantile table for score-to-percentile mapping
+    raw_scores = -model.score_samples(X)
+    score_reference_quantiles = {
+        "quantiles": REFERENCE_QUANTILES.tolist(),
+        "values": np.quantile(raw_scores, REFERENCE_QUANTILES).tolist(),
+    }
+
     version = f"iforest_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
     model_path = model_dir() / f"{version}.joblib"
     meta_path  = model_dir() / f"{version}.json"
     save_iforest(model, model_path)
+
     save_json(
         {
             "model_version": version,
-            "raw_feature_columns": _RAW_FEATURE_COLUMNS,
-            "snapshot_date": str(snapshot_date.date()),
+            "snapshot_date": str(latest_date.date() if hasattr(latest_date, "date") else latest_date),
             "n_training_users": int(len(X)),
+            "score_reference_quantiles": score_reference_quantiles,
+            **transform_meta,
         },
         meta_path,
     )

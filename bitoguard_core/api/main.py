@@ -16,9 +16,11 @@ from pydantic import BaseModel, model_validator
 
 from config import load_settings
 from db.store import DuckDBStore
+from features.build_anomaly_features import build_anomaly_feature_snapshots
 from features.build_features import build_feature_snapshots
 from features.graph_features import build_graph_features
 from models.score import score_latest_snapshot
+from models.score_official import ingest_official_scores
 from models.stacker import train_stacker
 from pipeline.sync import run_sync
 from services.alert_engine import apply_case_decision
@@ -114,15 +116,25 @@ def _records_to_dicts(frame: pd.DataFrame) -> list[dict[str, Any]]:
 
 def _load_validation_metrics(store: DuckDBStore) -> dict[str, Any]:
     settings = load_settings()
+    fallback_path = settings.artifact_dir / "validation_report.json"
+    fallback: dict[str, Any] = (
+        json.loads(fallback_path.read_text(encoding="utf-8"))
+        if fallback_path.exists() else {}
+    )
+
     reports = store.read_table("ops.validation_reports")
     if not reports.empty:
         latest = reports.sort_values("created_at", ascending=False).iloc[0]
         payload = latest["metrics_json"]
-        return json.loads(payload) if isinstance(payload, str) else payload
+        db_report: dict[str, Any] = json.loads(payload) if isinstance(payload, str) else payload
+        # Back-fill any fields from the file report that are absent in the DB row.
+        # This preserves newer fields (precision_at_k, calibration, feature_importance)
+        # when the stored report was created before those fields were added.
+        merged = {**fallback, **db_report}
+        return merged
 
-    fallback_path = settings.artifact_dir / "validation_report.json"
-    if fallback_path.exists():
-        return json.loads(fallback_path.read_text(encoding="utf-8"))
+    if fallback:
+        return fallback
 
     raise HTTPException(status_code=404, detail="validation report not found")
 
@@ -348,10 +360,12 @@ async def run_pipeline(request: PipelineRunRequest = None) -> dict[str, Any]:
 def rebuild_features() -> dict[str, int]:
     graph_df = build_graph_features()
     day_df, rolling_df = build_feature_snapshots()
+    anomaly_df = build_anomaly_feature_snapshots()
     return {
         "graph_feature_rows": len(graph_df),
         "user_day_rows": len(day_df),
         "user_30d_rows": len(rolling_df),
+        "user_anomaly_rows": len(anomaly_df),
     }
 
 
@@ -368,7 +382,11 @@ def model_train() -> dict[str, Any]:
 
 @app.post("/model/score", dependencies=[Depends(_require_api_key)])
 def model_score() -> dict[str, Any]:
-    predictions = score_latest_snapshot()
+    settings = load_settings()
+    if settings.model_backend == "official":
+        predictions = ingest_official_scores()
+    else:
+        predictions = score_latest_snapshot()
     return {"rows": len(predictions), "high_risk": int((predictions["risk_level"].isin(["high", "critical"])).sum())}
 
 

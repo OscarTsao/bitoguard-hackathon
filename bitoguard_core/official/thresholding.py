@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
+from sklearn.metrics import confusion_matrix, f1_score, fbeta_score, precision_score, recall_score
 
 from official.common import RANDOM_SEED
 
@@ -12,7 +12,7 @@ def _metrics_at_threshold(labels: np.ndarray, probabilities: np.ndarray, thresho
     preds = (probabilities >= threshold).astype(int)
     precision = float(precision_score(labels, preds, zero_division=0))
     recall = float(recall_score(labels, preds, zero_division=0))
-    f1 = float(f1_score(labels, preds, zero_division=0))
+    f1 = float(fbeta_score(labels, preds, beta=1.0, zero_division=0))
     tn, fp, fn, tp = confusion_matrix(labels, preds, labels=[0, 1]).ravel()
     fpr = float(fp / max(1, fp + tn))
     predicted_positive_rate = float(preds.mean())
@@ -35,16 +35,17 @@ def _group_bootstrap_f1(
     group_ids: np.ndarray | None,
     threshold: float,
     n_bootstrap: int,
+    beta: float = 1.0,
 ) -> tuple[float, float]:
     preds = (probabilities >= threshold).astype(int)
     if group_ids is None:
-        f1 = float(f1_score(labels, preds, zero_division=0))
+        f1 = float(fbeta_score(labels, preds, beta=beta, zero_division=0))
         return f1, 0.0
 
     rng = np.random.default_rng(RANDOM_SEED)
     unique_groups = np.unique(group_ids)
     if len(unique_groups) <= 1:
-        f1 = float(f1_score(labels, preds, zero_division=0))
+        f1 = float(fbeta_score(labels, preds, beta=beta, zero_division=0))
         return f1, 0.0
 
     scores: list[float] = []
@@ -53,9 +54,9 @@ def _group_bootstrap_f1(
         mask = np.isin(group_ids, sampled_groups)
         if mask.sum() == 0:
             continue
-        scores.append(float(f1_score(labels[mask], preds[mask], zero_division=0)))
+        scores.append(float(fbeta_score(labels[mask], preds[mask], beta=beta, zero_division=0)))
     if not scores:
-        f1 = float(f1_score(labels, preds, zero_division=0))
+        f1 = float(fbeta_score(labels, preds, beta=beta, zero_division=0))
         return f1, 0.0
     return float(np.mean(scores)), float(np.std(scores))
 
@@ -85,6 +86,7 @@ def search_threshold(
     y_true: np.ndarray,
     p_cal: np.ndarray,
     group_ids: np.ndarray | None,
+    beta: float = 1.0,
     constraints: dict[str, float | None] | None = None,
     n_bootstrap: int = 50,
     positive_rate_sanity_bounds: tuple[float, float] = (0.005, 0.10),
@@ -101,7 +103,7 @@ def search_threshold(
     rows: list[dict[str, Any]] = []
     for threshold in _threshold_candidates(probabilities):
         metrics = _metrics_at_threshold(labels, probabilities, threshold)
-        mean_f1, std_f1 = _group_bootstrap_f1(labels, probabilities, groups, threshold, n_bootstrap)
+        mean_f1, std_f1 = _group_bootstrap_f1(labels, probabilities, groups, threshold, n_bootstrap, beta=beta)
         row = {
             "threshold": float(threshold),
             **metrics,
@@ -137,4 +139,5 @@ def search_threshold(
             "tie_breakers": ["bootstrap_std_f1", "fpr", "precision"],
             "used_feasible_subset": bool(feasible),
         },
+        "beta": float(beta),
     }

@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from fastapi.testclient import TestClient
 
 from api.main import app
@@ -53,6 +55,7 @@ def test_anomaly_percentile_scoring_is_order_stable(tmp_path: Path, monkeypatch)
         assert original_map[user_id] == shuffled_map[user_id]
 
 
+@pytest.mark.integration
 def test_features_rebuild_returns_anomaly_rows(tmp_path: Path, monkeypatch) -> None:
     _configure_temp_db(tmp_path, monkeypatch)
     client = TestClient(app)

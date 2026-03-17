@@ -22,6 +22,7 @@ from features.ip_features       import compute_ip_features
 from features.sequence_features import compute_sequence_features
 from features.graph_bipartite   import compute_bipartite_features
 from features.rule_features     import compute_rule_features
+from features.typology_features import compute_typology_features
 
 FEATURE_VERSION_V2 = "v2"
 
@@ -210,6 +211,20 @@ def build_v2_features(
         base["rule_volume_signal"] = (
             base["rule_hit_count"] * (base["crypto_wdr_twd_sum"].clip(upper=1e7) / 1e6)
         ).clip(upper=20.0)
+
+    # --- Module: FATF AML typology signals ---
+    # Inserted after cross-channel derived features so xch_cashout_ratio_7d/lifetime
+    # are already present. Best-effort: failures result in missing columns filled to 0.
+    try:
+        typology_feats = compute_typology_features(base)
+        if typology_feats is not None and not typology_feats.empty:
+            for col in typology_feats.columns:
+                if col == "user_id":
+                    continue
+                if col not in base.columns:
+                    base[col] = typology_feats[col]
+    except Exception:
+        pass  # Typology features are best-effort; missing -> 0 via fillna below
 
     # Rule signals: evaluate M1 rules on the assembled v2 frame (including cross-channel)
     # and add outputs as features. This lets the stacker learn interactions between

@@ -206,27 +206,67 @@ def test_secondary_split_keeps_hard_components_together(tmp_path: Path, monkeypa
     assert wallet_folds == 1
 
 
-def test_bundle_roundtrip_and_threshold_selection(tmp_path: Path, monkeypatch) -> None:
-    _, artifact_dir = _prepare_official_subset(tmp_path, monkeypatch)
+def test_bundle_roundtrip_and_path_remap(tmp_path: Path, monkeypatch) -> None:
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("BITOGUARD_ARTIFACT_DIR", str(artifact_dir))
+    model_dir = artifact_dir / "models"
+    feature_dir = artifact_dir / "official_features"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    for path in (
+        model_dir / "a.pkl",
+        model_dir / "b.pkl",
+        model_dir / "graph.pt",
+        model_dir / "stacker.pkl",
+        model_dir / "calibrator.pkl",
+        model_dir / "official_transductive.json",
+        feature_dir / "official_oof_predictions.parquet",
+        feature_dir / "official_primary_split.parquet",
+        feature_dir / "official_primary_transductive_split_full.parquet",
+        feature_dir / "official_secondary_oof_predictions_full.parquet",
+    ):
+        path.touch()
     bundle = {
         "bundle_version": "bundle_test",
         "selected_model": "stacked_transductive",
         "primary_validation_protocol": {"mode": "label_mask_transductive_cv"},
-        "base_model_paths": {"base_a_catboost": "a.pkl", "base_b_catboost": "b.pkl"},
-        "graph_model_path": "graph.pt",
-        "stacker_path": "stacker.pkl",
+        "base_model_paths": {
+            "base_a_catboost": "/foreign/machine/a.pkl",
+            "base_b_catboost": "/foreign/machine/b.pkl",
+        },
+        "graph_model_path": "/foreign/machine/graph.pt",
+        "stacker_path": "/foreign/machine/stacker.pkl",
         "shadow_protocol": {"mode": "secondary_only"},
         "grouping_params": {},
-        "calibrator": None,
+        "calibrator": {"calibrator_path": "/foreign/machine/calibrator.pkl"},
         "selected_threshold": None,
+        "oof_predictions_path": "/foreign/machine/official_oof_predictions.parquet",
+        "primary_split_path": "/foreign/machine/official_primary_split.parquet",
+        "primary_labeled_split_path": "/foreign/machine/official_primary_transductive_split_full.parquet",
+        "model_meta_path": "/foreign/machine/official_transductive.json",
+        "secondary_stress_summary": {
+            "secondary_oof_predictions_path": "/foreign/machine/official_secondary_oof_predictions_full.parquet",
+        },
     }
     bundle_path = save_selected_bundle(bundle)
     loaded = load_selected_bundle(bundle_path, require_ready=False)
     assert loaded["bundle_version"] == "bundle_test"
+    assert loaded["base_model_paths"]["base_a_catboost"] == str(model_dir / "a.pkl")
+    assert loaded["graph_model_path"] == str(model_dir / "graph.pt")
+    assert loaded["stacker_path"] == str(model_dir / "stacker.pkl")
+    assert loaded["calibrator"]["calibrator_path"] == str(model_dir / "calibrator.pkl")
+    assert loaded["oof_predictions_path"] == str(feature_dir / "official_oof_predictions.parquet")
+    assert loaded["primary_split_path"] == str(feature_dir / "official_primary_split.parquet")
+    assert loaded["primary_labeled_split_path"] == str(feature_dir / "official_primary_transductive_split_full.parquet")
+    assert loaded["secondary_stress_summary"]["secondary_oof_predictions_path"] == str(feature_dir / "official_secondary_oof_predictions_full.parquet")
+    assert loaded["model_meta_path"] == str(model_dir / "official_transductive.json")
     with pytest.raises(ValueError):
         load_selected_bundle(bundle_path, require_ready=True)
     assert bundle_path == artifact_dir / "official_bundle.json"
 
+
+def test_threshold_selection_returns_valid_choice() -> None:
     probabilities = np.array([0.05, 0.10, 0.22, 0.35, 0.40, 0.68, 0.82, 0.91], dtype=float)
     labels = np.array([0, 0, 0, 0, 1, 1, 1, 1], dtype=int)
     report, calibrator, calibrated = choose_best_calibration_and_threshold(probabilities, labels, np.array([1, 1, 2, 2, 3, 3, 4, 4]))

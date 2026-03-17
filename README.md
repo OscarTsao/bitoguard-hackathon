@@ -1,6 +1,14 @@
 # BitoGuard — Exchange-Centric AML Risk Detection System
 
-BitoGuard is a production-minded Anti-Money Laundering (AML) / fraud-risk detection system built over the BitoPro AWS-event data model. It implements a complete 6-module architecture for detecting, explaining, and monitoring suspicious activity on a cryptocurrency exchange.
+BitoGuard is a production-minded Anti-Money Laundering (AML) / fraud-risk detection system built over the BitoPro AWS-event data model. The repository now includes the main backend/frontend stack, competition-aligned official pipelines, a mock upstream API, and sample or simulated datasets for offline development.
+
+## Repo Layout
+
+- `bitoguard_core/`: main Python backend, training and scoring code, official experiment pipeline in `official/`, transductive research pipeline in `transductive_v1/`, and tracked outputs in `artifacts/`
+- `bitoguard_frontend/`: Next.js App Router frontend for alerts, graph, and model operations
+- `bitoguard_mock_api/`: read-only FastAPI mock of the upstream source API backed by `bitoguard_sim_output/`
+- `bitoguard_sample_output/`, `bitoguard_sim_output/`, `bitoguard_simulator/`, `data/aws_event/`: sample, simulated, and organizer-supplied offline data assets
+- `infra/aws/`, `deploy/`, `docs/`: Terraform, deployment scripts, and runbooks
 
 ## Architecture Overview
 
@@ -16,24 +24,20 @@ BitoGuard is a production-minded Anti-Money Laundering (AML) / fraud-risk detect
 ## Quick Start
 
 ```bash
-# Start everything with Docker
-cp deploy/.env.compose.example .env
-docker compose up --build
-
-# Or run locally
-cd bitoguard_core
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
-
-# Run the backend test suite
+# Backend setup and validation
+make setup
 make test
 
-# Full pipeline
+# Start local services in separate terminals
+make serve
+make frontend
+
+# Core data/model pipeline
 make sync && make features && make train && make score && make drift
 
-# API server
-PYTHONPATH=. uvicorn api.main:app --reload --port 8001
+# Or start the full stack with Docker
+cp deploy/.env.compose.example .env
+docker compose up --build
 ```
 
 ## Services
@@ -42,26 +46,29 @@ PYTHONPATH=. uvicorn api.main:app --reload --port 8001
 |---------|------|-------------|
 | `bitoguard_core` | 8001 | FastAPI — pipeline, model, alerts, graph, metrics |
 | `bitoguard_frontend` | 3000 | Next.js — alerts dashboard, model ops, graph explorer |
+| `bitoguard_mock_api` | 8000 | Optional FastAPI mock of the upstream source API for offline testing |
 
 ### Frontend
 
 ```bash
-cd bitoguard_frontend && npm install && npm run dev
+cd bitoguard_frontend && npm ci && npm run dev
 # Open http://localhost:3000
 ```
 
-## Makefile Targets (run from `bitoguard_core/`)
+## Makefile Targets (run from the repo root)
 
 ```bash
-make test        # Run all 124 tests
+make setup       # Create bitoguard_core/.venv and install backend deps
+make test        # Run the backend pytest suite
 make sync        # Sync live BitoPro data
 make features    # Build feature snapshots + graph features
+make features-v2 # Build v2 feature snapshots (~155 columns per user)
 make train       # Train CatBoost + LightGBM stacker (v2 features)
-make ablation    # Module ablation study
 make refresh     # Incremental refresh (watermark-bounded)
 make score       # Score latest snapshot → alerts
 make drift       # Feature distribution drift check
-make cases       # Generate SHAP case reports
+make serve       # Start backend API on :8001
+make frontend    # Start Next.js app on :3000
 make docker-build
 make docker-up
 ```
@@ -96,12 +103,14 @@ make docker-up
 | Graph recovery plan | `docs/GRAPH_RECOVERY_PLAN.md` |
 | ML pipeline summary | `docs/ML_PIPELINE_SUMMARY.md` |
 | SageMaker deployment guide | `docs/SAGEMAKER_DEPLOYMENT_GUIDE.md` |
+| Latest official experiment summary | `OFFICIAL_EXPERIMENT_SUMMARY_20260317.md` |
 
 ## Validation
 
 ```
 make test-quick
 cd bitoguard_frontend && npm run lint && npm run build
+cd bitoguard_mock_api && python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt && pytest
 ```
 
 ## AWS Deployment
@@ -129,6 +138,7 @@ terraform output alb_url
 
 - [Deployment Guide](docs/SAGEMAKER_DEPLOYMENT_GUIDE.md) - Complete AWS/SageMaker documentation
 - [Architecture](infra/aws/ARCHITECTURE.md) - AWS architecture deep dive
+- [Terraform Guide](infra/aws/README.md) - Infrastructure setup and module breakdown
 
 ### What's Included
 
@@ -139,4 +149,4 @@ terraform output alb_url
 - **Security**: Private subnets, security groups, encrypted storage
 - **Cost**: ~$190/month (optimizable to $50-140)
 
-See [README_AWS.md](README_AWS.md) for complete AWS deployment documentation.
+See [infra/aws/README.md](infra/aws/README.md) and [docs/SAGEMAKER_DEPLOYMENT_GUIDE.md](docs/SAGEMAKER_DEPLOYMENT_GUIDE.md) for the current deployment documentation.

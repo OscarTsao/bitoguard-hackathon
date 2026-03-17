@@ -94,6 +94,10 @@ FEATURE_TABLE_SPECS: tuple[TableSpec, ...] = (
     TableSpec("features", "feature_snapshots_v2", "feature_snapshot_id", (
         ("feature_snapshot_id", "VARCHAR"), ("user_id", "VARCHAR"), ("snapshot_date", "DATE"), ("feature_version", "VARCHAR")
     )),
+    # anomaly: IsolationForest scores + robust z-scores per user
+    TableSpec("features", "feature_snapshots_user_anomaly_30d", "feature_snapshot_id", (
+        ("feature_snapshot_id", "VARCHAR"), ("user_id", "VARCHAR"), ("snapshot_date", "DATE"), ("feature_version", "VARCHAR")
+    )),
 )
 
 

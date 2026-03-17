@@ -12,6 +12,7 @@ from sklearn.metrics import average_precision_score
 from official.calibration import BetaCalibrator, IsotonicCalibrator, SigmoidCalibrator
 from official.common import RANDOM_SEED, load_official_paths, save_pickle
 from official.thresholding import search_threshold
+from models.pu_learning import estimate_c, pu_adjust
 
 
 class IdentityCalibrator:
@@ -73,6 +74,7 @@ def choose_best_calibration_and_threshold(
     raw_probabilities: np.ndarray,
     labels: np.ndarray,
     group_ids: np.ndarray | None,
+    use_pu_adjustment: bool = True,
 ) -> tuple[dict[str, Any], Any, np.ndarray]:
     labels = np.asarray(labels, dtype=int)
     raw_probabilities = np.asarray(raw_probabilities, dtype=float)
@@ -84,15 +86,26 @@ def choose_best_calibration_and_threshold(
     for method, builder in CALIBRATION_CANDIDATES.items():
         calibrator = builder().fit(raw_probabilities, labels)
         calibrated = calibrator.predict(raw_probabilities)
-        threshold_report = search_threshold(labels, calibrated, group_ids)
+
+        # PU Learning adjustment (Elkan-Noto 2008): rescale calibrated
+        # probabilities to account for unlabeled true positives.
+        if use_pu_adjustment:
+            c_estimate = estimate_c(calibrated, labels)
+            pu_calibrated = pu_adjust(calibrated, c_estimate)
+        else:
+            c_estimate = None
+            pu_calibrated = calibrated
+
+        threshold_report = search_threshold(labels, pu_calibrated, group_ids, beta=2.0)
         selected_row = threshold_report["selected_row"]
-        ap = float(average_precision_score(labels, calibrated))
+        ap = float(average_precision_score(labels, pu_calibrated))
         candidate_report = {
             "method": method,
             "average_precision": ap,
             "selected_threshold": float(threshold_report["selected_threshold"]),
             "selected_row": dict(selected_row),
             "threshold_report": threshold_report,
+            "pu_c_estimate": float(c_estimate) if c_estimate is not None else None,
         }
         candidate_rows.append(candidate_report)
         rank = (
@@ -102,10 +115,10 @@ def choose_best_calibration_and_threshold(
         )
         if best_rank is None or rank > best_rank:
             best_rank = rank
-            best_payload = (candidate_report, calibrator, calibrated)
+            best_payload = (candidate_report, calibrator, pu_calibrated, c_estimate)
 
     assert best_payload is not None
-    selected_report, calibrator, calibrated = best_payload
+    selected_report, calibrator, pu_calibrated, c_estimate = best_payload
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     calibrator_path = paths.model_dir / f"official_stacker_calibrator_{selected_report['method']}_{timestamp}.pkl"
     save_pickle(calibrator, calibrator_path)
@@ -120,8 +133,10 @@ def choose_best_calibration_and_threshold(
         "selection_basis": {
             "priority": ["best_bootstrap_mean_f1", "best_average_precision", "lowest_fpr"],
         },
+        "pu_c_estimate": float(c_estimate) if c_estimate is not None else None,
+        "pu_adjustment_enabled": use_pu_adjustment,
     }
-    return report, calibrator, calibrated
+    return report, calibrator, pu_calibrated
 
 
 def save_stacker_model(model: LogisticRegression, path: Path) -> None:

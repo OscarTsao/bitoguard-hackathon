@@ -16,6 +16,8 @@ class Settings:
     source_url: str
     db_path: Path
     artifact_dir: Path
+    aws_event_raw_dir: Path
+    aws_event_clean_dir: Path
     label_source: str
     internal_api_port: int
     cors_origins: list[str]
@@ -36,6 +38,8 @@ class Settings:
     m3_enabled: bool
     m4_enabled: bool
     m5_enabled: bool
+    # Model backend selector: "legacy" (DuckDB stacker) or "official" (pre-computed official pipeline scores).
+    model_backend: str
 
 
 # Graph features disabled by default due to placeholder-device artifact (A7).
@@ -74,12 +78,35 @@ def _env_flag(name: str, default: bool) -> bool:
     return raw.strip().lower() not in {"false", "0", "no", "off"}
 
 
+_LEGAL_MODEL_BACKENDS: frozenset[str] = frozenset({"legacy", "official"})
+
+
+def _validated_model_backend(value: str) -> str:
+    """Return *value* if it is a recognised model backend, otherwise raise ValueError."""
+    normalised = value.strip().lower()
+    if normalised not in _LEGAL_MODEL_BACKENDS:
+        raise ValueError(
+            f"Unrecognised BITOGUARD_MODEL_BACKEND={value!r}. "
+            f"Legal values: {sorted(_LEGAL_MODEL_BACKENDS)}"
+        )
+    return normalised
+
+
 def load_settings() -> Settings:
     artifact_dir = Path(os.getenv("BITOGUARD_ARTIFACT_DIR", str(DEFAULT_ARTIFACT_DIR))).resolve()
     artifact_dir.mkdir(parents=True, exist_ok=True)
     db_path = Path(os.getenv("BITOGUARD_DB_PATH", str(DEFAULT_DB_PATH))).resolve()
     if not db_path.parent.exists():
         db_path.parent.mkdir(parents=True, exist_ok=True)
+    aws_event_root = ROOT_DIR.parent / "data" / "aws_event"
+    aws_event_raw_dir = Path(
+        os.getenv("BITOGUARD_AWS_EVENT_RAW_DIR", str(aws_event_root / "raw"))
+    ).resolve()
+    aws_event_clean_dir = Path(
+        os.getenv("BITOGUARD_AWS_EVENT_CLEAN_DIR", str(aws_event_root / "clean"))
+    ).resolve()
+    aws_event_raw_dir.mkdir(parents=True, exist_ok=True)
+    aws_event_clean_dir.mkdir(parents=True, exist_ok=True)
     graph_trusted_raw = os.getenv("BITOGUARD_GRAPH_FEATURES_TRUSTED_ONLY", "true").lower()
     cors_raw = os.getenv("BITOGUARD_CORS_ORIGINS", "http://localhost:3000")
     cors_origins = [origin.strip() for origin in cors_raw.split(",") if origin.strip()]
@@ -87,6 +114,8 @@ def load_settings() -> Settings:
         source_url=os.getenv("BITOGUARD_SOURCE_URL", DEFAULT_SOURCE_URL).rstrip("/"),
         db_path=db_path,
         artifact_dir=artifact_dir,
+        aws_event_raw_dir=aws_event_raw_dir,
+        aws_event_clean_dir=aws_event_clean_dir,
         label_source=os.getenv("BITOGUARD_LABEL_SOURCE", "hidden_suspicious_label"),
         internal_api_port=int(os.getenv("BITOGUARD_INTERNAL_API_PORT", "8001")),
         cors_origins=cors_origins,
@@ -100,4 +129,5 @@ def load_settings() -> Settings:
         # M4: IsolationForest trained on raw canonical aggregates (orthogonal to stacker).
         m4_enabled=_env_flag("BITOGUARD_M4_ENABLED", True),
         m5_enabled=_env_flag("BITOGUARD_M5_ENABLED", False),
+        model_backend=_validated_model_backend(os.getenv("BITOGUARD_MODEL_BACKEND", "legacy")),
     )

@@ -183,3 +183,13 @@ def load_joblib(path: Path) -> object:
     if hashlib.sha256(file_bytes).hexdigest() != expected:
         raise ValueError(f"Integrity check FAILED for {path}. Retrain.")
     return joblib.load(io.BytesIO(file_bytes))
+
+
+def load_pickle(path: Path) -> Any:
+    """Load a pickle or joblib file. Alias for tests and ablation scripts."""
+    if Path(path).suffix == ".joblib":
+        import joblib
+        return joblib.load(path)
+    import pickle
+    with open(path, "rb") as handle:
+        return pickle.load(handle)

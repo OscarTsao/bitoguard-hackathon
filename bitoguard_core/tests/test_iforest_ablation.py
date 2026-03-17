@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from features.build_anomaly_features import build_anomaly_feature_snapshots
 from features.build_features import build_feature_snapshots
 from features.graph_features import build_graph_features
@@ -11,6 +13,7 @@ from models.ablate_iforest import run_iforest_ablation
 from tests.test_smoke import _configure_temp_db
 
 
+@pytest.mark.integration
 def test_iforest_ablation_writes_report(tmp_path: Path, monkeypatch) -> None:
     _configure_temp_db(tmp_path, monkeypatch)
     build_graph_features()

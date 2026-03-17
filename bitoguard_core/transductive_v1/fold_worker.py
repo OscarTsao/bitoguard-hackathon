@@ -2,7 +2,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
+
+# Cap each worker's BLAS/OpenMP threads to avoid core oversubscription when
+# multiple fold workers run in parallel.
+_worker_threads = os.getenv("BITOGUARD_CPU_THREADS")
+if _worker_threads:
+    for _var in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+        os.environ.setdefault(_var, _worker_threads)
 
 import pandas as pd
 

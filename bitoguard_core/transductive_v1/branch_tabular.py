@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from catboost import CatBoostClassifier
 
+from hardware import catboost_runtime_params
 from transductive_v1.common import RANDOM_SEED
 
 
@@ -69,6 +70,7 @@ def fit_catboost(
             validation_probabilities=validation_probabilities,
         )
     class_weights = [1.0, negatives / positives]
+    runtime_params = catboost_runtime_params()
     model = CatBoostClassifier(
         loss_function="Logloss",
         eval_metric="Logloss",
@@ -80,6 +82,7 @@ def fit_catboost(
         class_weights=class_weights,
         used_ram_limit=_resolved_catboost_ram_limit(),
         allow_writing_files=False,
+        **runtime_params,
     )
     validation_probabilities: list[float] | None = None
     train_x = train_frame[usable_columns].copy()

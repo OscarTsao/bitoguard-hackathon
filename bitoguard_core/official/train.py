@@ -76,7 +76,12 @@ def _label_frame(dataset: pd.DataFrame) -> pd.DataFrame:
 
 
 def _label_free_feature_columns(dataset: pd.DataFrame) -> list[str]:
-    return [column for column in dataset.columns if column not in LABEL_FREE_EXCLUDED_COLUMNS]
+    # Exclude columns that are fully null - these carry zero signal and cause CatBoost
+    # to crash when detected as categorical (object dtype with all-None values).
+    # All-null columns arise when new windowed features were added to the registry
+    # but the stored parquet was built before they were populated.
+    non_null = {col for col in dataset.columns if not dataset[col].isna().all()}
+    return [column for column in dataset.columns if column not in LABEL_FREE_EXCLUDED_COLUMNS and column in non_null]
 
 
 def _transductive_feature_columns(frame: pd.DataFrame) -> list[str]:
@@ -117,15 +122,31 @@ def run_transductive_oof_pipeline(
         train_transductive = with_transductive_frame[with_transductive_frame["user_id"].astype(int).isin(train_users)].copy()
         valid_transductive = with_transductive_frame[with_transductive_frame["user_id"].astype(int).isin(valid_users)].copy()
 
-        base_a_fit = fit_catboost(train_label_free, valid_label_free, base_a_feature_columns)
+        base_a_fit = fit_catboost(train_label_free, valid_label_free, base_a_feature_columns, focal_gamma=2.0)
         resolved_base_b_columns = base_b_feature_columns or [column for column in train_transductive.columns if column != "user_id"]
-        base_b_fit = fit_catboost(train_transductive, valid_transductive, resolved_base_b_columns)
+        base_b_fit = fit_catboost(train_transductive, valid_transductive, resolved_base_b_columns, focal_gamma=2.0)
+
+        # Sanity check: model probabilities should span a meaningful range.
+        # Near-constant output (all near-zero or all near-one) indicates training failure.
+        if base_a_fit.validation_probabilities:
+            va = np.array(base_a_fit.validation_probabilities)
+            if va.mean() < 1e-4 or va.max() < 0.01:
+                import warnings
+                warnings.warn(f"Base A fold {fold_id}: probabilities collapsed (mean={va.mean():.6f}, max={va.max():.6f})")
+
+        if base_b_fit.validation_probabilities:
+            vb = np.array(base_b_fit.validation_probabilities)
+            if vb.mean() < 1e-4 or vb.max() < 0.01:
+                import warnings
+                warnings.warn(f"Base B fold {fold_id}: probabilities collapsed (mean={vb.mean():.6f}, max={vb.max():.6f})")
+
         graph_fit = train_graphsage_model(
             graph,
             label_frame=label_frame,
             train_user_ids=train_users,
             valid_user_ids=valid_users,
             max_epochs=graph_max_epochs,
+            hidden_dim=128,
         )
 
         fold_frame = valid_label_free[["user_id", "status"]].copy()
@@ -188,8 +209,8 @@ def train_official_model() -> dict[str, Any]:
     train_label_free = label_free_frame[label_free_frame["user_id"].astype(int).isin(labeled_user_ids)].copy()
     train_transductive = with_transductive_frame[with_transductive_frame["user_id"].astype(int).isin(labeled_user_ids)].copy()
 
-    base_a_final = fit_catboost(train_label_free, None, base_a_feature_columns)
-    base_b_final = fit_catboost(train_transductive, None, base_b_feature_columns)
+    base_a_final = fit_catboost(train_label_free, None, base_a_feature_columns, focal_gamma=2.0)
+    base_b_final = fit_catboost(train_transductive, None, base_b_feature_columns, focal_gamma=2.0)
     graph_epochs = int(np.median([item["graph_best_epoch"] + 1 for item in fold_training_meta])) if fold_training_meta else 40
     graph_final = train_graphsage_model(
         graph,
@@ -197,6 +218,7 @@ def train_official_model() -> dict[str, Any]:
         train_user_ids=labeled_user_ids,
         valid_user_ids=None,
         max_epochs=max(FINAL_GRAPH_MIN_EPOCHS, graph_epochs),
+        hidden_dim=128,
     )
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -232,11 +254,11 @@ def train_official_model() -> dict[str, Any]:
         "selected_model": "stacked_transductive",
         "primary_validation_protocol": meta["primary_validation_protocol"],
         "base_model_paths": {
-            "base_a_catboost": str(base_a_path),
-            "base_b_catboost": str(base_b_path),
+            "base_a_catboost": str(base_a_path.relative_to(paths.artifact_dir)),
+            "base_b_catboost": str(base_b_path.relative_to(paths.artifact_dir)),
         },
-        "graph_model_path": str(graph_path),
-        "stacker_path": str(stacker_path),
+        "graph_model_path": str(graph_path.relative_to(paths.artifact_dir)),
+        "stacker_path": str(stacker_path.relative_to(paths.artifact_dir)),
         "stacker_feature_columns": STACKER_FEATURE_COLUMNS,
         "feature_columns_base_a": base_a_feature_columns,
         "feature_columns_base_b": base_b_feature_columns,
