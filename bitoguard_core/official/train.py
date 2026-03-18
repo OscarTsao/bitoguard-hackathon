@@ -72,12 +72,12 @@ LABEL_FREE_EXCLUDED_COLUMNS = {
 # Seeds for multi-seed CatBoost ensemble — averaging 3 seeds reduces Base A variance.
 _BASE_A_SEEDS = [42, 52, 62]
 
-# v32: Reduce GNN fold epochs from 40→10 to save ~25 min training time.
-# GNN Base C achieves AP=0.0334 (barely above random), excluded by BlendEnsemble
-# (AP < 0.08 threshold). The graph over-smooths due to wallet hub nodes (degree>800).
-# Reduced from 10 to 5 epochs: saves ~7.5 min GPU per run with no loss in AP.
-# Validate uses GPU now (task_type override removed), so total pipeline ~20 min faster.
-PRIMARY_GRAPH_MAX_EPOCHS = 5
+# v36: Increased GNN fold epochs from 5→10 after switching to symmetric D^{-1/2}AD^{-1/2}
+# normalization (graph_model.py). The previous source-only D^{-1}A caused hub nodes
+# (degree=849) to dominate all connected nodes' embeddings, making more epochs worse.
+# With symmetric norm, hub influence scales as 1/sqrt(hub_degree * dst_degree), reducing
+# over-smoothing. 10 epochs adds ~7.5 min but may lift GNN from AP=0.033 to AP>0.08.
+PRIMARY_GRAPH_MAX_EPOCHS = 10
 FINAL_GRAPH_MIN_EPOCHS = 5
 
 
@@ -185,7 +185,14 @@ def run_transductive_oof_pipeline(
             validation_probabilities=np.mean(_base_a_val_probs, axis=0).tolist(),
         )
         resolved_base_b_columns = base_b_feature_columns or [column for column in train_transductive.columns if column != "user_id"]
-        base_b_fit = fit_catboost(train_transductive, valid_transductive, resolved_base_b_columns, focal_gamma=2.0, catboost_params=catboost_params)
+        # v36: Force CPU for Base B to avoid GPU CatBoost class_weight collapse.
+        # GPU CatBoost with max_class_weight=7.4 causes near-constant output (~0.19 for ALL users,
+        # positives mean=0.1953 vs negatives mean=0.1900 — diff=0.005). AP=0.0715 → excluded from blend.
+        # CPU CatBoost is numerically stable with class_weights and should recover AP~0.25+ via
+        # the transductive features (PPR, BFS distances, positive-neighbor counts).
+        _base_b_params = dict(catboost_params or {})
+        _base_b_params["task_type"] = "CPU"
+        base_b_fit = fit_catboost(train_transductive, valid_transductive, resolved_base_b_columns, focal_gamma=2.0, catboost_params=_base_b_params)
         base_d_fit = fit_lgbm(train_label_free, valid_label_free, base_a_feature_columns)
         base_e_fit = fit_xgboost(train_label_free, valid_label_free, base_a_feature_columns)
 
@@ -226,10 +233,10 @@ def run_transductive_oof_pipeline(
             _cs_base_probs[int(_uid)] = float(_prob)
         for _uid, _prob in zip(valid_label_free["user_id"].astype(int), _val_a_probs):
             _cs_base_probs[int(_uid)] = float(_prob)
-        _cs_train_labels: dict[int, float] = {
-            int(r["user_id"]): float(r["status"])
-            for _, r in fold_train_labels.iterrows()
-        }
+        _cs_train_labels: dict[int, float] = dict(zip(
+            fold_train_labels["user_id"].astype(int),
+            fold_train_labels["status"].astype(float),
+        ))
         _cs_result = correct_and_smooth(
             graph, _cs_train_labels, _cs_base_probs,
             alpha_correct=0.5, alpha_smooth=0.5,
@@ -338,7 +345,10 @@ def train_official_model() -> dict[str, Any]:
         for _seed in _BASE_A_SEEDS
     ]
     base_a_final = _base_a_final_models[0]  # used for cat_features / feature_columns metadata
-    base_b_final = fit_catboost(train_transductive, None, base_b_feature_columns, focal_gamma=2.0, catboost_params=catboost_params)
+    # v36: CPU mode for Base B final model (same reason as in OOF loop above).
+    _base_b_final_params = dict(catboost_params or {})
+    _base_b_final_params["task_type"] = "CPU"
+    base_b_final = fit_catboost(train_transductive, None, base_b_feature_columns, focal_gamma=2.0, catboost_params=_base_b_final_params)
     base_d_final = fit_lgbm(train_label_free, None, base_a_feature_columns)
     base_e_final = fit_xgboost(train_label_free, None, base_a_feature_columns)
     graph_epochs = int(np.median([item["graph_best_epoch"] + 1 for item in fold_training_meta])) if fold_training_meta else 40

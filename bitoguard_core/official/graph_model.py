@@ -60,10 +60,18 @@ def _normalized_adjacency_tensor(graph: TransductiveGraph, torch: Any) -> Any:
     src = graph.collapsed_edges["src_user_id"].astype(int).map(graph.user_index).to_numpy(dtype=np.int64)
     dst = graph.collapsed_edges["dst_user_id"].astype(int).map(graph.user_index).to_numpy(dtype=np.int64)
     weight = graph.collapsed_edges["weight"].astype(float).to_numpy(dtype=np.float32)
-    degree = np.zeros(user_count, dtype=np.float32)
-    np.add.at(degree, src, weight)
-    degree[degree == 0.0] = 1.0
-    norm_weight = weight / degree[src]
+    # v36: Symmetric normalization D^{-1/2} A D^{-1/2} (standard GCN, Kipf & Welling 2017).
+    # Previous source-only D^{-1} A caused over-smoothing: low-degree nodes connected to hub
+    # (degree=849) received hub embeddings directly (A[node,hub]=1/1*hub_feat), making all
+    # hub-connected nodes look identical. With symmetric norm, hub influence scales as
+    # 1/sqrt(849*degree_dst) — drastically reducing hub dominance.
+    degree_src = np.zeros(user_count, dtype=np.float32)
+    degree_dst = np.zeros(user_count, dtype=np.float32)
+    np.add.at(degree_src, src, weight)
+    np.add.at(degree_dst, dst, weight)
+    degree_src[degree_src == 0.0] = 1.0
+    degree_dst[degree_dst == 0.0] = 1.0
+    norm_weight = weight / np.sqrt(degree_src[src] * degree_dst[dst])
     indices = torch.tensor(np.vstack([src, dst]), dtype=torch.long)
     values = torch.tensor(norm_weight, dtype=torch.float32)
     return torch.sparse_coo_tensor(indices, values, size=(user_count, user_count)).coalesce()
