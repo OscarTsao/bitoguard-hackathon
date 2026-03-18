@@ -186,17 +186,25 @@ def tune_blend_weights(frame: pd.DataFrame) -> dict[str, float]:
     if len(eligible) == 1:
         return {list(eligible)[0]: 1.0}
 
+    # v40: When n > 5, keep only top-5 components by AP to preserve step=0.05 resolution.
+    # With n=6 (e.g. Base B recovery) the adaptive step would coarsen to 0.10,
+    # losing the 5% precision needed for the optimal CS/E/Anom weights.
+    # Top-5 by AP ensures the most predictive models dominate the blend while
+    # maintaining fine-grained weight search. The 6th model's signal is still
+    # indirectly captured via its correlation with top-5 models.
+    if len(eligible) > 5:
+        top5 = sorted(eligible, key=lambda c: float(average_precision_score(y, eligible[c])), reverse=True)[:5]
+        eligible = {c: eligible[c] for c in top5}
+
     cols = list(eligible)
     arrays = np.stack([eligible[c] for c in cols], axis=0)  # (n_cols, n_samples)
     n = len(cols)
 
     # Build all weight combinations summing to 1 at adaptive step size.
-    # Grid scales as C(parts+n-1, n-1) — exponential in n — target ≤ 5K combos:
-    #   n=5, step=0.05 → C(24,4)=10626 combos (0.5 GB)
-    #   n=6, step=0.10 → C(15,5)= 3003 combos (0.6 GB) ✓
-    #   n=7, step=0.15 → C(13,6)= 1716 combos (0.35 GB) ✓ [parts=round(1/0.15)=7]
-    #   n=8+, step=0.15 → C(14,7)= 3432 combos (0.7 GB) ✓
+    # Grid scales as C(parts+n-1, n-1) — exponential in n — target ≤ 10K combos:
+    #   n=5, step=0.05 → C(24,4)=10626 combos ✓  (always reached via top-5 selection)
     # v37: Adaptive step so adding interaction columns (base_a_x_cs etc.) doesn't OOM.
+    # v40: Top-5 pre-selection guarantees n≤5, so step=0.05 always applies.
     if n <= 5:
         step = 0.05
     elif n == 6:
