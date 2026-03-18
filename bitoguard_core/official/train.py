@@ -55,12 +55,27 @@ LABEL_FREE_EXCLUDED_COLUMNS = {
     # ~0.045 F1 vs the excluded version. Rule flags directly encode domain expert
     # AML patterns; CatBoost can learn interactions with them even when component
     # features are present. Stacker still uses them as separate meta-features too.
+    #
+    # v32: lof_score and ocsvm_score excluded from Base A.
+    # OOF analysis confirms these are ANTI-predictive in Base A:
+    #   lof_score  AP=0.0326 (near-random)
+    #   ocsvm_score AUC=0.3639 (inverted signal: high OCSVM → lower fraud prob)
+    # Despite having 2.6–2.8% CatBoost importance, these features cause wrong-direction
+    # splits that waste model capacity. Excluding them recovers those splits for
+    # legitimate signal features (account_age, days_email_to_level1, etc.).
+    # These scores still appear as anomaly_score meta-features in the final stacker.
+    "lof_score",
+    "ocsvm_score",
 }
 
 # Seeds for multi-seed CatBoost ensemble — averaging 3 seeds reduces Base A variance.
 _BASE_A_SEEDS = [42, 52, 62]
 
-PRIMARY_GRAPH_MAX_EPOCHS = 40
+# v32: Reduce GNN fold epochs from 40→10 to save ~25 min training time.
+# GNN Base C achieves AP=0.0348 (barely above random), is excluded by BlendEnsemble
+# (AP < 0.08 threshold), and the nonlinear CatBoost stacker learns to ignore it.
+# Fewer fold epochs still produce OOF base_c probs consistent with final model.
+PRIMARY_GRAPH_MAX_EPOCHS = 10
 FINAL_GRAPH_MIN_EPOCHS = 10
 
 
@@ -262,7 +277,12 @@ def train_official_model() -> dict[str, Any]:
         graph_max_epochs=PRIMARY_GRAPH_MAX_EPOCHS,
         catboost_params=catboost_params,
     )
-    primary_oof, stacker_model = build_stacker_oof(primary_oof, primary_split, fold_column="primary_fold", use_blend=True)
+    # v32: Switch to nonlinear CatBoost stacker (depth=3, l2=15, min_data_in_leaf=30).
+    # BlendEnsemble (linear) gains only +0.005 AP over Base A alone because:
+    #   - Base B AP=0.0867 (compressed probs, std=0.012) adds minimal signal to linear blend
+    #   - CatBoost stacker learns "base_a > t1 AND anomaly > t2" interactions that LR/blend miss
+    # use_nonlinear=True enables the existing _fit_catboost_stacker (depth=3) per fold.
+    primary_oof, stacker_model = build_stacker_oof(primary_oof, primary_split, fold_column="primary_fold", use_blend=False, use_nonlinear=True)
     primary_oof.to_parquet(artifacts["oof"], index=False)
 
     label_frame = _label_frame(dataset)

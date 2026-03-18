@@ -40,6 +40,12 @@ STACKER_FEATURE_COLUMNS = [
     # std_base: model disagreement — high std suggests uncertain/novel case.
     "max_base_probability",
     "std_base_probability",
+    # v32: Interaction features for nonlinear stacker.
+    # base_a × anomaly: both models flag same user → very high confidence.
+    # base_a × rule: model + domain rule agreement → precision boost.
+    # These help depth-3 CatBoost find tight positive clusters.
+    "base_a_x_anomaly",
+    "base_a_x_rule",
 ]
 
 # Columns eligible for the AP-weighted blend (non-rule, non-meta columns).
@@ -93,7 +99,7 @@ _BASE_PROB_COLUMNS = [
 
 
 def _add_base_meta_features(frame: pd.DataFrame) -> pd.DataFrame:
-    """Compute max/std across base model probabilities for stacker enrichment."""
+    """Compute max/std across base model probabilities and interaction features for stacker enrichment."""
     frame = frame.copy()
     available = [c for c in _BASE_PROB_COLUMNS if c in frame.columns]
     if available:
@@ -102,6 +108,14 @@ def _add_base_meta_features(frame: pd.DataFrame) -> pd.DataFrame:
     else:
         frame["max_base_probability"] = 0.0
         frame["std_base_probability"] = 0.0
+    # v32: Interaction features — model × anomaly/rule agreement signals.
+    # These help the nonlinear CatBoost stacker (depth=3) find tight positive
+    # clusters where both model and anomaly/rule sources flag the same user.
+    a = pd.to_numeric(frame.get("base_a_probability", pd.Series(0.0, index=frame.index)), errors="coerce").fillna(0.0)
+    anomaly = pd.to_numeric(frame.get("anomaly_score", pd.Series(0.0, index=frame.index)), errors="coerce").fillna(0.0)
+    rule = pd.to_numeric(frame.get("rule_score", pd.Series(0.0, index=frame.index)), errors="coerce").fillna(0.0)
+    frame["base_a_x_anomaly"] = (a * anomaly).astype(np.float32)
+    frame["base_a_x_rule"] = (a * rule).astype(np.float32)
     return frame
 
 

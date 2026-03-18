@@ -97,6 +97,8 @@ def validate_official_model() -> dict[str, Any]:
         secondary_oof,
         secondary_split[["user_id", "secondary_fold"]].copy(),
         fold_column="secondary_fold",
+        use_blend=False,
+        use_nonlinear=True,
     )
     secondary_oof["submission_probability"] = calibrator.predict(secondary_oof["stacker_raw_probability"].to_numpy())
     secondary_metrics = _classification_metrics(
