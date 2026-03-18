@@ -36,12 +36,19 @@ def score_official_predict() -> pd.DataFrame:
     graph_model_state = load_graph_model(Path(bundle["graph_model_path"]))
     stacker_model = load_pickle(Path(bundle["stacker_path"]))
     calibrator = load_pickle(Path(bundle["calibrator"]["calibrator_path"]))
-    base_d_model = None
-    if "base_d_lgbm" in bundle.get("base_model_paths", {}):
-        base_d_model = load_pickle(Path(bundle["base_model_paths"]["base_d_lgbm"]))
-    base_e_model = None
-    if "base_e_xgboost" in bundle.get("base_model_paths", {}):
-        base_e_model = load_pickle(Path(bundle["base_model_paths"]["base_e_xgboost"]))
+    # v42: Load multi-seed models for Base D and E. Falls back to single model if seeds not in bundle.
+    base_d_models: list = []
+    _base_d_seed_paths = bundle.get("base_model_paths", {}).get("base_d_lgbm_seeds")
+    if _base_d_seed_paths:
+        base_d_models = [load_pickle(Path(p)) for p in _base_d_seed_paths]
+    elif "base_d_lgbm" in bundle.get("base_model_paths", {}):
+        base_d_models = [load_pickle(Path(bundle["base_model_paths"]["base_d_lgbm"]))]
+    base_e_models: list = []
+    _base_e_seed_paths = bundle.get("base_model_paths", {}).get("base_e_xgboost_seeds")
+    if _base_e_seed_paths:
+        base_e_models = [load_pickle(Path(p)) for p in _base_e_seed_paths]
+    elif "base_e_xgboost" in bundle.get("base_model_paths", {}):
+        base_e_models = [load_pickle(Path(bundle["base_model_paths"]["base_e_xgboost"]))]
     # If the bundle specifies blend_weights, reconstruct BlendEnsemble over the
     # pickled stacker (BlendEnsemble is stateless — weights are stored in bundle).
     if bundle.get("blend_weights"):
@@ -90,22 +97,28 @@ def score_official_predict() -> pd.DataFrame:
     scoring["base_c_s_probability"] = base_c_s_probability
     scoring["base_b_probability"] = base_b_probability
     scoring["base_c_probability"] = scoring["graph_probability"].fillna(0.0)
-    if base_d_model is not None:
+    if base_d_models:
         x_d, _ = encode_frame(
             scoring_label_free,
             bundle["feature_columns_base_d"],
             reference_columns=bundle.get("encoded_columns_base_d"),
         )
-        scoring["base_d_probability"] = base_d_model.predict_proba(x_d)[:, 1]
+        # v42: Average predictions across all seed models for variance reduction.
+        scoring["base_d_probability"] = _np.mean(
+            [m.predict_proba(x_d)[:, 1] for m in base_d_models], axis=0
+        )
     else:
         scoring["base_d_probability"] = 0.0
-    if base_e_model is not None:
+    if base_e_models:
         x_e, _ = encode_frame(
             scoring_label_free,
             bundle.get("feature_columns_base_e", bundle["feature_columns_base_a"]),
             reference_columns=bundle.get("encoded_columns_base_e"),
         )
-        scoring["base_e_probability"] = base_e_model.predict_proba(x_e)[:, 1]
+        # v42: Average predictions across all seed models for variance reduction.
+        scoring["base_e_probability"] = _np.mean(
+            [m.predict_proba(x_e)[:, 1] for m in base_e_models], axis=0
+        )
     else:
         scoring["base_e_probability"] = 0.0
     # Anomaly subscores (LOF, OCSVM) — present in the dataset if anomaly module produced them.

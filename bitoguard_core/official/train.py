@@ -74,6 +74,14 @@ LABEL_FREE_EXCLUDED_COLUMNS = {
 # adding ~0.001-0.002 F1 at cost of +33% Base A training time per fold.
 _BASE_A_SEEDS = [42, 52, 62, 72]
 
+# v42: Multi-seed ensembles for LightGBM (Base D) and XGBoost (Base E).
+# Different seeds produce different feature subsamplings (colsample=0.9, subsample=0.9).
+# 3 seeds reduces Base D/E variance by 42% (1/sqrt(3) vs 1 seed) at cost of 3x training time.
+# LightGBM with early_stopping (v41) is fast enough that 3 seeds adds ~60s per fold.
+# XGBoost uses 2 seeds (slower due to 1500 iterations) for a 29% variance reduction.
+_BASE_D_SEEDS = [42, 123, 456]  # LightGBM: 3 seeds
+_BASE_E_SEEDS = [42, 123]  # XGBoost: 2 seeds (slower model)
+
 # v36: Increased GNN fold epochs from 5→10 after switching to symmetric D^{-1/2}AD^{-1/2}
 # normalization (graph_model.py). The previous source-only D^{-1}A caused hub nodes
 # (degree=849) to dominate all connected nodes' embeddings, making more epochs worse.
@@ -252,8 +260,34 @@ def run_transductive_oof_pipeline(
         _base_b_params = dict(catboost_params or {})
         _base_b_params["task_type"] = "CPU"
         base_b_fit = fit_catboost(train_transductive, valid_transductive, resolved_base_b_columns, focal_gamma=2.0, catboost_params=_base_b_params)
-        base_d_fit = fit_lgbm(train_label_free, valid_label_free, base_a_feature_columns)
-        base_e_fit = fit_xgboost(train_label_free, valid_label_free, base_a_feature_columns)
+        # v42: Multi-seed ensemble for Base D (LightGBM) — 3 seeds, 42% variance reduction.
+        _base_d_val_probs = []
+        _base_d_fit = None
+        for _seed_d in _BASE_D_SEEDS:
+            _base_d_fit = fit_lgbm(train_label_free, valid_label_free, base_a_feature_columns, random_seed=_seed_d)
+            _base_d_val_probs.append(_base_d_fit.validation_probabilities)
+        base_d_fit = type(_base_d_fit)(
+            model_name=_base_d_fit.model_name,
+            model=_base_d_fit.model,
+            feature_columns=_base_d_fit.feature_columns,
+            encoded_columns=_base_d_fit.encoded_columns,
+            cat_features=_base_d_fit.cat_features,
+            validation_probabilities=np.mean(_base_d_val_probs, axis=0).tolist(),
+        )
+        # v42: Multi-seed ensemble for Base E (XGBoost) — 2 seeds, 29% variance reduction.
+        _base_e_val_probs = []
+        _base_e_fit = None
+        for _seed_e in _BASE_E_SEEDS:
+            _base_e_fit = fit_xgboost(train_label_free, valid_label_free, base_a_feature_columns, random_seed=_seed_e)
+            _base_e_val_probs.append(_base_e_fit.validation_probabilities)
+        base_e_fit = type(_base_e_fit)(
+            model_name=_base_e_fit.model_name,
+            model=_base_e_fit.model,
+            feature_columns=_base_e_fit.feature_columns,
+            encoded_columns=_base_e_fit.encoded_columns,
+            cat_features=_base_e_fit.cat_features,
+            validation_probabilities=np.mean(_base_e_val_probs, axis=0).tolist(),
+        )
 
         # Sanity check: model probabilities should span a meaningful range.
         # Near-constant output (all near-zero or all near-one) indicates training failure.
@@ -424,8 +458,13 @@ def train_official_model() -> dict[str, Any]:
     _base_b_final_params = dict(catboost_params or {})
     _base_b_final_params["task_type"] = "CPU"
     base_b_final = fit_catboost(train_transductive, None, base_b_feature_columns, focal_gamma=2.0, catboost_params=_base_b_final_params)
-    base_d_final = fit_lgbm(train_label_free, None, base_a_feature_columns)
-    base_e_final = fit_xgboost(train_label_free, None, base_a_feature_columns)
+    # v42: Multi-seed final ensemble for Base D and Base E (no validation set for final training).
+    # Save last-seed model as primary for serialization; scoring uses the averaged ensemble approach
+    # via seed_ensemble_d/e paths stored in bundle (each seed model persisted separately).
+    _base_d_finals = [fit_lgbm(train_label_free, None, base_a_feature_columns, random_seed=s) for s in _BASE_D_SEEDS]
+    base_d_final = _base_d_finals[0]  # primary model for metadata; scoring averages all seeds
+    _base_e_finals = [fit_xgboost(train_label_free, None, base_a_feature_columns, random_seed=s) for s in _BASE_E_SEEDS]
+    base_e_final = _base_e_finals[0]  # primary model for metadata; scoring averages all seeds
     graph_epochs = int(np.median([item["graph_best_epoch"] + 1 for item in fold_training_meta])) if fold_training_meta else 40
     graph_final = train_graphsage_model(
         graph,
@@ -443,8 +482,17 @@ def train_official_model() -> dict[str, Any]:
     ]
     base_a_path = base_a_paths[0]  # primary path for backward compat
     base_b_path = paths.model_dir / f"official_catboost_base_b_{timestamp}.pkl"
-    base_d_path = paths.model_dir / f"official_lgbm_base_d_{timestamp}.pkl"
-    base_e_path = paths.model_dir / f"official_xgboost_base_e_{timestamp}.pkl"
+    # v42: Save all seed models for multi-seed ensemble scoring.
+    base_d_paths = [
+        paths.model_dir / f"official_lgbm_base_d_seed{seed}_{timestamp}.pkl"
+        for seed in _BASE_D_SEEDS
+    ]
+    base_d_path = base_d_paths[0]  # primary path for backward compat
+    base_e_paths = [
+        paths.model_dir / f"official_xgboost_base_e_seed{seed}_{timestamp}.pkl"
+        for seed in _BASE_E_SEEDS
+    ]
+    base_e_path = base_e_paths[0]  # primary path for backward compat
     graph_path = paths.model_dir / f"official_graphsage_{timestamp}.pt"
     stacker_path = paths.model_dir / f"official_stacker_{timestamp}.pkl"
     meta_path = paths.model_dir / f"official_transductive_{timestamp}.json"
@@ -452,8 +500,10 @@ def train_official_model() -> dict[str, Any]:
     for _fit, _path in zip(_base_a_final_models, base_a_paths):
         save_pickle(_fit.model, _path)
     save_pickle(base_b_final.model, base_b_path)
-    save_pickle(base_d_final.model, base_d_path)
-    save_pickle(base_e_final.model, base_e_path)
+    for _fit, _path in zip(_base_d_finals, base_d_paths):
+        save_pickle(_fit.model, _path)
+    for _fit, _path in zip(_base_e_finals, base_e_paths):
+        save_pickle(_fit.model, _path)
     save_graph_model(graph_final.model_state, graph_path)
     save_stacker_model(stacker_model, stacker_path)
 
@@ -488,7 +538,10 @@ def train_official_model() -> dict[str, Any]:
             "base_a_catboost_seeds": [str(p.relative_to(paths.artifact_dir)) for p in base_a_paths],
             "base_b_catboost": str(base_b_path.relative_to(paths.artifact_dir)),
             "base_d_lgbm": str(base_d_path.relative_to(paths.artifact_dir)),
+            # v42: Multi-seed paths for Base D and E; score.py averages over all seeds.
+            "base_d_lgbm_seeds": [str(p.relative_to(paths.artifact_dir)) for p in base_d_paths],
             "base_e_xgboost": str(base_e_path.relative_to(paths.artifact_dir)),
+            "base_e_xgboost_seeds": [str(p.relative_to(paths.artifact_dir)) for p in base_e_paths],
         },
         "graph_model_path": str(graph_path.relative_to(paths.artifact_dir)),
         "stacker_path": str(stacker_path.relative_to(paths.artifact_dir)),

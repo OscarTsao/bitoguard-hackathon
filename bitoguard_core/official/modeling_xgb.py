@@ -24,6 +24,7 @@ def fit_xgboost(
     valid_frame: pd.DataFrame | None,
     feature_columns: list[str],
     params: dict[str, Any] | None = None,
+    random_seed: int = RANDOM_SEED,
 ) -> ModelFitResult:
     """Fit XGBoost classifier with GPU support and early stopping.
 
@@ -61,7 +62,7 @@ def fit_xgboost(
         scale_pos_weight=scale_pos_weight,
         objective="binary:logistic",
         eval_metric="logloss",
-        random_state=p.get("random_state", RANDOM_SEED),
+        random_state=p.get("random_state", random_seed),
         verbosity=0,
         early_stopping_rounds=100,
         **runtime_params,

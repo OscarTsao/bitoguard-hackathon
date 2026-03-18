@@ -33,6 +33,7 @@ def fit_lgbm(
     valid_frame: pd.DataFrame | None,
     feature_columns: list[str],
     negative_weight: float = 1.0,
+    random_seed: int = RANDOM_SEED,
 ) -> ModelFitResult:
     import lightgbm as lgb
     x_train, encoded_columns = encode_frame(train_frame, feature_columns)
@@ -59,7 +60,7 @@ def fit_lgbm(
         colsample_bytree=0.9,
         min_child_samples=20,
         reg_lambda=5.0,
-        random_state=RANDOM_SEED,
+        random_state=random_seed,
         verbosity=-1,
         **runtime_params,
     )
