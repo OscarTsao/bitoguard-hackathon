@@ -154,11 +154,15 @@ def train_graphsage_model(
     best_epoch = 0
     wait = 0
 
-    # Class-imbalanced BCE: cap pos_weight at 10x to prevent gradient explosion.
+    # Class-imbalanced BCE: cap pos_weight at 15x (raised from 10x in v36).
+    # Actual imbalance ~30x (39K neg / 1.3K pos in train fold). The old 10x cap
+    # was under-weighting positives, causing the GNN to predict near-zero for all.
+    # With symmetric D^{-1/2}AD^{-1/2} and LayerNorm stabilizing training, a higher
+    # cap (15x) allows stronger positive gradient signal without instability.
     _train_labels = labels[train_mask]
     _n_pos = max(1, int((_train_labels == 1.0).sum().item()))
     _n_neg = max(1, int((_train_labels == 0.0).sum().item()))
-    _pos_weight = torch.tensor(min(float(_n_neg) / _n_pos, 10.0), device=device)
+    _pos_weight = torch.tensor(min(float(_n_neg) / _n_pos, 15.0), device=device)
 
     for epoch in range(max_epochs):
         model.train()
