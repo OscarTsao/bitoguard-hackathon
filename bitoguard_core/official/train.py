@@ -261,6 +261,22 @@ def run_transductive_oof_pipeline(
             _cs_base_probs[int(_uid)] = float(_prob)
         for _uid, _prob in zip(valid_label_free["user_id"].astype(int), _val_a_probs):
             _cs_base_probs[int(_uid)] = float(_prob)
+        # v36: include unlabeled predict_label users in C&S base_probs.
+        # Without this, unlabeled users default to base_vec=0 in the adjacency
+        # multiplication, suppressing fraud signal that flows through them.
+        # Including their Base A predictions allows the Smooth step to propagate
+        # elevated fraud signals from potential unlabeled fraudsters to their
+        # connected labeled neighbors (helps connected hard FNs in val fold).
+        # No leakage: we only use val_users' corrected scores in the result.
+        _all_labeled_ids = set(train_users) | set(valid_users)
+        _unlabeled_frame = label_free_frame[~label_free_frame["user_id"].astype(int).isin(_all_labeled_ids)]
+        if len(_unlabeled_frame) > 0:
+            _unlabeled_a_probs = np.mean(
+                [m.predict_proba(_unlabeled_frame[base_a_feature_columns])[:, 1] for m in _base_a_models],
+                axis=0,
+            )
+            for _uid, _prob in zip(_unlabeled_frame["user_id"].astype(int), _unlabeled_a_probs):
+                _cs_base_probs[int(_uid)] = float(_prob)
         _cs_train_labels: dict[int, float] = dict(zip(
             fold_train_labels["user_id"].astype(int),
             fold_train_labels["status"].astype(float),
