@@ -176,23 +176,50 @@ def train_graphsage_model(
     best_epoch = 0
     wait = 0
 
-    # Class-imbalanced BCE: cap pos_weight at 15x (raised from 10x in v36).
-    # Actual imbalance ~30x (39K neg / 1.3K pos in train fold). The old 10x cap
-    # was under-weighting positives, causing the GNN to predict near-zero for all.
-    # With symmetric D^{-1/2}AD^{-1/2} and LayerNorm stabilizing training, a higher
-    # cap (15x) allows stronger positive gradient signal without instability.
+    # v44: Focal loss for GNN training — addresses the 30:1 class imbalance more
+    # effectively than weighted BCE.
+    #
+    # Weighted BCE (pos_weight=15) scales the loss uniformly for all positives.
+    # Focal loss (Lin et al. 2017, RetinaNet) additionally DOWN-WEIGHTS easy
+    # negatives by (1-p)^gamma, focusing training on hard misclassified samples.
+    #
+    # For AML detection with 3% fraud rate:
+    # - Many negatives are confidently predicted as negative (p≈0.02) → (1-p)^2 ≈ 0.96 → full loss
+    # - Hard negatives (p≈0.3) → (1-p)^2 = 0.49 → 51% weight reduction
+    # - Hard positives (p≈0.4) → p^2 = 0.16 → focuses gradient on these
+    # gamma=2.0 is standard; alpha=0.75 gives positive class 75% weight.
+    # Combined with prior_logit bias initialization and BatchNorm, focal loss
+    # prevents GNN collapse while providing better gradient signal than BCE.
     _train_labels = labels[train_mask]
-    _n_pos = max(1, int((_train_labels == 1.0).sum().item()))
-    _n_neg = max(1, int((_train_labels == 0.0).sum().item()))
-    _pos_weight = torch.tensor(min(float(_n_neg) / _n_pos, 15.0), device=device)
+    _alpha_focal = 0.75  # positive class weight in focal loss
+    _gamma_focal = 2.0   # focusing parameter
+
+    def _focal_loss(logits_train: "Any", labels_train: "Any") -> "Any":
+        """Focal loss for binary classification (Lin et al. 2017).
+
+        FL(p_t) = -alpha_t * (1 - p_t)^gamma * log(p_t)
+        where alpha_t = alpha for positives, (1-alpha) for negatives.
+        """
+        probs = torch.sigmoid(logits_train)
+        # Clamp for numerical stability
+        probs_clamped = probs.clamp(1e-7, 1.0 - 1e-7)
+        pos_mask = labels_train == 1.0
+        # Per-sample BCE loss (unreduced)
+        bce = -labels_train * torch.log(probs_clamped) - (1.0 - labels_train) * torch.log(1.0 - probs_clamped)
+        # Focal modulation: down-weight easy samples
+        p_t = torch.where(pos_mask, probs_clamped, 1.0 - probs_clamped)
+        focal_weight = (1.0 - p_t) ** _gamma_focal
+        # Alpha weighting: higher weight for positives
+        alpha_t = torch.where(pos_mask,
+                              torch.tensor(_alpha_focal, device=device),
+                              torch.tensor(1.0 - _alpha_focal, device=device))
+        return (alpha_t * focal_weight * bce).mean()
 
     for epoch in range(max_epochs):
         model.train()
         optimizer.zero_grad()
         logits = model(x, adjacency)
-        loss = F.binary_cross_entropy_with_logits(
-            logits[train_mask], labels[train_mask], pos_weight=_pos_weight
-        )
+        loss = _focal_loss(logits[train_mask], labels[train_mask])
         loss.backward()
         optimizer.step()
 
