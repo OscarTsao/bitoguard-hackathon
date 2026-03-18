@@ -129,6 +129,24 @@ def _load_dataset(cutoff_tag: str = "full") -> pd.DataFrame:
     dataset["late_crypto_ratio"] = (
         _dtfc / (_age + 1.0)
     ).clip(0, 1).astype("float32")
+    # v38: Graph-intensity features — age-normalized connectivity rates encoding
+    # "how fast has this user built up wallet/crypto connections relative to account age".
+    # Analysis of 984 FNs (stacker_prob<0.31, status=1) vs 49K negatives shows:
+    #   wallet_degree_per_age: AUC=0.685 globally, AUC=0.639 FN vs Neg
+    #     FN=0.0109 wallets/day vs Neg=0.0064 — 1.7x: sleeper accounts accumulate connections faster
+    #   crypto_wallet_per_age: AUC=0.573, AUC FN vs Neg=0.608
+    #     FN=0.0045 vs Neg=0.0023 — 2.0x: FNs use more unique deposit wallets per day
+    # These are orthogonal to absolute counts (wallet_entity_degree, crypto_unique_deposit_wallets)
+    # already in the model — the age-normalization exposes the "sleeper activation rate" pattern.
+    _age_days = _age.clip(1)  # avoid division by zero
+    _wallet_deg = dataset["wallet_entity_degree"].fillna(0).clip(0).astype("float32")
+    _crypto_wallets = dataset["crypto_unique_deposit_wallets"].fillna(0).clip(0).astype("float32")
+    dataset["wallet_degree_per_age"] = (
+        _wallet_deg / _age_days
+    ).clip(0, 0.1).astype("float32")  # cap at 0.1 wallets/day (prevents outlier dominance)
+    dataset["crypto_wallet_per_age"] = (
+        _crypto_wallets / _age_days
+    ).clip(0, 0.05).astype("float32")  # cap at 0.05 wallets/day
     return dataset
 
 
