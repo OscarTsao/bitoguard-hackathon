@@ -147,6 +147,17 @@ def _load_dataset(cutoff_tag: str = "full") -> pd.DataFrame:
     dataset["crypto_wallet_per_age"] = (
         _crypto_wallets / _age_days
     ).clip(0, 0.05).astype("float32")  # cap at 0.05 wallets/day
+    # v39: Recency-fraction feature — "what fraction of account lifetime since last crypto activity".
+    # Analysis shows FNs (sleeper reactivation pattern) have high recency fraction:
+    #   recency_crypto_fraction: AUC=0.677 globally, AUC=0.627 FN-vs-Neg
+    #     FN=0.404 vs Neg=0.274 — 1.5x: sleepers last used crypto 40% of account age ago
+    # Captures orthogonal signal to wallet_degree_per_age (connection density vs activity recency).
+    # Correlation with wallet_per_age=0.48 — distinct enough to add value.
+    # CatBoost approximates ratios via 2+ tree splits; explicit ratio is more efficient.
+    _days_since_crypto = dataset["days_since_last_crypto_transfer"].fillna(0).clip(0).astype("float32")
+    dataset["recency_crypto_fraction"] = (
+        _days_since_crypto / _age_days
+    ).clip(0, 3).astype("float32")  # cap at 3x account age (extreme outlier prevention)
     return dataset
 
 
