@@ -162,10 +162,7 @@ def run_transductive_oof_pipeline(
             validation_probabilities=np.mean(_base_a_val_probs, axis=0).tolist(),
         )
         resolved_base_b_columns = base_b_feature_columns or [column for column in train_transductive.columns if column != "user_id"]
-        # v32: Base B uses default CatBoost params (not HPO-tuned params), since HPO was
-        # optimized for Base A's 162 label-free features, which are inappropriate for Base B's
-        # 38 sparse transductive features (would over-regularize with l2=25.72).
-        base_b_fit = fit_catboost(train_transductive, valid_transductive, resolved_base_b_columns, focal_gamma=2.0, catboost_params=None)
+        base_b_fit = fit_catboost(train_transductive, valid_transductive, resolved_base_b_columns, focal_gamma=2.0, catboost_params=catboost_params)
         base_d_fit = fit_lgbm(train_label_free, valid_label_free, base_a_feature_columns)
         base_e_fit = fit_xgboost(train_label_free, valid_label_free, base_a_feature_columns)
 
@@ -253,14 +250,7 @@ def train_official_model() -> dict[str, Any]:
     graph = build_transductive_graph(dataset)
     base_a_feature_columns = _label_free_feature_columns(dataset)
     sample_transductive = build_transductive_feature_frame(graph, _label_frame(dataset))
-    # v32: Base B uses ONLY transductive (graph-propagation) features, not the full tabular set.
-    # Rationale: mixing 162 label-free features with 38 transductive features causes CatBoost to
-    # overwhelmingly split on the denser tabular features, drowning out the transductive signal
-    # and making Base B highly correlated with Base A (r≈0.87 → near-redundant).
-    # With transductive-only features, Base B becomes a pure "graph proximity to known fraud"
-    # classifier, maximizing diversity from Base A and providing the graph signal the GNN fails to.
-    # OOF analysis: Base B AP=0.099 (tabular+transductive) expected to improve to 0.15-0.22 (pure transductive).
-    base_b_feature_columns = _transductive_feature_columns(sample_transductive)
+    base_b_feature_columns = base_a_feature_columns + _transductive_feature_columns(sample_transductive)
 
     primary_oof, fold_training_meta = run_transductive_oof_pipeline(
         dataset,
@@ -288,7 +278,7 @@ def train_official_model() -> dict[str, Any]:
         for _seed in _BASE_A_SEEDS
     ]
     base_a_final = _base_a_final_models[0]  # used for cat_features / feature_columns metadata
-    base_b_final = fit_catboost(train_transductive, None, base_b_feature_columns, focal_gamma=2.0, catboost_params=None)
+    base_b_final = fit_catboost(train_transductive, None, base_b_feature_columns, focal_gamma=2.0, catboost_params=catboost_params)
     base_d_final = fit_lgbm(train_label_free, None, base_a_feature_columns)
     base_e_final = fit_xgboost(train_label_free, None, base_a_feature_columns)
     graph_epochs = int(np.median([item["graph_best_epoch"] + 1 for item in fold_training_meta])) if fold_training_meta else 40
