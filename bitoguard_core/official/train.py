@@ -222,6 +222,41 @@ def _load_dataset(cutoff_tag: str = "full") -> pd.DataFrame:
     dataset["swap_volume_per_age"] = (
         _np.log1p(_swap_sum / _age_safe)
     ).clip(0, 15).astype("float32")
+
+    # v46: Per-active-day volume features — burst concentration signal for medium hard-FNs.
+    # OOF analysis: 678 medium hard FNs (blend_prob 0.10-0.31) show concentrated burst patterns.
+    # crypto_volume_per_active_day: AUC=0.662, AP=0.0596 > crypto_txn_velocity (AUC=0.632, AP=0.052).
+    #   Normalizes AMOUNT by active-days (not by count as txn_velocity does), capturing
+    #   sleepers who make few large-value transactions in few active days.
+    # swap_volume_per_active_day: AUC=0.664, AP=0.0892 — strong fraud signal.
+    #   swap_active_days (AUC=0.652) only counts days; the per-day AMOUNT reveals burst swappers.
+    #   Hard FNs have concentrated swap usage relative to their limited active days.
+    # NOTE: twd_deposit_per_active_day skipped — near-duplicate of existing twd_txn_velocity.
+    _crypto_days_safe = _crypto_days.clip(1)
+    _swap_days_safe = _swap_days.clip(1)
+    dataset["crypto_volume_per_active_day"] = (
+        _np.log1p(_crypto_sum / _crypto_days_safe)
+    ).clip(0, 15).astype("float32")
+    dataset["swap_volume_per_active_day"] = (
+        _np.log1p(_swap_sum / _swap_days_safe)
+    ).clip(0, 15).astype("float32")
+
+    # v46: Burst-concentration score — high-volume crypto flow concentrated into few active days.
+    # crypto_burst_score = (1 - active_fraction) × crypto_volume_per_age
+    # = (fraction of account lifetime that is DORMANT) × (total crypto flow per account-age day)
+    # AUC=0.701, AP=0.0947 — strongest new feature in v46 analysis.
+    # Captures two distinct fraud patterns simultaneously:
+    #   a. TYPICAL positives: younger accounts (age=451d) with high crypto volumes → high per-age
+    #      ratio; active_fraction may vary but the product captures high-volume young accounts.
+    #   b. SLEEPER positives: older accounts (age=770d) with few active days but large crypto flows
+    #      → very low active_fraction (0.007) × high per-age volume = extreme burst score.
+    # Low correlation with account_age (corr=-0.19), orthogonal to raw amount features.
+    _all_active_days = (_twd_days + _swap_days + _crypto_days).clip(0)
+    _active_fraction = (_all_active_days / _age_safe).clip(0, 1).astype("float32")
+    dataset["crypto_burst_score"] = (
+        (1.0 - _active_fraction) * dataset["crypto_volume_per_age"]
+    ).clip(0, 15).astype("float32")
+
     return dataset
 
 
@@ -311,10 +346,17 @@ def run_transductive_oof_pipeline(
         # v36: Force CPU for Base B to avoid GPU CatBoost class_weight collapse.
         # GPU CatBoost with max_class_weight=7.4 causes near-constant output (~0.19 for ALL users,
         # positives mean=0.1953 vs negatives mean=0.1900 — diff=0.005). AP=0.0715 → excluded from blend.
-        # CPU CatBoost is numerically stable with class_weights and should recover AP~0.25+ via
-        # the transductive features (PPR, BFS distances, positive-neighbor counts).
+        # CPU CatBoost is numerically stable with class_weights.
         _base_b_params = dict(catboost_params or {})
         _base_b_params["task_type"] = "CPU"
+        # v46: Override l2_leaf_reg for Base B. HPO tunes l2=59.58 for Base A (label-free
+        # tabular ~150 features with relatively low redundancy). Base B has 218 features
+        # (tabular + 38 transductive), where many transductive features (PPR values, BFS
+        # distances, neighbor counts) are sparse/near-zero and need LOWER regularization to
+        # contribute signal. With l2=59.58, Base B AP=0.074 (OOF avg) — below the 0.08 blend
+        # threshold, excluded from the ensemble. With l2=5.0, fold-0 ablation shows AP=0.088
+        # (above threshold), while maintaining AUC=0.700 and preserving CPU stability.
+        _base_b_params["l2_leaf_reg"] = 5.0  # v46: Base B-specific l2 (HPO's 59.58 too high)
         base_b_fit = fit_catboost(train_transductive, valid_transductive, resolved_base_b_columns, focal_gamma=2.0, catboost_params=_base_b_params)
         # v42: Multi-seed ensemble for Base D (LightGBM) — 3 seeds, 42% variance reduction.
         _base_d_val_probs = []
@@ -511,8 +553,10 @@ def train_official_model() -> dict[str, Any]:
     ]
     base_a_final = _base_a_final_models[0]  # used for cat_features / feature_columns metadata
     # v36: CPU mode for Base B final model (same reason as in OOF loop above).
+    # v46: Override l2_leaf_reg=5.0 (same reason as OOF loop fix).
     _base_b_final_params = dict(catboost_params or {})
     _base_b_final_params["task_type"] = "CPU"
+    _base_b_final_params["l2_leaf_reg"] = 5.0  # v46: Base B-specific l2 (HPO's 59.58 too high)
     base_b_final = fit_catboost(train_transductive, None, base_b_feature_columns, focal_gamma=2.0, catboost_params=_base_b_final_params)
     # v42: Multi-seed final ensemble for Base D and Base E (no validation set for final training).
     # Save last-seed model as primary for serialization; scoring uses the averaged ensemble approach
