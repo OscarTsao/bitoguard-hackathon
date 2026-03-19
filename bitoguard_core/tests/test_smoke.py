@@ -393,17 +393,25 @@ def test_metrics_model_endpoint_returns_full_report(tmp_path: Path, monkeypatch)
 
 
 def test_metrics_drift_endpoint_returns_health_status(tmp_path: Path, monkeypatch) -> None:
-    """GET /metrics/drift returns a drift health report with expected fields."""
+    """GET /metrics/drift returns a combined health report with feature drift, PSI, and staleness."""
     _configure_temp_db(tmp_path, monkeypatch)
     client = TestClient(app)
     resp = client.get("/metrics/drift")
     assert resp.status_code == 200
     body = resp.json()
-    for field in ("snapshot_from", "snapshot_to", "total_checked", "total_drifted", "health_ok", "drifted_features"):
-        assert field in body, f"missing field: {field}"
+    # Top-level keys
+    assert "health_ok" in body, "missing health_ok in drift response"
     assert isinstance(body["health_ok"], bool)
-    assert isinstance(body["drifted_features"], list)
-    assert isinstance(body["total_checked"], int)
+    # Feature drift sub-report
+    assert "feature_drift" in body, "missing feature_drift in drift response"
+    feat = body["feature_drift"]
+    for field in ("snapshot_from", "snapshot_to", "total_checked", "total_drifted", "health_ok", "drifted_features"):
+        assert field in feat, f"missing field in feature_drift: {field}"
+    assert isinstance(feat["drifted_features"], list)
+    assert isinstance(feat["total_checked"], int)
+    # Score PSI and model staleness may be None when no scoring runs / bundle exists
+    assert "score_psi" in body
+    assert "model_staleness" in body
 
 
 def test_pipeline_sync_rejects_inverted_time_window(tmp_path: Path, monkeypatch) -> None:

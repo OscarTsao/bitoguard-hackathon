@@ -25,7 +25,8 @@ from models.stacker import train_stacker
 from pipeline.sync import run_sync
 from services.alert_engine import apply_case_decision
 from services.diagnosis import build_risk_diagnosis
-from services.drift import run_drift_check
+from services.drift import run_drift_check, run_score_drift_check
+from services.model_monitor import check_model_staleness
 
 
 class SyncRequest(BaseModel):
@@ -587,4 +588,28 @@ def threshold_metrics() -> list[dict[str, Any]]:
 
 @app.get("/metrics/drift", dependencies=[Depends(_require_api_key)])
 def drift_metrics() -> dict[str, Any]:
-    return run_drift_check().to_dict()
+    """Feature drift, score distribution PSI, and model staleness in one response."""
+    settings = load_settings()
+    result: dict[str, Any] = {}
+
+    # Feature distribution drift
+    result["feature_drift"] = run_drift_check().to_dict()
+
+    # Score distribution PSI (between two most recent scoring runs)
+    score_drift = run_score_drift_check()
+    result["score_psi"] = score_drift.to_dict() if score_drift is not None else None
+
+    # Model staleness
+    bundle_path = settings.artifact_dir / "official_bundle.json"
+    if bundle_path.exists():
+        result["model_staleness"] = check_model_staleness(bundle_path).to_dict()
+    else:
+        result["model_staleness"] = None
+
+    # Overall health: ok only if all components healthy
+    feat_ok = result["feature_drift"].get("health_ok", True)
+    psi_ok = score_drift.health_ok if score_drift is not None else True
+    stale_ok = result["model_staleness"]["health_ok"] if result["model_staleness"] else True
+    result["health_ok"] = feat_ok and psi_ok and stale_ok
+
+    return result
