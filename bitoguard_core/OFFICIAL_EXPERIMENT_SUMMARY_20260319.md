@@ -182,6 +182,29 @@
 
 ---
 
+## Pseudo-Label Semi-Supervised Experiment (2026-03-19, TESTED AND REJECTED)
+
+**Design**: Add top-K predict_only users (submission_probability > threshold) as soft pseudo-positives to Base A training.
+
+**Single-fold results** (threshold=0.40, 107 pseudo-positives, 1 seed):
+| Config | AP | F1 (fold-0) | Notes |
+|--------|----|----|-------|
+| Baseline (1 seed, no pseudo) | 0.2804 | 0.2713 | Single-seed baseline |
+| threshold>0.50, hard (57 users) | 0.2826 | 0.2696 | +0.0022 AP but -0.0017 F1 |
+| threshold>0.50, soft (57 users) | 0.2812 | 0.2718 | +0.0007 AP, +0.0005 F1 |
+| **threshold>0.40, soft (107 users)** | **0.2869** | **0.2774** | +0.0064 AP, +0.0062 F1 |
+| threshold>0.30, soft (153 users) | 0.2865 | 0.2731 | +0.0061 AP, +0.0018 F1 |
+
+**Cascade analysis** (comparing against actual 4-seed OOF baseline):
+- Official 4-seed OOF fold-0 Base A AP = **0.2958** (vs single-seed 0.2804)
+- Pseudo-label single-seed fold-0 AP = **0.2895** (−0.0064 vs 4-seed baseline)
+- Full OOF Base A AP: 0.2974 → 0.2954 (−0.0021)
+- **Conclusion**: The "+0.0064" improvement was single-seed artifact. Single-seed pseudo-label is WORSE than the actual 4-seed ensemble. F1 ceiling confirmed.
+
+**Root cause of misleading single-fold result**: First experiment compared 1-seed+pseudo vs 1-seed baseline. Actual system uses 4-seed average. 4-seed ensemble (AP=0.2958) > 1-seed+pseudo (AP=0.2895). Pseudo-labels don't overcome 4-seed averaging benefit.
+
+---
+
 ## Remaining Unexplored Paths (Low Priority)
 
 | Path | Expected AP Gain | Expected F1 Gain | Effort |

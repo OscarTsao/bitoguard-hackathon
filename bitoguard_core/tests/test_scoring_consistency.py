@@ -126,3 +126,18 @@ class TestOofConsistency:
         vals = oof["base_cs_x_anomaly"].dropna().astype(float).to_numpy()
         assert (vals >= 0).all() and (vals <= 1.001).all(), \
             f"cs_x_anomaly out of [0,1]: min={vals.min():.4f}, max={vals.max():.4f}"
+
+    def test_oof_blend_ece_within_tolerance(self):
+        """Blend ECE must remain ≤ 0.03 (well-calibrated). v46 baseline: ECE=0.0114."""
+        from official.validate import _expected_calibration_error
+        oof = pd.read_parquet(_OOF_PARQUET)
+        y = oof["status"].astype(int).to_numpy()
+        blend = (
+            0.05 * oof["base_d_probability"].astype(float) +
+            0.20 * oof["base_e_probability"].astype(float) +
+            0.25 * oof["base_c_s_probability"].astype(float) +
+            0.50 * oof["base_cs_x_anomaly"].astype(float)
+        ).to_numpy()
+        ece = _expected_calibration_error(y, blend)
+        assert ece <= 0.03, \
+            f"Blend ECE={ece:.4f} exceeds tolerance 0.03 — calibration may have degraded"

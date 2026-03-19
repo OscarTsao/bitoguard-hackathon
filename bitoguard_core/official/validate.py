@@ -17,6 +17,40 @@ from official.transductive_features import build_transductive_feature_frame
 from official.transductive_validation import build_secondary_strict_splits
 
 
+def _expected_calibration_error(
+    labels: np.ndarray,
+    probabilities: np.ndarray,
+    n_bins: int = 10,
+) -> float:
+    """Compute Expected Calibration Error (ECE) using equal-width bins.
+
+    ECE = Σ_b (|B_b| / N) × |acc(B_b) − conf(B_b)|
+
+    where B_b is the set of predictions in bin b, acc(B_b) is the fraction of
+    actual positives in that bin, and conf(B_b) is the mean predicted probability.
+    A well-calibrated model has ECE ≈ 0.
+
+    Args:
+        labels: Binary ground truth (0/1).
+        probabilities: Predicted probabilities in [0, 1].
+        n_bins: Number of equal-width bins. Default 10.
+
+    Returns:
+        ECE value in [0, 1].
+    """
+    bin_edges = np.linspace(0.0, 1.0, n_bins + 1)
+    ece = 0.0
+    n = len(labels)
+    for lo, hi in zip(bin_edges[:-1], bin_edges[1:]):
+        mask = (probabilities >= lo) & (probabilities < hi)
+        if not mask.any():
+            continue
+        bin_conf = float(probabilities[mask].mean())
+        bin_acc = float(labels[mask].mean())
+        ece += (mask.sum() / n) * abs(bin_acc - bin_conf)
+    return float(ece)
+
+
 def _classification_metrics(labels: np.ndarray, probabilities: np.ndarray, threshold: float) -> dict[str, Any]:
     preds = (probabilities >= threshold).astype(int)
     tn, fp, fn, tp = confusion_matrix(labels, preds, labels=[0, 1]).ravel()
@@ -27,6 +61,7 @@ def _classification_metrics(labels: np.ndarray, probabilities: np.ndarray, thres
         "fpr": float(fp / max(1, fp + tn)),
         "average_precision": float(average_precision_score(labels, probabilities)),
         "brier_score": float(brier_score_loss(labels, probabilities)),
+        "ece": float(_expected_calibration_error(labels, probabilities)),
         "confusion_matrix": {"tn": int(tn), "fp": int(fp), "fn": int(fn), "tp": int(tp)},
     }
 
