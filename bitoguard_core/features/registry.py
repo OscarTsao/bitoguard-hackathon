@@ -23,6 +23,9 @@ from features.sequence_features import compute_sequence_features
 from features.graph_bipartite   import compute_bipartite_features
 from features.rule_features     import compute_rule_features
 from features.typology_features import compute_typology_features
+from features.event_ngram_features import compute_event_ngram_features
+from features.statistical_features import compute_statistical_features
+from features.dormancy import compute_dormancy_score
 
 FEATURE_VERSION_V2 = "v2"
 
@@ -101,6 +104,8 @@ def build_v2_features(
         compute_ip_features(logins),
         compute_sequence_features(fiat, trades, crypto),
         compute_bipartite_features(edges, user_ids, snapshot_date=snapshot_date),
+        compute_event_ngram_features(fiat, crypto, trades),
+        compute_statistical_features(fiat, crypto, trades),
     ]
     # Paired probe functions for modules that need special probing
     probe_fns = [
@@ -112,6 +117,8 @@ def build_v2_features(
         lambda: compute_ip_features(_make_probe_logins()),
         lambda: compute_sequence_features(_make_probe_fiat(), _make_probe_trades(), _make_probe_crypto()),
         None,
+        None,  # event_ngram_features — no probe needed (handles empty inputs gracefully)
+        None,  # statistical_features — no probe needed (handles empty inputs gracefully)
     ]
 
     for module_df, probe_fn in zip(module_entries, probe_fns):
@@ -239,6 +246,9 @@ def build_v2_features(
 
     # fillna(0) for rule columns and any remaining NaN
     base = base.fillna(0)
+
+    # Task 1: Add explicit dormancy score (fraction of behavioral columns that are zero)
+    base["dormancy_score"] = compute_dormancy_score(base)
 
     return base.reset_index(drop=True)
 

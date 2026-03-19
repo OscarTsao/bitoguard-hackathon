@@ -507,6 +507,83 @@ def build_official_features(
     ).dt.days.clip(0, 3650).fillna(0).astype("float32")
     features = features.drop(columns=["_first_crypto_at", "confirmed_at"], errors="ignore")
 
+    # === NEW FEATURE MODULES (Tasks 1, 3, 4) ===
+
+    # Task 1: Dormancy score — explicit feature so model uses it directly
+    try:
+        from features.dormancy import compute_dormancy_score
+        features["dormancy_score"] = compute_dormancy_score(features)
+    except Exception as _e:
+        print(f"[WARN] dormancy_score failed: {_e}")
+
+    # Prepare normalized DataFrames for event-level modules
+    # Official pipeline uses created_at/kind_label; modules expect occurred_at/direction
+    try:
+        _fiat_norm = twd_transfer[["user_id", "created_at", "amount_twd", "kind_label"]].copy()
+        _fiat_norm = _fiat_norm.rename(columns={"created_at": "occurred_at", "kind_label": "direction"})
+
+        _crypto_norm = crypto_transfer[["user_id", "created_at", "amount_twd_equiv", "kind_label"]].copy()
+        _crypto_norm = _crypto_norm.rename(columns={"created_at": "occurred_at", "kind_label": "direction"})
+
+        # Combine swap + trading as the trades table, normalized for module column names
+        _swap_norm = usdt_swap[["user_id", "created_at", "twd_amount", "kind_label"]].copy()
+        _swap_norm = _swap_norm.rename(columns={"created_at": "occurred_at", "twd_amount": "notional_twd"})
+        _swap_norm["side"] = _swap_norm["kind_label"].map({
+            "buy_usdt_with_twd": "buy", "sell_usdt_for_twd": "sell"
+        }).fillna("buy")
+        _swap_norm["order_type"] = "instant_swap"
+
+        _trade_norm = usdt_twd_trading[["user_id", "updated_at", "trade_notional_twd", "side_label", "order_type_label"]].copy()
+        _trade_norm = _trade_norm.rename(columns={
+            "updated_at": "occurred_at",
+            "trade_notional_twd": "notional_twd",
+            "side_label": "side",
+            "order_type_label": "order_type",
+        })
+        _trade_norm["side"] = _trade_norm["side"].map({
+            "buy_usdt_with_twd": "buy", "sell_usdt_for_twd": "sell"
+        }).fillna(_trade_norm["side"])
+
+        _trades_norm = pd.concat([_swap_norm[["user_id", "occurred_at", "notional_twd", "side", "order_type"]],
+                                   _trade_norm[["user_id", "occurred_at", "notional_twd", "side", "order_type"]]],
+                                  ignore_index=True)
+        _event_dfs_ready = True
+    except Exception as _e:
+        print(f"[WARN] Event DataFrame normalization failed: {_e}")
+        _event_dfs_ready = False
+
+    # Task 3: Event n-gram features (temporal ordering)
+    if _event_dfs_ready:
+        try:
+            from features.event_ngram_features import compute_event_ngram_features
+            _ngram_df = compute_event_ngram_features(_fiat_norm, _crypto_norm, _trades_norm)
+            if not _ngram_df.empty:
+                _ngram_df["user_id"] = pd.to_numeric(_ngram_df["user_id"], errors="coerce").astype("Int64")
+                features = features.merge(_ngram_df, on="user_id", how="left")
+        except Exception as _e:
+            print(f"[WARN] Event n-gram features failed: {_e}")
+
+    # Task 4: Statistical features (Benford, entropy, burst)
+    if _event_dfs_ready:
+        try:
+            from features.statistical_features import compute_statistical_features
+            _stat_df = compute_statistical_features(_fiat_norm, _crypto_norm, _trades_norm)
+            if not _stat_df.empty:
+                _stat_df["user_id"] = pd.to_numeric(_stat_df["user_id"], errors="coerce").astype("Int64")
+                features = features.merge(_stat_df, on="user_id", how="left")
+        except Exception as _e:
+            print(f"[WARN] Statistical features failed: {_e}")
+
+    # Fill NaN for all new columns
+    _new_numeric = [
+        c for c in features.columns
+        if c not in {"user_id", "cohort", "status", "is_known_blacklist", "needs_prediction",
+                     "in_train_label", "in_predict_label", "is_shadow_overlap", "snapshot_cutoff_at",
+                     "snapshot_cutoff_tag"}
+        and pd.api.types.is_numeric_dtype(features[c])
+    ]
+    features[_new_numeric] = features[_new_numeric].fillna(0.0)
+
     features["snapshot_cutoff_at"] = resolved_cutoff
     features["snapshot_cutoff_tag"] = cutoff_tag
     features.to_parquet(feature_output_path("official_user_features", cutoff_tag), index=False)
