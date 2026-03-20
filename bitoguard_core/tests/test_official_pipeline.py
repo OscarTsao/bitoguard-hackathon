@@ -302,7 +302,7 @@ def test_official_train_validate_and_score_subset(tmp_path: Path, monkeypatch) -
     def _fake_secondary_splits(dataset, cutoff_tag="full", write_outputs=True, params=None):
         return secondary_template[["user_id", "secondary_fold"]].copy()
 
-    def _fake_secondary_oof(dataset, graph, split_frame, fold_column, base_a_feature_columns, base_b_feature_columns=None, graph_max_epochs=2):
+    def _fake_secondary_oof(dataset, graph, split_frame, fold_column, base_a_feature_columns, base_b_feature_columns=None, graph_max_epochs=2, **kwargs):
         return secondary_template.copy(), []
 
     monkeypatch.setattr(validate_module, "build_secondary_strict_splits", _fake_secondary_splits)

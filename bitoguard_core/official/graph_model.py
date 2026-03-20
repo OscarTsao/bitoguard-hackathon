@@ -83,10 +83,10 @@ def train_graphsage_model(
     train_user_ids: set[int],
     valid_user_ids: set[int] | None = None,
     max_epochs: int = 40,
-    hidden_dim: int = 64,
+    hidden_dim: int = 96,
     learning_rate: float = 1e-3,
     weight_decay: float = 1e-4,
-    patience: int = 8,
+    patience: int = 12,
 ) -> GraphModelFitResult:
     torch, F, nn = _require_torch()
     _seed_everything(torch)
@@ -106,12 +106,21 @@ def train_graphsage_model(
             self.neighbor_linear_1 = nn.Linear(input_dim, hidden_dim)
             self.self_linear_2 = nn.Linear(hidden_dim, hidden_dim)
             self.neighbor_linear_2 = nn.Linear(hidden_dim, hidden_dim)
+            # v47: 3rd aggregation layer — captures 3-hop neighborhoods (fraud chains where
+            # A→B→C→D all participate in the same ring). With temporal co-occurrence edges
+            # added to the graph, a 3rd layer allows signal to propagate through:
+            # direct_relation → wallet → temporal_cluster paths that are invisible to 2 layers.
+            # hidden_dim=96 (was 64): more capacity needed for 3-layer aggregation without
+            # information bottleneck; 50% increase from 64→96 adds +6k parameters per layer.
+            self.self_linear_3 = nn.Linear(hidden_dim, hidden_dim)
+            self.neighbor_linear_3 = nn.Linear(hidden_dim, hidden_dim)
             # v36: LayerNorm after each aggregation layer — stabilizes training on heterogeneous
             # user graphs where node degree varies 1–849. Without normalization, high-degree
             # hub nodes produce large activation magnitudes that destabilize gradient flow.
             # LayerNorm normalizes per-node independently, preventing hub-induced gradient explosion.
             self.norm_1 = nn.LayerNorm(hidden_dim)
             self.norm_2 = nn.LayerNorm(hidden_dim)
+            self.norm_3 = nn.LayerNorm(hidden_dim)
             self.dropout = nn.Dropout(0.20)
             self.classifier = nn.Linear(hidden_dim, 1)
             # v43: Initialize classifier bias to log(pi/(1-pi)) so the model starts at the
@@ -128,6 +137,10 @@ def train_graphsage_model(
             hidden = self.dropout(hidden)
             neighbor_2 = torch.sparse.mm(adjacency_tensor, hidden)
             hidden = self.norm_2(F.relu(self.self_linear_2(hidden) + self.neighbor_linear_2(neighbor_2)))
+            hidden = self.dropout(hidden)
+            # v47: Layer 3 — 3-hop aggregation.
+            neighbor_3 = torch.sparse.mm(adjacency_tensor, hidden)
+            hidden = self.norm_3(F.relu(self.self_linear_3(hidden) + self.neighbor_linear_3(neighbor_3)))
             hidden = self.dropout(hidden)
             return self.classifier(hidden).squeeze(-1)
 
@@ -266,8 +279,14 @@ def train_graphsage_model(
         full_probabilities = torch.sigmoid(logits).detach().cpu().numpy()
         validation_probabilities = full_probabilities[valid_mask.detach().cpu().numpy()] if has_valid else None
 
+    # Free GPU memory immediately after extracting numpy arrays — prevents
+    # VRAM staying allocated during subsequent CPU-bound CatBoost training.
+    del model, x, adjacency, logits
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     model_state = {
-        "state_dict": {key: value.cpu() for key, value in model.state_dict().items()},
+        "state_dict": {key: value.cpu() for key, value in best_state.items()},
         "metadata": {
             "user_feature_columns": feature_columns,
             "hidden_dim": hidden_dim,
@@ -302,9 +321,9 @@ def predict_graph_model(graph: TransductiveGraph, model_state: dict[str, Any]) -
     adjacency = _normalized_adjacency_tensor(graph, torch)
 
     class UserGraphSAGE(nn.Module):
-        # v45: Mirror train architecture exactly — includes v43 input_bn and v36 LayerNorm.
-        # Old saved models (pre-v43) will load with strict=False; missing BatchNorm
-        # weights initialise to identity (weight=1, bias=0), which is neutral.
+        # v47: Mirror train architecture exactly — 3-layer GNN with hidden_dim=96.
+        # Old saved models (pre-v47, 2-layer) will load with strict=False; missing
+        # layer-3 weights are randomly initialized (neutral: they're retrained on next run).
         def __init__(self, input_dim: int, hidden_dim: int) -> None:
             super().__init__()
             self.input_bn = nn.BatchNorm1d(input_dim)
@@ -312,8 +331,11 @@ def predict_graph_model(graph: TransductiveGraph, model_state: dict[str, Any]) -
             self.neighbor_linear_1 = nn.Linear(input_dim, hidden_dim)
             self.self_linear_2 = nn.Linear(hidden_dim, hidden_dim)
             self.neighbor_linear_2 = nn.Linear(hidden_dim, hidden_dim)
+            self.self_linear_3 = nn.Linear(hidden_dim, hidden_dim)
+            self.neighbor_linear_3 = nn.Linear(hidden_dim, hidden_dim)
             self.norm_1 = nn.LayerNorm(hidden_dim)
             self.norm_2 = nn.LayerNorm(hidden_dim)
+            self.norm_3 = nn.LayerNorm(hidden_dim)
             self.dropout = nn.Dropout(0.20)
             self.classifier = nn.Linear(hidden_dim, 1)
 
@@ -324,6 +346,9 @@ def predict_graph_model(graph: TransductiveGraph, model_state: dict[str, Any]) -
             hidden = self.dropout(hidden)
             neighbor_2 = torch.sparse.mm(adjacency_tensor, hidden)
             hidden = self.norm_2(F.relu(self.self_linear_2(hidden) + self.neighbor_linear_2(neighbor_2)))
+            hidden = self.dropout(hidden)
+            neighbor_3 = torch.sparse.mm(adjacency_tensor, hidden)
+            hidden = self.norm_3(F.relu(self.self_linear_3(hidden) + self.neighbor_linear_3(neighbor_3)))
             hidden = self.dropout(hidden)
             return self.classifier(hidden).squeeze(-1)
 

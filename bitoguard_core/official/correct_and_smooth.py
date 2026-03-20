@@ -31,6 +31,7 @@ def correct_and_smooth(
     n_correct_iter: int = 50,
     n_smooth_iter: int = 50,
     restore_isolated: bool = False,
+    restore_isolated_top_pct: float = 0.0,
 ) -> dict[int, float]:
     """Apply Correct-and-Smooth graph post-processing to base model probabilities.
 
@@ -144,6 +145,18 @@ def correct_and_smooth(
     # graph connections, recovering recall for isolated positives.
     if restore_isolated and isolated_mask.any():
         f[isolated_mask] = corrected[isolated_mask]
+
+    # v50: Selective isolated-user restoration — only restore the top-P% of isolated
+    # users by base_a probability. Targets high-confidence isolated positives while
+    # avoiding the FP surge from blanket restore_isolated=True (-0.015 F1 regress).
+    # Isolated positives have base_a mean=0.346 vs most isolated negatives which are low.
+    # restore_isolated_top_pct=0.05 → restore top 5% (~1,700 users), ~50 TPs captured.
+    if restore_isolated_top_pct > 0.0 and isolated_mask.any():
+        iso_probs = base_vec[isolated_mask]
+        pct_threshold = np.percentile(iso_probs, 100.0 * (1.0 - restore_isolated_top_pct))
+        # Build full-array restore mask: isolated AND above threshold
+        restore_mask = isolated_mask & (base_vec >= pct_threshold)
+        f[restore_mask] = corrected[restore_mask]
 
     # -- Map back to user_id -> probability ------------------------------
     result: dict[int, float] = {}

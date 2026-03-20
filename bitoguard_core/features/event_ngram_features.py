@@ -1,23 +1,18 @@
 """Event n-gram and transition matrix features.
 
-Encodes each user's event history as an ordered sequence of (event_type, time_bucket)
-tokens, then extracts:
-  - Bigram/trigram frequency features (most common AML-relevant patterns)
+Encodes each user's event history as an ordered sequence of event tokens, then extracts:
+  - Bigram/trigram frequency features for AML-relevant patterns
   - Transition probability matrix entropy (chaotic vs predictable behavior)
   - Longest streak of same-type events
-  - Directional flow pattern (in→out ratio in sequence)
-
-These features capture temporal ordering that aggregate statistics miss.
+  - Directional flow features in the sequence
 
 Column name handling:
-  - fiat: uses 'occurred_at' or 'created_at'; 'direction' or 'kind_label' for type
-  - crypto: uses 'occurred_at' or 'created_at'; 'direction' or 'kind_label'
-  - trades: uses 'occurred_at', 'updated_at', or 'created_at'; 'side' or 'side_label';
-            'order_type' or 'order_type_label' (instant_swap → swap, else trade)
+  - fiat: uses "occurred_at" or "created_at"; "direction" or "kind_label" for type
+  - crypto: uses "occurred_at" or "created_at"; "direction" or "kind_label"
+  - trades: uses "occurred_at", "updated_at", or "created_at"; "side" or "side_label";
+            "order_type" or "order_type_label" (instant_swap -> swap, else trade)
 """
 from __future__ import annotations
-
-from collections import Counter
 
 import numpy as np
 import pandas as pd
@@ -29,20 +24,20 @@ OUTFLOW_TOKENS = frozenset({"FW", "CW", "TS", "SS"})
 
 # AML-relevant bigrams to count explicitly
 AML_BIGRAMS: list[tuple[str, str]] = [
-    ("FD", "SB"),  # fiat deposit → swap buy (classic layering)
-    ("FD", "CW"),  # fiat deposit → crypto withdrawal (cash-out)
-    ("SB", "CW"),  # swap buy → crypto withdrawal (convert & move)
-    ("FD", "FW"),  # fiat deposit → fiat withdrawal (pass-through)
-    ("CD", "FW"),  # crypto deposit → fiat withdrawal (cash-out reverse)
-    ("CD", "TS"),  # crypto deposit → trade sell
-    ("FD", "TB"),  # fiat deposit → trade buy
+    ("FD", "SB"),  # fiat deposit -> swap buy (classic layering)
+    ("FD", "CW"),  # fiat deposit -> crypto withdrawal (cash-out)
+    ("SB", "CW"),  # swap buy -> crypto withdrawal (convert & move)
+    ("FD", "FW"),  # fiat deposit -> fiat withdrawal (pass-through)
+    ("CD", "FW"),  # crypto deposit -> fiat withdrawal (cash-out reverse)
+    ("CD", "TS"),  # crypto deposit -> trade sell
+    ("FD", "TB"),  # fiat deposit -> trade buy
 ]
 
 # AML-relevant trigrams
 AML_TRIGRAMS: list[tuple[str, str, str]] = [
-    ("FD", "SB", "CW"),  # fiat → swap → crypto out (full layering chain)
-    ("FD", "TB", "CW"),  # fiat → trade → crypto out
-    ("CD", "TS", "FW"),  # crypto in → sell → fiat out
+    ("FD", "SB", "CW"),  # fiat -> swap -> crypto out (full layering chain)
+    ("FD", "TB", "CW"),  # fiat -> trade -> crypto out
+    ("CD", "TS", "FW"),  # crypto in -> sell -> fiat out
     ("FD", "FW", "FD"),  # repeated fiat pass-through
 ]
 
@@ -57,113 +52,199 @@ _CRYPTO_DIR_MAP = {"deposit": "CD", "withdrawal": "CW"}
 _TRADE_SIDE_BUY = {"buy", "buy_usdt_with_twd"}
 _TRADE_SIDE_SELL = {"sell", "sell_usdt_for_twd"}
 _SWAP_ORDER_TYPES = {"instant_swap", "swap"}
+_TOKEN_CATEGORIES = ["FD", "FW", "CD", "CW", "TB", "TS", "SB", "SS"]
+
+_BIGRAM_COLUMNS = [f"bg_{src}_{dst}" for src, dst in AML_BIGRAMS]
+_TRIGRAM_COLUMNS = [f"tg_{a}_{b}_{c}" for a, b, c in AML_TRIGRAMS]
+_INT_COLUMNS = [
+    "seq_length",
+    *_BIGRAM_COLUMNS,
+    *_TRIGRAM_COLUMNS,
+    "seq_longest_streak",
+    "seq_n_unique_types",
+]
+_FLOAT_COLUMNS = [
+    "seq_transition_entropy",
+    "seq_inflow_outflow_ratio",
+    "seq_outflow_fraction",
+]
+_OUTPUT_COLUMNS = [
+    "user_id",
+    "seq_length",
+    *_BIGRAM_COLUMNS,
+    *_TRIGRAM_COLUMNS,
+    "seq_transition_entropy",
+    "seq_longest_streak",
+    "seq_inflow_outflow_ratio",
+    "seq_n_unique_types",
+    "seq_outflow_fraction",
+]
 
 
 def _find_col(df: pd.DataFrame, candidates: tuple[str, ...]) -> str | None:
-    for c in candidates:
-        if c in df.columns:
-            return c
+    for candidate in candidates:
+        if candidate in df.columns:
+            return candidate
     return None
 
 
-def _build_event_index(
+def _empty_feature_frame() -> pd.DataFrame:
+    return pd.DataFrame(columns=_OUTPUT_COLUMNS)
+
+
+def _prepare_events(
     fiat: pd.DataFrame,
     crypto: pd.DataFrame,
     trades: pd.DataFrame,
-) -> dict[object, list[tuple[np.int64, str]]]:
-    """Build a per-user event index: user_id → sorted list of (timestamp_ns, token).
-
-    Uses vectorized operations + groupby for efficiency.
-    """
+) -> pd.DataFrame:
+    """Normalize all event sources into one sorted event frame."""
     events_parts: list[pd.DataFrame] = []
 
-    # Fiat events
     if not fiat.empty and "user_id" in fiat.columns:
         time_col = _find_col(fiat, _TIME_COLS)
         dir_col = _find_col(fiat, _DIR_COLS_FIAT)
         if time_col and dir_col:
-            f = fiat[["user_id", time_col, dir_col]].copy()
-            f["ts"] = pd.to_datetime(f[time_col], utc=True, errors="coerce")
-            f["token"] = f[dir_col].map(_FIAT_DIR_MAP)
-            events_parts.append(f[["user_id", "ts", "token"]].dropna(subset=["ts", "token"]))
+            fiat_events = fiat.loc[:, ["user_id", time_col, dir_col]].copy()
+            fiat_events["ts"] = pd.to_datetime(fiat_events[time_col], utc=True, errors="coerce")
+            fiat_events["token"] = fiat_events[dir_col].astype("string").str.lower().map(_FIAT_DIR_MAP)
+            fiat_events["_source_rank"] = 0
+            fiat_events["_source_order"] = np.arange(len(fiat_events), dtype=np.int64)
+            events_parts.append(
+                fiat_events[["user_id", "ts", "token", "_source_rank", "_source_order"]]
+                .dropna(subset=["user_id", "ts", "token"])
+            )
 
-    # Crypto events
     if not crypto.empty and "user_id" in crypto.columns:
         time_col = _find_col(crypto, _TIME_COLS)
         dir_col = _find_col(crypto, _DIR_COLS_FIAT)
         if time_col and dir_col:
-            c = crypto[["user_id", time_col, dir_col]].copy()
-            c["ts"] = pd.to_datetime(c[time_col], utc=True, errors="coerce")
-            c["token"] = c[dir_col].map(_CRYPTO_DIR_MAP)
-            events_parts.append(c[["user_id", "ts", "token"]].dropna(subset=["ts", "token"]))
+            crypto_events = crypto.loc[:, ["user_id", time_col, dir_col]].copy()
+            crypto_events["ts"] = pd.to_datetime(crypto_events[time_col], utc=True, errors="coerce")
+            crypto_events["token"] = crypto_events[dir_col].astype("string").str.lower().map(_CRYPTO_DIR_MAP)
+            crypto_events["_source_rank"] = 1
+            crypto_events["_source_order"] = np.arange(len(crypto_events), dtype=np.int64)
+            events_parts.append(
+                crypto_events[["user_id", "ts", "token", "_source_rank", "_source_order"]]
+                .dropna(subset=["user_id", "ts", "token"])
+            )
 
-    # Trade events
     if not trades.empty and "user_id" in trades.columns:
         time_col = _find_col(trades, _TIME_COLS)
         side_col = _find_col(trades, _DIR_COLS_TRADE)
         type_col = _find_col(trades, _TYPE_COLS_TRADE)
         if time_col and side_col:
-            t = trades[["user_id", time_col, side_col] + ([type_col] if type_col else [])].copy()
-            t["ts"] = pd.to_datetime(t[time_col], utc=True, errors="coerce")
-            side_vals = t[side_col].str.lower() if t[side_col].dtype == object else t[side_col]
-            is_buy = side_vals.isin(_TRADE_SIDE_BUY)
-            is_sell = side_vals.isin(_TRADE_SIDE_SELL)
+            keep_cols = ["user_id", time_col, side_col]
             if type_col:
-                is_swap = t[type_col].str.lower().isin(_SWAP_ORDER_TYPES)
+                keep_cols.append(type_col)
+            trade_events = trades.loc[:, keep_cols].copy()
+            trade_events["ts"] = pd.to_datetime(trade_events[time_col], utc=True, errors="coerce")
+            side_values = trade_events[side_col].astype("string").str.lower()
+            is_buy = side_values.isin(_TRADE_SIDE_BUY)
+            is_sell = side_values.isin(_TRADE_SIDE_SELL)
+            if type_col:
+                is_swap = trade_events[type_col].astype("string").str.lower().isin(_SWAP_ORDER_TYPES)
             else:
-                is_swap = pd.Series(False, index=t.index)
-            t["token"] = np.where(
-                is_swap & is_buy, "SB",
-                np.where(is_swap & is_sell, "SS",
-                np.where(is_buy, "TB",
-                np.where(is_sell, "TS", None)))
+                is_swap = pd.Series(False, index=trade_events.index)
+            trade_events["token"] = np.where(
+                is_swap & is_buy,
+                "SB",
+                np.where(
+                    is_swap & is_sell,
+                    "SS",
+                    np.where(is_buy, "TB", np.where(is_sell, "TS", None)),
+                ),
             )
-            events_parts.append(t[["user_id", "ts", "token"]].dropna(subset=["ts", "token"]))
+            trade_events["_source_rank"] = 2
+            trade_events["_source_order"] = np.arange(len(trade_events), dtype=np.int64)
+            events_parts.append(
+                trade_events[["user_id", "ts", "token", "_source_rank", "_source_order"]]
+                .dropna(subset=["user_id", "ts", "token"])
+            )
 
     if not events_parts:
-        return {}
+        return pd.DataFrame(columns=["user_id", "ts", "token"])
 
     all_events = pd.concat(events_parts, ignore_index=True)
-    all_events = all_events.sort_values(["user_id", "ts"])
-
-    index: dict[object, list[tuple[np.int64, str]]] = {}
-    for uid, grp in all_events.groupby("user_id"):
-        index[uid] = list(zip(grp["ts"].values, grp["token"].values))
-    return index
+    all_events = all_events.sort_values(
+        ["user_id", "ts", "_source_rank", "_source_order"],
+        kind="mergesort",
+    ).reset_index(drop=True)
+    all_events["token"] = pd.Categorical(all_events["token"], categories=_TOKEN_CATEGORIES)
+    return all_events[["user_id", "ts", "token"]]
 
 
 def _transition_entropy(sequence: list[str]) -> float:
     """Shannon entropy of the transition probability matrix (averaged over source states)."""
     if len(sequence) < 2:
         return 0.0
-    transitions: dict[str, Counter] = {}
-    for i in range(len(sequence) - 1):
-        src, dst = sequence[i], sequence[i + 1]
-        if src not in transitions:
-            transitions[src] = Counter()
-        transitions[src][dst] += 1
-    total_entropy = 0.0
-    for counter in transitions.values():
-        total = sum(counter.values())
-        for count in counter.values():
-            if count > 0:
-                p = count / total
-                total_entropy -= p * np.log2(p)
-    return total_entropy / max(1, len(transitions))
+
+    pairs = pd.DataFrame({"token": sequence[:-1], "next_token": sequence[1:]})
+    counts = (
+        pairs.groupby(["token", "next_token"], sort=False)
+        .size()
+        .rename("cnt")
+        .reset_index()
+    )
+    counts["total"] = counts.groupby("token", sort=False)["cnt"].transform("sum")
+    probs = counts["cnt"] / counts["total"]
+    per_source = (-probs * np.log2(probs.clip(lower=np.finfo(float).tiny))).groupby(
+        counts["token"],
+        sort=False,
+    ).sum()
+    return float(per_source.mean()) if not per_source.empty else 0.0
 
 
 def _longest_same_streak(sequence: list[str]) -> int:
     """Longest consecutive run of the same event type."""
     if not sequence:
         return 0
-    max_streak, current = 1, 1
-    for i in range(1, len(sequence)):
-        if sequence[i] == sequence[i - 1]:
-            current += 1
-            max_streak = max(max_streak, current)
-        else:
-            current = 1
-    return max_streak
+
+    seq = pd.Series(sequence)
+    run_id = seq.ne(seq.shift()).cumsum()
+    return int(seq.groupby(run_id, sort=False).size().max())
+
+
+def _count_selected_ngrams(
+    events: pd.DataFrame,
+    token_cols: list[str],
+    patterns: list[tuple[str, ...]],
+    prefix: str,
+) -> pd.DataFrame:
+    """Count selected n-grams per user without any per-user Python iteration."""
+    feature_names = [f"{prefix}_{'_'.join(pattern)}" for pattern in patterns]
+    ngram_events = events.dropna(subset=token_cols)
+    if ngram_events.empty:
+        return pd.DataFrame(columns=feature_names)
+
+    lookup = pd.DataFrame(patterns, columns=token_cols)
+    lookup["feature"] = feature_names
+    matched = ngram_events[["user_id", *token_cols]].merge(lookup, on=token_cols, how="inner", sort=False)
+    if matched.empty:
+        return pd.DataFrame(columns=feature_names)
+
+    counts = matched.groupby(["user_id", "feature"], sort=False).size().unstack("feature", fill_value=0)
+    return counts.reindex(columns=feature_names, fill_value=0)
+
+
+def _vectorized_transition_entropy(events: pd.DataFrame) -> pd.Series:
+    """Compute Shannon entropy of transition probabilities per user."""
+    pairs = events.dropna(subset=["next_token"])[["user_id", "token", "next_token"]]
+    if pairs.empty:
+        return pd.Series(dtype=float, name="seq_transition_entropy")
+
+    counts = (
+        pairs.groupby(["user_id", "token", "next_token"], sort=False, observed=True)
+        .size()
+        .rename("cnt")
+        .reset_index()
+    )
+    counts["total"] = counts.groupby(["user_id", "token"], sort=False, observed=True)["cnt"].transform("sum")
+    probs = counts["cnt"] / counts["total"]
+    counts["entropy"] = -probs * np.log2(probs.clip(lower=np.finfo(float).tiny))
+    per_source = counts.groupby(["user_id", "token"], sort=False, observed=True)["entropy"].sum()
+    return per_source.groupby(level="user_id", sort=False, observed=True).mean().rename(
+        "seq_transition_entropy"
+    )
 
 
 def compute_event_ngram_features(
@@ -171,44 +252,55 @@ def compute_event_ngram_features(
     crypto: pd.DataFrame,
     trades: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Compute event n-gram features for all users.
+    """Compute event n-gram features for all users with vectorized pandas operations."""
+    all_events = _prepare_events(fiat, crypto, trades)
+    if all_events.empty:
+        return _empty_feature_frame()
 
-    Returns DataFrame with one row per user_id, columns:
-      seq_length, bg_*, tg_*, seq_transition_entropy,
-      seq_longest_streak, seq_inflow_outflow_ratio,
-      seq_n_unique_types, seq_outflow_fraction
-    """
-    event_index = _build_event_index(fiat, crypto, trades)
-    if not event_index:
-        return pd.DataFrame()
+    all_events = all_events.copy()
+    all_events["next_token"] = all_events.groupby("user_id", sort=False)["token"].shift(-1)
+    all_events["next2_token"] = all_events.groupby("user_id", sort=False)["token"].shift(-2)
 
-    rows: list[dict] = []
-    for uid, events in sorted(event_index.items(), key=lambda x: x[0]):
-        seq = [tok for _, tok in events]
-        row: dict = {"user_id": uid, "seq_length": len(seq)}
+    user_index = pd.Index(all_events["user_id"].drop_duplicates(), name="user_id")
+    result = pd.DataFrame(index=user_index)
 
-        # Bigram counts
-        bigrams: Counter = Counter()
-        for i in range(len(seq) - 1):
-            bigrams[(seq[i], seq[i + 1])] += 1
-        for bg in AML_BIGRAMS:
-            row[f"bg_{bg[0]}_{bg[1]}"] = bigrams.get(bg, 0)
+    seq_length = all_events.groupby("user_id", sort=False).size().rename("seq_length")
+    seq_n_unique_types = all_events.groupby("user_id", sort=False)["token"].nunique().rename("seq_n_unique_types")
 
-        # Trigram counts
-        trigrams: Counter = Counter()
-        for i in range(len(seq) - 2):
-            trigrams[(seq[i], seq[i + 1], seq[i + 2])] += 1
-        for tg in AML_TRIGRAMS:
-            row[f"tg_{tg[0]}_{tg[1]}_{tg[2]}"] = trigrams.get(tg, 0)
+    inflow_counts = all_events["token"].isin(INFLOW_TOKENS).groupby(all_events["user_id"], sort=False).sum()
+    outflow_counts = all_events["token"].isin(OUTFLOW_TOKENS).groupby(all_events["user_id"], sort=False).sum()
 
-        # Sequence statistics
-        row["seq_transition_entropy"] = _transition_entropy(seq)
-        row["seq_longest_streak"] = _longest_same_streak(seq)
-        n_inflow = sum(1 for e in seq if e in INFLOW_TOKENS)
-        n_outflow = sum(1 for e in seq if e in OUTFLOW_TOKENS)
-        row["seq_inflow_outflow_ratio"] = n_inflow / max(1, n_outflow)
-        row["seq_n_unique_types"] = len(set(seq))
-        row["seq_outflow_fraction"] = n_outflow / max(1, len(seq))
-        rows.append(row)
+    change_points = all_events["user_id"].ne(all_events["user_id"].shift()) | all_events["token"].ne(
+        all_events["token"].shift()
+    )
+    run_id = change_points.cumsum()
+    longest_streak = (
+        all_events.groupby(["user_id", run_id], sort=False)
+        .size()
+        .groupby(level="user_id", sort=False)
+        .max()
+        .rename("seq_longest_streak")
+    )
 
-    return pd.DataFrame(rows).fillna(0)
+    result = result.join(seq_length)
+    result = result.join(_count_selected_ngrams(all_events, ["token", "next_token"], AML_BIGRAMS, "bg"))
+    result = result.join(
+        _count_selected_ngrams(all_events, ["token", "next_token", "next2_token"], AML_TRIGRAMS, "tg")
+    )
+    result = result.join(_vectorized_transition_entropy(all_events))
+    result = result.join(longest_streak)
+    result["seq_inflow_outflow_ratio"] = inflow_counts / outflow_counts.clip(lower=1)
+    result["seq_n_unique_types"] = seq_n_unique_types
+    result["seq_outflow_fraction"] = outflow_counts / seq_length
+
+    for column in _INT_COLUMNS:
+        if column not in result:
+            result[column] = 0
+        result[column] = pd.to_numeric(result[column], errors="coerce").fillna(0).astype(np.int64)
+    for column in _FLOAT_COLUMNS:
+        if column not in result:
+            result[column] = 0.0
+        result[column] = pd.to_numeric(result[column], errors="coerce").fillna(0.0).astype(float)
+
+    result = result.reset_index()
+    return result.reindex(columns=_OUTPUT_COLUMNS, fill_value=0)

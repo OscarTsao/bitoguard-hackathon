@@ -310,6 +310,8 @@ def run_transductive_oof_pipeline(
     base_b_feature_columns: list[str] | None = None,
     graph_max_epochs: int = 40,
     catboost_params: dict | None = None,
+    use_negative_propagation: bool = False,
+    cs_restore_top_pct: float = 0.0,
 ) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
     label_frame = _label_frame(dataset)
     assignments = iter_fold_assignments(split_frame, fold_column)
@@ -317,7 +319,9 @@ def run_transductive_oof_pipeline(
     fold_training_meta: list[dict[str, Any]] = []
     for fold_id, train_users, valid_users in assignments:
         fold_train_labels = label_frame[label_frame["user_id"].astype(int).isin(train_users)].copy()
-        transductive_features = build_transductive_feature_frame(graph, fold_train_labels)
+        transductive_features = build_transductive_feature_frame(
+            graph, fold_train_labels, use_negative_propagation=use_negative_propagation
+        )
         label_free_frame, with_transductive_frame = _prepare_base_frames(dataset, transductive_features)
 
         train_label_free = label_free_frame[label_free_frame["user_id"].astype(int).isin(train_users)].copy()
@@ -407,8 +411,18 @@ def run_transductive_oof_pipeline(
             train_user_ids=train_users,
             valid_user_ids=valid_users,
             max_epochs=graph_max_epochs,
-            hidden_dim=64,
+            hidden_dim=96,
         )
+        # Release GPU memory held by GNN tensors before next CatBoost fold.
+        # Without this, 10+ GB GNN tensors persist in CUDA cache across fold
+        # iterations, causing OOM when CatBoost tries to allocate GPU memory
+        # in the next fold (or when a concurrent process does the same).
+        try:
+            import torch as _torch
+            if _torch.cuda.is_available():
+                _torch.cuda.empty_cache()
+        except Exception:
+            pass
 
         # Correct-and-Smooth (C&S): graph-based post-processing on Base A OOF probs.
         # Uses training-fold labels only (no label leakage from val fold).
@@ -448,6 +462,7 @@ def run_transductive_oof_pipeline(
             graph, _cs_train_labels, _cs_base_probs,
             alpha_correct=0.5, alpha_smooth=0.5,
             n_correct_iter=50, n_smooth_iter=50,
+            restore_isolated_top_pct=cs_restore_top_pct,
         )
         _val_ids = valid_label_free["user_id"].astype(int).tolist()
         _cs_val_probs = np.array(
@@ -463,8 +478,14 @@ def run_transductive_oof_pipeline(
         fold_frame["base_c_probability"] = np.asarray(graph_fit.validation_probabilities, dtype=float)
         fold_frame["base_d_probability"] = np.asarray(base_d_fit.validation_probabilities, dtype=float)
         fold_frame["base_e_probability"] = np.asarray(base_e_fit.validation_probabilities, dtype=float)
-        fold_frame["rule_score"] = pd.to_numeric(valid_label_free["rule_score"], errors="coerce").fillna(0.0).to_numpy()
-        fold_frame["anomaly_score"] = pd.to_numeric(valid_label_free["anomaly_score"], errors="coerce").fillna(0.0).to_numpy()
+        fold_frame["rule_score"] = (
+            pd.to_numeric(valid_label_free["rule_score"], errors="coerce").fillna(0.0).to_numpy()
+            if "rule_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
+        )
+        fold_frame["anomaly_score"] = (
+            pd.to_numeric(valid_label_free["anomaly_score"], errors="coerce").fillna(0.0).to_numpy()
+            if "anomaly_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
+        )
         # lof_score/ocsvm_score are collected for backward compat but not in STACKER_FEATURE_COLUMNS
         # (weak predictors that add noise; removed in v30 stacker simplification).
         fold_frame["lof_score"] = (
@@ -474,6 +495,18 @@ def run_transductive_oof_pipeline(
         fold_frame["ocsvm_score"] = (
             pd.to_numeric(valid_label_free["ocsvm_score"], errors="coerce").fillna(0.0).to_numpy()
             if "ocsvm_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
+        )
+        # v51-fix: Propagate anomaly_score_segmented and crypto_anomaly_score to the OOF frame.
+        # These are produced by anomaly.py but were missing from the fold_frame, causing
+        # stacker features (base_cs_x_crypto_anomaly, base_a_x_crypto_anomaly) and blend
+        # candidate (anomaly_score_segmented) to silently default to 0.0 in stacking.py.
+        fold_frame["anomaly_score_segmented"] = (
+            pd.to_numeric(valid_label_free["anomaly_score_segmented"], errors="coerce").fillna(0.0).to_numpy()
+            if "anomaly_score_segmented" in valid_label_free.columns else np.zeros(len(valid_label_free))
+        )
+        fold_frame["crypto_anomaly_score"] = (
+            pd.to_numeric(valid_label_free["crypto_anomaly_score"], errors="coerce").fillna(0.0).to_numpy()
+            if "crypto_anomaly_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
         )
         rows.append(fold_frame)
         fold_training_meta.append(
@@ -574,6 +607,12 @@ def train_official_model() -> dict[str, Any]:
         max_epochs=max(FINAL_GRAPH_MIN_EPOCHS, graph_epochs),
         hidden_dim=64,
     )
+    try:
+        import torch as _torch
+        if _torch.cuda.is_available():
+            _torch.cuda.empty_cache()
+    except Exception:
+        pass
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     base_a_paths = [

@@ -101,7 +101,8 @@ def _propagation_scores(
 
 def _edge_type_counts(graph: TransductiveGraph, positive_seed_users: set[int]) -> pd.DataFrame:
     rows: list[dict[str, float]] = []
-    edge_types = ["relation", "wallet_small", "wallet_medium", "ip_small", "ip_medium"]
+    # v47: temporal_small/medium — users transacting in the same 15-minute window.
+    edge_types = ["relation", "wallet_small", "wallet_medium", "ip_small", "ip_medium", "temporal_small", "temporal_medium"]
     positive_by_type = graph.neighbors_by_type
     for user_id in graph.user_ids:
         row: dict[str, float] = {"user_id": user_id}
@@ -209,9 +210,19 @@ def _component_seed_stats(graph: TransductiveGraph, train_label_frame: pd.DataFr
     return output.drop(columns=["component_id"])
 
 
+def _negative_seed_users(train_label_frame: pd.DataFrame) -> set[int]:
+    """Return user IDs labeled as negative (status == 0) in the training fold."""
+    frame = train_label_frame.copy()
+    frame["user_id"] = pd.to_numeric(frame["user_id"], errors="coerce").astype("Int64")
+    frame["status"] = pd.to_numeric(frame["status"], errors="coerce").astype("Int64")
+    frame = frame.dropna(subset=["user_id", "status"])
+    return set(frame[frame["status"].astype(int) == 0]["user_id"].astype(int).tolist())
+
+
 def build_transductive_feature_frame(
     graph: TransductiveGraph,
     train_label_frame: pd.DataFrame,
+    use_negative_propagation: bool = False,
 ) -> pd.DataFrame:
     positive_seed_users = _positive_seed_users(train_label_frame)
     labeled_seed_users = _labeled_seed_users(train_label_frame)
@@ -251,10 +262,43 @@ def build_transductive_feature_frame(
     )
     propagation["has_positive_seed_path"] = propagation["nearest_positive_seed_distance"].ge(0).astype(int)
 
+    # v49: Rank-normalized PPR features reduce fold-specific distribution shift.
+    # Absolute PPR values depend on which users are seeds (training fold labels),
+    # causing distribution mismatch between train and validation folds.
+    # Percentile ranks [0,1] are fold-stable: connected users always rank high,
+    # isolated users always rank low, regardless of which specific users are seeds.
+    _n_users = len(graph.user_ids)
+    if _n_users > 0 and ppr.sum() > 0:
+        propagation["positive_seed_ppr_rank"] = pd.Series(ppr).rank(pct=True, method="average").values
+        propagation["positive_seed_ppr_long_rank"] = pd.Series(ppr_long).rank(pct=True, method="average").values
+        propagation["positive_seed_ppr_local_rank"] = pd.Series(ppr_local).rank(pct=True, method="average").values
+        propagation["positive_seed_1hop_rank"] = pd.Series(one_hop).rank(pct=True, method="average").values
+    else:
+        propagation["positive_seed_ppr_rank"] = 0.0
+        propagation["positive_seed_ppr_long_rank"] = 0.0
+        propagation["positive_seed_ppr_local_rank"] = 0.0
+        propagation["positive_seed_1hop_rank"] = 0.0
+
     # v30: Negative-seed contrast features removed — they caused Base B AP to drop
     # from 0.1013 → 0.0509 (halved). The negative-seed PPR/distance adds noise
     # when negative labels are unreliable (many unlabeled true positives in the dataset,
     # PU learning setting). Positive-seed propagation features are sufficient.
+    #
+    # v4/configurable: Optionally re-enable negative propagation via flag.
+    # WARNING: Previous experiments showed this HALVED AP (v30). Only enable
+    # for controlled ablation experiments.
+    if use_negative_propagation:
+        negative_seed_users = _negative_seed_users(train_label_frame)
+        neg_one_hop, neg_two_hop, neg_ppr, neg_ppr_long, neg_ppr_local = _propagation_scores(graph, negative_seed_users)
+        propagation["negative_seed_ppr"] = neg_ppr
+        propagation["negative_seed_ppr_long"] = neg_ppr_long
+        propagation["negative_seed_ppr_local"] = neg_ppr_local
+        # Contrast features: ratio and difference between positive and negative PPR.
+        # These capture the relative strength of positive vs negative graph signal.
+        _eps = 0.001
+        propagation["ppr_pos_neg_ratio"] = (ppr / (neg_ppr + _eps)).clip(0, 50).astype("float32")
+        propagation["ppr_diff"] = (ppr - neg_ppr).astype("float32")
+        propagation["ppr_long_pos_neg_ratio"] = (ppr_long / (neg_ppr_long + _eps)).clip(0, 50).astype("float32")
 
     result = pd.DataFrame({"user_id": graph.user_ids})
     for frame in (relation_stats, edge_type_stats, wallet_seed_stats, ip_seed_stats, component_stats, propagation):

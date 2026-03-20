@@ -129,7 +129,13 @@ def fit_catboost(
     except ImportError as exc:  # pragma: no cover - optional dependency path
         raise ImportError("CatBoost is not installed. Install catboost to enable this path.") from exc
 
-    hp = catboost_params or {}
+    hp = dict(catboost_params or {})
+    # v4/configurable: PU learning — reduce negative class weight since some
+    # "negatives" are actually unlabeled positives. Extracted here before hp
+    # is passed to CatBoost (which does not recognize this key).
+    _pu_neg_weight = hp.pop("pu_negative_weight", None)
+    if _pu_neg_weight is not None:
+        negative_weight = float(_pu_neg_weight)
     cat_features = [
         column for column in feature_columns
         if pd.api.types.is_object_dtype(train_frame[column])

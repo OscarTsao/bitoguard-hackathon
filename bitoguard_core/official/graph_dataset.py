@@ -13,6 +13,78 @@ from official.common import EVENT_TIME_COLUMNS, load_clean_table, to_utc_timesta
 
 MAX_WALLET_PAIRWISE_USERS = 50
 MAX_IP_PAIRWISE_USERS = 20
+# v47: Temporal co-occurrence cap — tighter than wallet (50) since time-bucket edges are
+# weaker signal (many legitimate users transact at the same minute vs shared wallets which
+# are almost always coordinated). Cap at 30 ensures only tight co-activity clusters get edges.
+_MAX_TEMPORAL_COOCCURRENCE_USERS = 30
+
+# P0-2: Known null/placeholder entity hash values to filter from IP and wallet edges.
+# These are hashes of degenerate inputs (empty string, "0", "null", null byte) that
+# would create artificial super-nodes linking thousands of unrelated users.
+_SENTINEL_ENTITY_HASHES: frozenset[str] = frozenset({
+    "cfcd208495d565ef66e7dff9f98764da",  # MD5("0")
+    "d41d8cd98f00b204e9800998ecf8427e",  # MD5("")
+    "37a6259cc0c1dae299a7866489dff0bd",  # MD5("null")
+    "93b885adfe0da089cdf634904fd59f71",  # MD5(b"\x00")
+    "4ae71336e44bf9bf79d2752e234818a5",  # MD5("NULL")
+    "37a6259cc0c1dae299a7866489dff0bd",  # duplicate of MD5("null"), kept for clarity
+})
+_SENTINEL_DEGREE_GATE = 500  # Any entity connecting >500 unique users is treated as sentinel
+
+
+def _filter_sentinel_entities(
+    edges: pd.DataFrame,
+    degree_gate: int = _SENTINEL_DEGREE_GATE,
+) -> pd.DataFrame:
+    """Remove edges involving sentinel/placeholder entity hash values.
+
+    Two filters applied in order:
+    1. Known sentinel hashes (MD5 of null-like inputs).
+    2. Degree gate: any entity connecting > degree_gate unique users is a super-node.
+
+    Called on ip_edges and wallet_edges BEFORE computing entity_user_count,
+    so the count computation operates on clean data only.
+    """
+    if edges.empty or "entity_id" not in edges.columns:
+        return edges
+
+    # Filter 1: known sentinel hashes
+    n_before = len(edges)
+    mask_sentinel = edges["entity_id"].astype(str).str.lower().isin(_SENTINEL_ENTITY_HASHES)
+    edges = edges[~mask_sentinel].copy()
+    n_sentinel_removed = n_before - len(edges)
+
+    # Filter 2: degree gate — compute per-entity user counts and drop mega-entities
+    if len(edges) > 0:
+        entity_user_counts = edges.groupby("entity_id")["user_id"].nunique()
+        mega_entities = set(entity_user_counts[entity_user_counts > degree_gate].index)
+        if mega_entities:
+            mask_mega = edges["entity_id"].isin(mega_entities)
+            edges = edges[~mask_mega].copy()
+            if n_sentinel_removed > 0 or len(mega_entities) > 0:
+                print(
+                    f"  [P0-2] entity filter: removed {n_sentinel_removed} sentinel edges, "
+                    f"{len(mega_entities)} mega-entities (>{degree_gate} users)"
+                )
+        elif n_sentinel_removed > 0:
+            print(f"  [P0-2] entity filter: removed {n_sentinel_removed} sentinel edges")
+
+    return edges
+
+# v48: Default edge weights (these can be overridden by HPO via hpo_edge_weights.py).
+# Weights represent edge reliability: relation (direct internal transfer) = strongest signal (1.0),
+# wallet_small (2-10 shared users) = high (0.70), wallet_medium (11-50) = medium (0.40),
+# ip_small (2-5 shared users) = high (0.50), ip_medium (6-20) = medium (0.25),
+# temporal_small/medium = weak co-timing signal (0.30/0.15).
+DEFAULT_EDGE_WEIGHTS: dict[str, float] = {
+    "relation": 1.0,
+    "wallet_small": 0.70,
+    "wallet_medium": 0.40,
+    "ip_small": 0.50,
+    "ip_medium": 0.25,
+    "temporal_small": 0.30,
+    "temporal_medium": 0.15,
+}
 
 
 @dataclass(frozen=True)
@@ -23,6 +95,7 @@ class TransductiveGraph:
     relation_edges: pd.DataFrame
     wallet_edges: pd.DataFrame
     ip_edges: pd.DataFrame
+    temporal_edges: pd.DataFrame
     collapsed_edges: pd.DataFrame
     component_id_by_user: dict[int, int]
     combined_neighbors: dict[int, list[tuple[int, float]]]
@@ -94,6 +167,60 @@ def _entity_node_frame(edge_frame: pd.DataFrame, prefix: str, hub_cutoff: int) -
     counts[f"{prefix}_is_hub"] = counts[f"{prefix}_user_count"].gt(hub_cutoff).astype(int)
     counts[f"{prefix}_log_user_count"] = counts[f"{prefix}_user_count"].map(lambda value: float(log1p(value)))
     return counts[["entity_id", f"{prefix}_user_count", f"{prefix}_link_count", f"{prefix}_is_hub", f"{prefix}_log_user_count"]]
+
+
+def _temporal_cooccurrence_edges(
+    twd: pd.DataFrame,
+    crypto: pd.DataFrame,
+    allowed_users: set[int],
+    bucket_minutes: int = 15,
+    weight_small_override: float = 0.30,
+    weight_medium_override: float = 0.15,
+) -> pd.DataFrame:
+    """Create user-user edges for users who transact within the same time window.
+
+    v47: Captures coordinated fraud ring activity where money mules deposit/withdraw
+    at similar times. Distinct from wallet/IP sharing: ring members can use different
+    infrastructure but coordinate timing (e.g., coordinated withdrawals after a deposit
+    is confirmed). Tight 15-minute buckets exclude natural coincidence (many users
+    trade at market open/close) while still catching coordinated short-window activity.
+
+    Weight 0.30 (small cluster) / 0.15 (medium cluster): weaker than direct wallet
+    sharing (0.70) but additive signal for users in the same fraud ring.
+    """
+    frames: list[pd.DataFrame] = []
+    for table in (twd, crypto):
+        if table.empty or "user_id" not in table.columns or "created_at" not in table.columns:
+            continue
+        sub = table[["user_id", "created_at"]].copy()
+        sub["user_id"] = pd.to_numeric(sub["user_id"], errors="coerce")
+        sub = sub.dropna(subset=["user_id", "created_at"])
+        sub["user_id"] = sub["user_id"].astype(int)
+        sub = sub[sub["user_id"].isin(allowed_users)]
+        if not sub.empty:
+            frames.append(sub)
+    if not frames:
+        return pd.DataFrame(columns=["src_user_id", "dst_user_id", "edge_type", "weight"])
+    combined = pd.concat(frames, ignore_index=True)
+    # Floor timestamps to bucket_minutes-minute intervals — integer bucket key
+    ts_series = pd.to_datetime(combined["created_at"], utc=True, errors="coerce")
+    bucket_ns = int(bucket_minutes * 60 * 1_000_000_000)
+    combined["entity_id"] = ts_series.astype("int64") // bucket_ns
+    combined = combined.dropna(subset=["entity_id"])
+    # One entry per (user, bucket) — if a user transacts 3 times in the same window
+    # they still form only one edge with each co-occurring user (avoids weight inflation).
+    combined = combined[["user_id", "entity_id"]].drop_duplicates()
+    if combined.empty:
+        return pd.DataFrame(columns=["src_user_id", "dst_user_id", "edge_type", "weight"])
+    return _pairwise_user_edges(
+        combined,
+        max_users=_MAX_TEMPORAL_COOCCURRENCE_USERS,
+        edge_type_small="temporal_small",
+        edge_type_medium="temporal_medium",
+        small_upper_bound=5,
+        weight_small=weight_small_override,
+        weight_medium=weight_medium_override,
+    )
 
 
 def _component_id_map(user_ids: list[int], edges: pd.DataFrame) -> dict[int, int]:
@@ -169,7 +296,26 @@ def _numeric_user_feature_frame(dataset: pd.DataFrame) -> pd.DataFrame:
 def build_transductive_graph(
     dataset: pd.DataFrame,
     cutoff_ts: pd.Timestamp | None = None,
+    edge_weights: dict[str, float] | None = None,
+    hub_ip_prune_above: int | None = None,
 ) -> TransductiveGraph:
+    """Build the full transductive user-user graph.
+
+    Args:
+        dataset: Full dataset with all users and features.
+        cutoff_ts: Optional cutoff timestamp (only events before this are used).
+        edge_weights: Optional dict overriding DEFAULT_EDGE_WEIGHTS for HPO experiments.
+            Keys: 'relation', 'wallet_small', 'wallet_medium', 'ip_small', 'ip_medium',
+                  'temporal_small', 'temporal_medium'.
+            Missing keys fall back to DEFAULT_EDGE_WEIGHTS.
+        hub_ip_prune_above: Optional int. When set, IP entities with more than this
+            many unique users are pruned (dropped entirely) before building pairwise
+            edges. This removes hub IPs (e.g. VPN exit nodes, corporate proxies) that
+            create spurious connections. Default None = use MAX_IP_PAIRWISE_USERS (20).
+    """
+    # v48: Merge supplied weights with defaults (supplied weights take precedence).
+    w = {**DEFAULT_EDGE_WEIGHTS, **(edge_weights or {})}
+
     cutoff_ts = to_utc_timestamp(cutoff_ts)
     user_feature_frame = _numeric_user_feature_frame(dataset)
     user_ids = sorted(user_feature_frame["user_id"].astype(int).tolist())
@@ -204,6 +350,8 @@ def build_transductive_graph(
     wallet_edges = wallet_edges.dropna(subset=["user_id"])
     wallet_edges["user_id"] = wallet_edges["user_id"].astype(int)
     wallet_edges = wallet_edges[wallet_edges["user_id"].isin(allowed_users)].drop_duplicates()
+    # P0-2: Remove sentinel/placeholder wallet hashes before computing entity counts.
+    wallet_edges = _filter_sentinel_entities(wallet_edges)
     wallet_counts = wallet_edges.groupby("entity_id")["user_id"].nunique().rename("entity_user_count").reset_index()
     wallet_edges = wallet_edges.merge(wallet_counts, on="entity_id", how="left")
 
@@ -220,29 +368,48 @@ def build_transductive_graph(
     ip_edges = ip_edges.dropna(subset=["user_id"])
     ip_edges["user_id"] = ip_edges["user_id"].astype(int)
     ip_edges = ip_edges[ip_edges["user_id"].isin(allowed_users)].drop_duplicates()
+    # P0-2: Remove sentinel/placeholder IP hashes before computing entity counts.
+    ip_edges = _filter_sentinel_entities(ip_edges)
     ip_counts = ip_edges.groupby("entity_id")["user_id"].nunique().rename("entity_user_count").reset_index()
     ip_edges = ip_edges.merge(ip_counts, on="entity_id", how="left")
 
+    # Build pairwise user-user edges using (potentially HPO-tuned) weights.
     relation_user_edges = _relation_user_edges(relation_edges)
+    # Override relation weight if specified.
+    if relation_user_edges is not None and not relation_user_edges.empty and w["relation"] != 1.0:
+        relation_user_edges = relation_user_edges.copy()
+        relation_user_edges["weight"] = w["relation"]
+
     wallet_user_edges = _pairwise_user_edges(
         wallet_edges[wallet_edges["entity_user_count"] <= MAX_WALLET_PAIRWISE_USERS],
         max_users=MAX_WALLET_PAIRWISE_USERS,
         edge_type_small="wallet_small",
         edge_type_medium="wallet_medium",
         small_upper_bound=10,
-        weight_small=0.70,
-        weight_medium=0.40,
+        weight_small=w["wallet_small"],
+        weight_medium=w["wallet_medium"],
     )
+    # v4/configurable: hub_ip_prune_above — prune IPs shared by too many users.
+    _ip_max = hub_ip_prune_above if hub_ip_prune_above is not None else MAX_IP_PAIRWISE_USERS
     ip_user_edges = _pairwise_user_edges(
-        ip_edges[ip_edges["entity_user_count"] <= MAX_IP_PAIRWISE_USERS],
-        max_users=MAX_IP_PAIRWISE_USERS,
+        ip_edges[ip_edges["entity_user_count"] <= _ip_max],
+        max_users=_ip_max,
         edge_type_small="ip_small",
         edge_type_medium="ip_medium",
         small_upper_bound=5,
-        weight_small=0.50,
-        weight_medium=0.25,
+        weight_small=w["ip_small"],
+        weight_medium=w["ip_medium"],
     )
-    collapsed_edges = pd.concat([relation_user_edges, wallet_user_edges, ip_user_edges], ignore_index=True)
+    # v47: Temporal co-occurrence edges — users transacting in the same 15-minute window.
+    temporal_user_edges = _temporal_cooccurrence_edges(
+        twd, crypto, allowed_users,
+        weight_small_override=w["temporal_small"],
+        weight_medium_override=w["temporal_medium"],
+    )
+    collapsed_edges = pd.concat(
+        [relation_user_edges, wallet_user_edges, ip_user_edges, temporal_user_edges],
+        ignore_index=True,
+    )
     if collapsed_edges.empty:
         collapsed_edges = pd.DataFrame(columns=["src_user_id", "dst_user_id", "edge_type", "weight"])
     else:
@@ -265,6 +432,7 @@ def build_transductive_graph(
         relation_edges=relation_edges.reset_index(drop=True),
         wallet_edges=wallet_edges.reset_index(drop=True),
         ip_edges=ip_edges.reset_index(drop=True),
+        temporal_edges=temporal_user_edges.reset_index(drop=True),
         collapsed_edges=collapsed_edges,
         component_id_by_user=component_id_by_user,
         combined_neighbors=combined_neighbors,

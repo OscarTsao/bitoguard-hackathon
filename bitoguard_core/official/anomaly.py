@@ -112,6 +112,63 @@ def build_official_anomaly_features(cutoff_tag: str = "full") -> pd.DataFrame:
         meta={"feature_columns": feature_columns, "encoded_columns": encoded_columns},
     )
 
+    # v49: Crypto-specific anomaly score — IsoForest on crypto features only.
+    # FN analysis: missed positives have high crypto volume (35K vs 11K TN median)
+    # but low overall anomaly_score (0.177 mean). The combined IsoForest dilutes
+    # crypto signals with fiat/trading features. A crypto-focused model specifically
+    # targets the "crypto-heavy non-structuring" FN fraud pattern.
+    _crypto_outlier_cols = [
+        "crypto_total_sum", "crypto_withdraw_sum",
+        "crypto_unique_deposit_wallets", "crypto_unique_withdraw_wallets",
+        "crypto_ext_ip_diversity",
+    ]
+    _crypto_per_age_cols = ["crypto_volume_per_age", "crypto_withdraw_per_age"]
+    _crypto_feature_cols = [c for c in _crypto_outlier_cols + _crypto_per_age_cols if c in frame.columns]
+    if len(_crypto_feature_cols) >= 3:
+        try:
+            _x_crypto_fit, _crypto_enc = encode_frame(fit_frame, _crypto_feature_cols)
+            _x_crypto_all, _ = encode_frame(frame, _crypto_feature_cols, reference_columns=_crypto_enc)
+            _crypto_model = IsolationForest(n_estimators=200, contamination=contamination, random_state=RANDOM_SEED + 1)
+            _crypto_model.fit(_x_crypto_fit)
+            _crypto_raw = -_crypto_model.score_samples(_x_crypto_all)
+            result["crypto_anomaly_score"] = (
+                (_crypto_raw - _crypto_raw.min()) / (_crypto_raw.max() - _crypto_raw.min() + 1e-9)
+            )
+        except Exception as _e:
+            import logging as _logging
+            _logging.getLogger(__name__).warning("crypto_anomaly_score failed: %s", _e)
+            result["crypto_anomaly_score"] = 0.0
+    else:
+        result["crypto_anomaly_score"] = 0.0
+
+    # v49: Segment-aware anomaly score — separate IsoForest for connected vs isolated users.
+    # Connected users (sharing wallets/IPs with others) have different transaction distributions
+    # than isolated users. Training separate models per segment improves calibration within
+    # each population, potentially increasing anomaly AP for isolated-user FN detection.
+    _connected_mask = (
+        (frame.get("wallet_max_entity_user_count", pd.Series(0, index=frame.index)).fillna(0) > 1)
+        | (frame.get("ip_max_entity_user_count", pd.Series(0, index=frame.index)).fillna(0) > 1)
+        | (frame.get("relation_unique_counterparty_count", pd.Series(0, index=frame.index)).fillna(0) > 0)
+    )
+    result["anomaly_score_segmented"] = result["anomaly_score"].copy()
+    for _seg_label, _seg_mask in [("connected", _connected_mask), ("isolated", ~_connected_mask)]:
+        _seg_fit = fit_frame[_connected_mask.loc[fit_frame.index] if _seg_label == "connected" else ~_connected_mask.loc[fit_frame.index]]
+        _seg_all = frame[_connected_mask if _seg_label == "connected" else ~_connected_mask]
+        if len(_seg_fit) < 50 or len(_seg_all) == 0:
+            continue
+        try:
+            _x_seg_fit, _seg_enc = encode_frame(_seg_fit, feature_columns)
+            _x_seg_all, _ = encode_frame(_seg_all, feature_columns, reference_columns=_seg_enc)
+            _seg_cont = max(0.01, float((_seg_fit["status"] == 1).mean()) if "status" in _seg_fit.columns else contamination)
+            _seg_model = IsolationForest(n_estimators=200, contamination=_seg_cont, random_state=RANDOM_SEED + 2)
+            _seg_model.fit(_x_seg_fit)
+            _seg_raw = -_seg_model.score_samples(_x_seg_all)
+            _seg_score = (_seg_raw - _seg_raw.min()) / (_seg_raw.max() - _seg_raw.min() + 1e-9)
+            result.loc[_seg_all.index, "anomaly_score_segmented"] = _seg_score
+        except Exception as _e:
+            import logging as _logging
+            _logging.getLogger(__name__).warning("anomaly_score_segmented[%s] failed: %s", _seg_label, _e)
+
     # LOF: local outlier factor — captures density-based anomalies IsoForest misses.
     # novelty=True required for score_samples() on unseen data.
     x_all, _ = encode_frame(frame, feature_columns, reference_columns=encoded_columns)

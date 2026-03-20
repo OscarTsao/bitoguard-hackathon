@@ -22,6 +22,23 @@ _TIME_COLS = ("occurred_at", "created_at", "updated_at")
 _FIAT_AMT_COLS = ("amount_twd",)
 _CRYPTO_AMT_COLS = ("amount_twd_equiv",)
 _TRADE_AMT_COLS = ("notional_twd", "trade_notional_twd", "twd_amount")
+_STAT_FEATURE_SUFFIXES = (
+    "benford_chi2",
+    "amount_entropy",
+    "round_ratio",
+    "burst_score",
+    "inter_event_cv",
+)
+_SOURCE_SPECS = (
+    ("fiat", _FIAT_AMT_COLS),
+    ("crypto", _CRYPTO_AMT_COLS),
+    ("trade", _TRADE_AMT_COLS),
+)
+_STAT_FEATURE_COLUMNS = [
+    f"{prefix}_{suffix}"
+    for prefix, _ in _SOURCE_SPECS
+    for suffix in _STAT_FEATURE_SUFFIXES
+]
 
 
 def _find_col(df: pd.DataFrame, candidates: tuple[str, ...]) -> str | None:
@@ -105,12 +122,9 @@ def _burst_score(timestamps: pd.Series, window_hours: float = 24.0) -> float:
 
     window_ns = int(window_hours * 3600 * 1e9)
     ts_ns = timestamps.values.astype(np.int64)
-    max_count = 0
-    for i in range(len(ts_ns)):
-        end = ts_ns[i] + window_ns
-        count = int(np.searchsorted(ts_ns, end, side="right") - i)
-        if count > max_count:
-            max_count = count
+    right_idx = np.searchsorted(ts_ns, ts_ns + window_ns, side="right")
+    counts = right_idx - np.arange(len(ts_ns))
+    max_count = int(counts.max())
 
     date_counts = timestamps.dt.date.value_counts()
     median_daily = float(date_counts.median()) if len(date_counts) > 0 else 1.0
@@ -161,39 +175,51 @@ def _compute_user_stats(
     return row
 
 
+def _compute_user_stats_from_group(
+    group: pd.DataFrame,
+    amt_candidates: tuple[str, ...],
+    prefix: str,
+) -> pd.Series:
+    """Adapter for groupby.apply that preserves the existing per-user logic."""
+    result = _compute_user_stats(group.reset_index(drop=True), amt_candidates, prefix)
+    return pd.Series(result)
+
+
 def compute_statistical_features(
     fiat: pd.DataFrame,
     crypto: pd.DataFrame,
     trades: pd.DataFrame,
 ) -> pd.DataFrame:
     """Compute Benford, entropy, burst, and timing features per user."""
-    all_users: set = set()
-    for df in (fiat, crypto, trades):
-        if not df.empty and "user_id" in df.columns:
-            all_users.update(df["user_id"].dropna().unique())
-    if not all_users:
+    source_frames = {
+        "fiat": fiat,
+        "crypto": crypto,
+        "trade": trades,
+    }
+
+    user_series = [
+        df["user_id"].dropna()
+        for df in source_frames.values()
+        if not df.empty and "user_id" in df.columns
+    ]
+    if not user_series:
         return pd.DataFrame()
 
-    # Pre-index by user_id for efficiency
-    fiat_idx = fiat.set_index("user_id") if (not fiat.empty and "user_id" in fiat.columns) else None
-    crypto_idx = crypto.set_index("user_id") if (not crypto.empty and "user_id" in crypto.columns) else None
-    trades_idx = trades.set_index("user_id") if (not trades.empty and "user_id" in trades.columns) else None
+    all_users = pd.Index(pd.concat(user_series, ignore_index=True).unique()).sort_values()
+    result = pd.DataFrame({"user_id": all_users})
 
-    def _get_user_rows(idx, uid) -> pd.DataFrame:
-        if idx is None:
-            return pd.DataFrame()
-        try:
-            rows = idx.loc[[uid]] if uid in idx.index else pd.DataFrame(columns=idx.columns)
-            return rows.reset_index()
-        except Exception:
-            return pd.DataFrame()
+    for prefix, amt_candidates in _SOURCE_SPECS:
+        source_df = source_frames[prefix]
+        if source_df.empty or "user_id" not in source_df.columns:
+            continue
 
-    rows: list[dict] = []
-    for uid in sorted(all_users):
-        row: dict = {"user_id": uid}
-        row.update(_compute_user_stats(_get_user_rows(fiat_idx, uid), _FIAT_AMT_COLS, "fiat"))
-        row.update(_compute_user_stats(_get_user_rows(crypto_idx, uid), _CRYPTO_AMT_COLS, "crypto"))
-        row.update(_compute_user_stats(_get_user_rows(trades_idx, uid), _TRADE_AMT_COLS, "trade"))
-        rows.append(row)
+        stats = source_df.groupby("user_id", sort=True).apply(
+            _compute_user_stats_from_group,
+            amt_candidates=amt_candidates,
+            prefix=prefix,
+            include_groups=False,
+        )
+        result = result.merge(stats.reset_index(), on="user_id", how="left")
 
-    return pd.DataFrame(rows).fillna(0)
+    ordered_columns = ["user_id", *_STAT_FEATURE_COLUMNS]
+    return result.reindex(columns=ordered_columns, fill_value=0.0).fillna(0)

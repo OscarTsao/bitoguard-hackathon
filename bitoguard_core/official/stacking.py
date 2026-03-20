@@ -84,6 +84,11 @@ STACKER_FEATURE_COLUMNS = [
     # Isolated positives (735, 45% of all positives) have cs_deficit≈0.11 (graph hurt them).
     # Valuable for nonlinear stackers that can learn: "high base_a + large cs_deficit → isolated fraudster".
     "cs_deficit",
+    # v49: Crypto-anomaly interaction features.
+    # base_cs_x_crypto_anomaly: C&S × crypto_anomaly_score — graph-suspicious AND crypto-anomalous.
+    # base_a_x_crypto_anomaly: label-free CatBoost × crypto_anomaly — targets FN fraud pattern.
+    "base_cs_x_crypto_anomaly",
+    "base_a_x_crypto_anomaly",
 ]
 
 # Columns eligible for the AP-weighted blend (non-rule, non-meta columns).
@@ -107,6 +112,11 @@ _BLEND_CANDIDATE_COLUMNS = [
     # If AP of this product > anomaly_score AP, it replaces anomaly with a more
     # precise signal: only users who are BOTH graph-suspicious AND statistically anomalous.
     "base_cs_x_anomaly",
+    # v49: Crypto-anomaly blend candidates — IsoForest trained on crypto features only.
+    # Targets FN fraud pattern: high crypto volume, non-structuring, older accounts.
+    # Top-5 AP selection will include these only if they outperform current blend members.
+    "base_cs_x_crypto_anomaly",
+    "anomaly_score_segmented",
 ]
 
 # Minimum AP threshold to include a model in the blend.
@@ -123,22 +133,48 @@ class BlendEnsemble:
     The blend approach excludes low-AP models and normalizes weights, achieving
     F1=0.3550 vs LR F1=0.3435 on pre-v30 OOF.
 
+    v50: Optional segment-aware blending — if `isolated_weights` is provided,
+    uses a different weight set for isolated users (cs_deficit > 0.05). This
+    avoids over-weighting base_c_s and base_cs_x_anomaly for isolated users
+    (whose C&S scores are artificially compressed), boosting recall for Type B
+    (isolated, older-account, high-crypto) fraudsters.
+
     Interface: compatible with sklearn's predict_proba(X) -> array shape (n, 2).
     """
 
-    def __init__(self, weights: dict[str, float]) -> None:
+    def __init__(
+        self,
+        weights: dict[str, float],
+        isolated_weights: dict[str, float] | None = None,
+    ) -> None:
         self.weights = {k: float(v) for k, v in weights.items() if float(v) > 0}
+        self.isolated_weights = (
+            {k: float(v) for k, v in isolated_weights.items() if float(v) > 0}
+            if isolated_weights else None
+        )
 
-    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+    def _apply_weights(self, X: pd.DataFrame, weights: dict[str, float]) -> np.ndarray:
         blend = np.zeros(len(X), dtype=float)
         total_weight = 0.0
-        for col, w in self.weights.items():
+        for col, w in weights.items():
             if col in X.columns:
                 vals = pd.to_numeric(X[col], errors="coerce").fillna(0.0).to_numpy()
                 blend += w * vals
                 total_weight += w
         if total_weight > 0:
             blend = blend / total_weight
+        return blend
+
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        if self.isolated_weights is not None and "cs_deficit" in X.columns:
+            # Segment-aware blending: use isolated_weights for users where
+            # C&S significantly compressed the score (cs_deficit > 0.05).
+            is_isolated = pd.to_numeric(X["cs_deficit"], errors="coerce").fillna(0.0).to_numpy() > 0.05
+            blend_connected = self._apply_weights(X, self.weights)
+            blend_isolated = self._apply_weights(X, self.isolated_weights)
+            blend = np.where(is_isolated, blend_isolated, blend_connected)
+        else:
+            blend = self._apply_weights(X, self.weights)
         blend = np.clip(blend, 0.0, 1.0)
         return np.column_stack([1.0 - blend, blend])
 
@@ -198,6 +234,16 @@ def _add_base_meta_features(frame: pd.DataFrame) -> pd.DataFrame:
     # Negative = C&S boosted the prediction (user is connected to fraud clusters).
     # Provides explicit isolation signal for nonlinear stackers.
     frame["cs_deficit"] = (a - cs).astype(np.float32)
+    # v49: Crypto-anomaly interaction — C&S × crypto_anomaly_score.
+    # crypto_anomaly_score is an IsoForest trained on crypto features only; it targets
+    # the FN fraud pattern (high crypto volume, non-structuring). The interaction with
+    # C&S filters to users who are BOTH graph-suspicious AND crypto-anomalous.
+    crypto_anomaly = pd.to_numeric(
+        frame.get("crypto_anomaly_score", pd.Series(0.0, index=frame.index)),
+        errors="coerce",
+    ).fillna(0.0)
+    frame["base_cs_x_crypto_anomaly"] = (cs * crypto_anomaly).astype(np.float32)
+    frame["base_a_x_crypto_anomaly"] = (a * crypto_anomaly).astype(np.float32)
     return frame
 
 
@@ -213,6 +259,49 @@ def fit_logistic_stacker(frame: pd.DataFrame, feature_columns: list[str]) -> Log
     model = LogisticRegression(max_iter=1000, random_state=RANDOM_SEED)
     model.fit(frame[feature_columns], frame["status"].astype(int))
     return model
+
+
+def tune_blend_weights_segmented(
+    frame: pd.DataFrame,
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Tune separate blend weights for connected vs isolated users.
+
+    Isolated users (cs_deficit > 0.05) have their C&S scores compressed by ~50%,
+    so the optimal blend weights for them should rely less on base_c_s_probability
+    and base_cs_x_anomaly, and more on base_a_probability directly.
+
+    Returns (connected_weights, isolated_weights). Falls back to a single weight
+    set if either segment is too small (<100 labeled users).
+    """
+    labeled = frame.dropna(subset=["status"])
+    cs_def = pd.to_numeric(
+        labeled.get("cs_deficit", pd.Series(0.0, index=labeled.index)),
+        errors="coerce",
+    ).fillna(0.0)
+    connected_mask = cs_def <= 0.05
+    isolated_mask = cs_def > 0.05
+
+    connected_frame = labeled[connected_mask]
+    isolated_frame = labeled[isolated_mask]
+
+    min_size = 100
+    if connected_mask.sum() >= min_size:
+        connected_weights = tune_blend_weights(connected_frame)
+    else:
+        connected_weights = tune_blend_weights(labeled)
+
+    if isolated_mask.sum() >= min_size:
+        isolated_weights = tune_blend_weights(isolated_frame)
+    else:
+        isolated_weights = connected_weights
+
+    print(
+        f"[stacker] Segmented blend: {connected_mask.sum()} connected, "
+        f"{isolated_mask.sum()} isolated labeled users"
+    )
+    print(f"[stacker]   connected weights: {connected_weights}")
+    print(f"[stacker]   isolated weights:  {isolated_weights}")
+    return connected_weights, isolated_weights
 
 
 def tune_blend_weights(frame: pd.DataFrame) -> dict[str, float]:
@@ -388,14 +477,18 @@ def build_stacker_oof(
     fold_column: str = "primary_fold",
     use_nonlinear: bool = False,
     use_blend: bool = True,
+    auto_select_stacker: bool = True,
 ) -> tuple[pd.DataFrame, Any]:
     """Build stacker OOF predictions and return (oof_frame, final_model).
 
-    use_blend=True (default): AP-weighted blend ensemble.
-      Outperforms LR stacker when base models have varying quality (e.g., Base C
-      near-random AP≈0.05): the blend excludes low-AP models and weights by AP.
+    auto_select_stacker=True (default when use_blend=True): evaluates both
+      BlendEnsemble and CatBoost nonlinear stacker via OOF F1, picks the winner.
+      BlendEnsemble is fast (no fold loop); CatBoost stacker adds ~60s overhead.
+      When auto_select_stacker=True, use_nonlinear is ignored.
+
+    use_blend=True (legacy): AP-weighted blend ensemble (skip CatBoost comparison).
+      Outperforms LR stacker when base models have varying quality.
       F1=0.3550 vs LR F1=0.3435 on pre-v30 OOF (+0.012).
-      No fold loop needed — blend is applied directly to OOF predictions.
 
     use_blend=False: Original fold-by-fold LR (or CatBoost) meta-learner.
     """
@@ -408,6 +501,12 @@ def build_stacker_oof(
 
     # Enrich with base-probability meta-features (max, std across models).
     frame = _add_base_meta_features(frame)
+
+    if use_blend and auto_select_stacker:
+        # v48: Auto-select: compare BlendEnsemble vs CatBoost stacker via OOF F1.
+        # Both are evaluated on the same OOF frame to ensure fair comparison.
+        # Winner is returned as the final model.
+        return _auto_select_best_stacker(frame, fold_column)
 
     if use_blend:
         # Tune AP-proportional blend weights from OOF data.
@@ -436,6 +535,85 @@ def build_stacker_oof(
     else:
         final_model = fit_logistic_stacker(frame, available_cols)
     return oof_frame, final_model
+
+
+def _auto_select_best_stacker(
+    frame: pd.DataFrame,
+    fold_column: str,
+) -> tuple[pd.DataFrame, Any]:
+    """Auto-select between BlendEnsemble and CatBoost nonlinear stacker via OOF F1.
+
+    Both models are evaluated on the same OOF meta-feature frame (already enriched
+    with _add_base_meta_features). The model with higher peak OOF F1 is selected.
+
+    CatBoost path: fold-by-fold training on meta-features, OOF predictions.
+    Blend path: direct application of AP-tuned weights to OOF probabilities.
+    Both paths produce stacker_raw_probability and the best is returned.
+    """
+    stacker_cols = [c for c in STACKER_FEATURE_COLUMNS if c in frame.columns]
+
+    # --- Blend path (global weights) ---
+    blend_weights = tune_blend_weights(frame)
+    blend_model = BlendEnsemble(blend_weights)
+    blend_frame = frame.copy()
+    blend_frame["stacker_raw_probability"] = blend_model.predict_proba(blend_frame[stacker_cols])[:, 1]
+    blend_f1 = _best_f1(
+        blend_frame.dropna(subset=["status"])["status"].astype(int).to_numpy(),
+        blend_frame.dropna(subset=["status"])["stacker_raw_probability"].to_numpy(),
+    )
+
+    # --- Segment-aware blend path (v51: separate weights for isolated vs connected users) ---
+    # Isolated users (cs_deficit > 0.05) have C&S scores compressed by ~50%, so tuning
+    # separate weights on each segment recovers the information lost for isolated positives.
+    try:
+        connected_weights, isolated_weights_seg = tune_blend_weights_segmented(frame)
+        seg_blend_model = BlendEnsemble(connected_weights, isolated_weights=isolated_weights_seg)
+        seg_blend_frame = frame.copy()
+        seg_blend_frame["stacker_raw_probability"] = seg_blend_model.predict_proba(seg_blend_frame[stacker_cols])[:, 1]
+        seg_blend_f1 = _best_f1(
+            seg_blend_frame.dropna(subset=["status"])["status"].astype(int).to_numpy(),
+            seg_blend_frame.dropna(subset=["status"])["stacker_raw_probability"].to_numpy(),
+        )
+    except Exception as exc:
+        print(f"[stacker] Segment-aware blend failed: {exc}")
+        seg_blend_f1 = -1.0
+        seg_blend_model = None
+        seg_blend_frame = None
+
+    # --- CatBoost nonlinear stacker path ---
+    try:
+        oof_rows: list[pd.DataFrame] = []
+        for fold_id in sorted(int(v) for v in frame[fold_column].dropna().unique()):
+            valid_f = frame[frame[fold_column] == fold_id].copy()
+            train_f = frame[frame[fold_column] != fold_id].copy()
+            cb_model = _fit_catboost_stacker(train_f, stacker_cols)
+            valid_f["stacker_raw_probability"] = _predict_stacker(cb_model, valid_f, stacker_cols)
+            oof_rows.append(valid_f)
+        cb_oof = pd.concat(oof_rows, ignore_index=True).sort_values("user_id").reset_index(drop=True)
+        cb_f1 = _best_f1(
+            cb_oof.dropna(subset=["status"])["status"].astype(int).to_numpy(),
+            cb_oof.dropna(subset=["status"])["stacker_raw_probability"].to_numpy(),
+        )
+        cb_final = _fit_catboost_stacker(frame, stacker_cols)
+    except Exception:
+        cb_f1 = -1.0
+        cb_oof = None
+        cb_final = None
+
+    print(
+        f"[stacker] Blend F1: {blend_f1:.4f} | Seg-blend F1: {seg_blend_f1:.4f} | "
+        f"CatBoost stacker F1: {cb_f1:.4f}"
+    )
+    best_f1 = max(blend_f1, seg_blend_f1, cb_f1)
+    if cb_oof is not None and cb_f1 == best_f1 and cb_f1 > blend_f1 + 0.002:
+        print(f"[stacker] Selected: CatBoost nonlinear stacker (ΔF1=+{cb_f1 - blend_f1:.4f})")
+        return cb_oof, cb_final
+    elif seg_blend_frame is not None and seg_blend_f1 == best_f1 and seg_blend_f1 > blend_f1 + 0.001:
+        print(f"[stacker] Selected: Segment-aware BlendEnsemble (ΔF1=+{seg_blend_f1 - blend_f1:.4f})")
+        return seg_blend_frame, seg_blend_model
+    else:
+        print(f"[stacker] Selected: BlendEnsemble (global weights)")
+        return blend_frame, blend_model
 
 
 def choose_best_calibration_and_threshold(

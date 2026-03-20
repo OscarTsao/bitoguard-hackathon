@@ -430,6 +430,9 @@ def build_official_features(
     features["fast_cashout_24h_flag"] = (features["fast_cashout_24h_count"] > 0).astype(int)
     features["fast_cashout_72h_flag"] = (features["fast_cashout_72h_count"] > 0).astype(int)
 
+    # Defragment the DataFrame before adding many new columns (avoids PerformanceWarning).
+    features = features.copy()
+
     # ── FATF AML typology proxy features ─────────────────────────────────────
     _dep_count = features["twd_deposit_count"].fillna(0)
     _dep_sum   = features["twd_deposit_sum"].fillna(0)
@@ -574,6 +577,60 @@ def build_official_features(
         except Exception as _e:
             print(f"[WARN] Statistical features failed: {_e}")
 
+    # v49: FN-targeting features — detect "rapid-flow non-structuring" fraud pattern.
+    # FN analysis: missed positives have older accounts (297d median) + no round-10K
+    # structuring + very rapid cashouts. These features target that specific pattern.
+
+    # account_age_bracket: 0=new(<90d), 1=young(90-180d), 2=mature(180-365d), 3=old(>365d)
+    if "account_age_days" in features.columns:
+        features["account_age_bracket"] = pd.cut(
+            features["account_age_days"].clip(0, 1000),
+            bins=[-1, 90, 180, 365, 1001],
+            labels=[0, 1, 2, 3]
+        ).astype(float)
+
+    # twd_nonround_activity_score: high twd volume with low round-amount ratio
+    # targets users making many irregular-amount deposits/withdrawals
+    if all(c in features.columns for c in ["twd_total_count", "twd_round_10k_ratio"]):
+        twd_nonround = features["twd_total_count"].clip(0, 500) / 500.0
+        twd_nonround = twd_nonround * (1.0 - features["twd_round_10k_ratio"].fillna(0))
+        features["twd_nonround_activity_score"] = twd_nonround.fillna(0)
+
+    # rapid_crypto_concentration: crypto volume concentrated in few days (velocity burst)
+    if all(c in features.columns for c in ["crypto_total_count", "crypto_active_days"]):
+        crypto_days_nonzero = features["crypto_active_days"].replace(0, np.nan)
+        features["crypto_txn_per_active_day"] = (features["crypto_total_count"] / crypto_days_nonzero).fillna(0)
+
+    # mature_account_velocity: old accounts with high recent activity (dormancy + burst)
+    if all(c in features.columns for c in ["account_age_days", "twd_total_7d_count", "twd_total_count"]):
+        age_norm = (features["account_age_days"] / 365.0).clip(0, 3)
+        recent_frac = (features["twd_total_7d_count"] / features["twd_total_count"].replace(0, np.nan)).fillna(0)
+        features["mature_account_recent_burst"] = (age_norm * recent_frac).fillna(0)
+
+    # v50: Type B composite — old account + high crypto + non-structuring.
+    # Directly targets the FN fraud pattern identified by oracle analysis:
+    # age_norm × log-crypto-volume × (1 - round_ratio) ≈ "crypto exfiltration" signal.
+    if all(c in features.columns for c in ["account_age_days", "crypto_total_sum", "twd_round_10k_ratio"]):
+        _age_norm = (features["account_age_days"] / 365.0).clip(0, 3) / 3.0
+        _crypto_norm = np.log1p(features["crypto_total_sum"]).clip(0, 15) / 15.0
+        _non_round = (1.0 - features["twd_round_10k_ratio"].fillna(0)).clip(0, 1)
+        features["type_b_composite"] = (_age_norm * _crypto_norm * _non_round).astype("float32")
+
+    # v50: Crypto-to-fiat volume dominance ratio.
+    # High crypto/fiat = exfiltration pattern; FN mean crypto=35K vs TN=11K.
+    if all(c in features.columns for c in ["crypto_total_sum", "twd_total_sum"]):
+        _fiat = features["twd_total_sum"].clip(0, None).fillna(0) + 1.0
+        features["crypto_fiat_ratio"] = (
+            np.log1p(features["crypto_total_sum"]) / np.log1p(_fiat)
+        ).clip(0, 5).astype("float32")
+
+    # v50: Cross-channel dormancy gap — fiat dormant but crypto active.
+    # Type B exfiltration: days_since_last_twd >> days_since_last_crypto.
+    if all(c in features.columns for c in ["days_since_last_twd_transfer", "days_since_last_crypto_transfer"]):
+        _twd_rec = np.log1p(features["days_since_last_twd_transfer"].fillna(999))
+        _crypto_rec = np.log1p(features["days_since_last_crypto_transfer"].fillna(999))
+        features["cross_channel_dormancy_gap"] = (_twd_rec - _crypto_rec).clip(-5, 5).astype("float32")
+
     # Fill NaN for all new columns
     _new_numeric = [
         c for c in features.columns
@@ -587,6 +644,7 @@ def build_official_features(
     features["snapshot_cutoff_at"] = resolved_cutoff
     features["snapshot_cutoff_tag"] = cutoff_tag
     features.to_parquet(feature_output_path("official_user_features", cutoff_tag), index=False)
+    features = features.copy()
     return features
 
 
