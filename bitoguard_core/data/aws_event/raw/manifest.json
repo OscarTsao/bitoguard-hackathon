@@ -1,0 +1,123 @@
+{
+  "base_url": "https://aws-event-api.bitopro.com",
+  "fetched_at": "2026-03-21T07:19:30.491371+00:00",
+  "page_size": 10000,
+  "files": {
+    "user_info": {
+      "path": "data/aws_event/raw/user_info.parquet",
+      "rows": 63770,
+      "columns": [
+        "user_id",
+        "sex",
+        "age",
+        "career",
+        "income_source",
+        "confirmed_at",
+        "level1_finished_at",
+        "level2_finished_at",
+        "user_source"
+      ],
+      "endpoint": {
+        "name": "user_info",
+        "order_by": "user_id"
+      }
+    },
+    "train_label": {
+      "path": "data/aws_event/raw/train_label.parquet",
+      "rows": 51017,
+      "columns": [
+        "user_id",
+        "status"
+      ],
+      "endpoint": {
+        "name": "train_label",
+        "order_by": "user_id"
+      }
+    },
+    "predict_label": {
+      "path": "data/aws_event/raw/predict_label.parquet",
+      "rows": 12753,
+      "columns": [
+        "user_id"
+      ],
+      "endpoint": {
+        "name": "predict_label",
+        "order_by": "user_id"
+      }
+    },
+    "twd_transfer": {
+      "path": "data/aws_event/raw/twd_transfer.parquet",
+      "rows": 195601,
+      "columns": [
+        "id",
+        "user_id",
+        "created_at",
+        "kind",
+        "ori_samount",
+        "source_ip_hash"
+      ],
+      "endpoint": {
+        "name": "twd_transfer",
+        "order_by": "id"
+      }
+    },
+    "crypto_transfer": {
+      "path": "data/aws_event/raw/crypto_transfer.parquet",
+      "rows": 239958,
+      "columns": [
+        "id",
+        "currency",
+        "user_id",
+        "created_at",
+        "kind",
+        "sub_kind",
+        "ori_samount",
+        "twd_srate",
+        "relation_user_id",
+        "from_wallet_hash",
+        "to_wallet_hash",
+        "protocol",
+        "source_ip_hash"
+      ],
+      "endpoint": {
+        "name": "crypto_transfer",
+        "order_by": "id"
+      }
+    },
+    "usdt_swap": {
+      "path": "data/aws_event/raw/usdt_swap.parquet",
+      "rows": 53841,
+      "columns": [
+        "id",
+        "user_id",
+        "created_at",
+        "kind",
+        "twd_samount",
+        "currency_samount"
+      ],
+      "endpoint": {
+        "name": "usdt_swap",
+        "order_by": "id"
+      }
+    },
+    "usdt_twd_trading": {
+      "path": "data/aws_event/raw/usdt_twd_trading.parquet",
+      "rows": 217634,
+      "columns": [
+        "id",
+        "user_id",
+        "updated_at",
+        "is_buy",
+        "trade_samount",
+        "twd_srate",
+        "source_ip_hash",
+        "is_market",
+        "source"
+      ],
+      "endpoint": {
+        "name": "usdt_twd_trading",
+        "order_by": "id"
+      }
+    }
+  }
+}

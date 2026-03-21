@@ -1,0 +1,144 @@
+{
+  "cleaned_at": "2026-03-21T07:21:21.307871+00:00",
+  "raw_dir": "data/aws_event/raw",
+  "files": {
+    "user_info": {
+      "path": "data/aws_event/clean/user_info.parquet",
+      "rows": 63770,
+      "columns": [
+        "user_id",
+        "sex",
+        "age",
+        "career",
+        "income_source",
+        "confirmed_at",
+        "level1_finished_at",
+        "level2_finished_at",
+        "user_source",
+        "sex_label",
+        "career_label",
+        "income_source_label",
+        "user_source_label",
+        "has_email_confirmation",
+        "has_level1_kyc",
+        "has_level2_kyc",
+        "kyc_level",
+        "days_email_to_level1",
+        "days_level1_to_level2"
+      ]
+    },
+    "train_label": {
+      "path": "data/aws_event/clean/train_label.parquet",
+      "rows": 51017,
+      "columns": [
+        "user_id",
+        "status",
+        "is_known_blacklist"
+      ]
+    },
+    "predict_label": {
+      "path": "data/aws_event/clean/predict_label.parquet",
+      "rows": 12753,
+      "columns": [
+        "user_id",
+        "needs_prediction"
+      ]
+    },
+    "twd_transfer": {
+      "path": "data/aws_event/clean/twd_transfer.parquet",
+      "rows": 195601,
+      "columns": [
+        "id",
+        "user_id",
+        "created_at",
+        "kind",
+        "ori_samount_raw",
+        "source_ip_hash",
+        "amount_twd",
+        "kind_label",
+        "is_deposit",
+        "is_withdrawal"
+      ]
+    },
+    "crypto_transfer": {
+      "path": "data/aws_event/clean/crypto_transfer.parquet",
+      "rows": 239958,
+      "columns": [
+        "id",
+        "currency",
+        "user_id",
+        "created_at",
+        "kind",
+        "sub_kind",
+        "ori_samount_raw",
+        "twd_srate_raw",
+        "relation_user_id",
+        "from_wallet_hash",
+        "to_wallet_hash",
+        "protocol",
+        "source_ip_hash",
+        "amount_asset",
+        "twd_rate",
+        "amount_twd_equiv",
+        "kind_label",
+        "sub_kind_label",
+        "protocol_label",
+        "is_internal_transfer",
+        "is_external_transfer"
+      ]
+    },
+    "usdt_swap": {
+      "path": "data/aws_event/clean/usdt_swap.parquet",
+      "rows": 53841,
+      "columns": [
+        "id",
+        "user_id",
+        "created_at",
+        "kind",
+        "twd_samount_raw",
+        "currency_samount_raw",
+        "twd_amount",
+        "currency_amount",
+        "kind_label"
+      ]
+    },
+    "usdt_twd_trading": {
+      "path": "data/aws_event/clean/usdt_twd_trading.parquet",
+      "rows": 217634,
+      "columns": [
+        "id",
+        "user_id",
+        "updated_at",
+        "is_buy",
+        "trade_samount_raw",
+        "twd_srate_raw",
+        "source_ip_hash",
+        "is_market",
+        "source",
+        "trade_amount_usdt",
+        "twd_rate",
+        "trade_notional_twd",
+        "side_label",
+        "order_type_label",
+        "source_label"
+      ]
+    },
+    "user_index": {
+      "path": "data/aws_event/clean/user_index.parquet",
+      "rows": 63770,
+      "columns": [
+        "user_id",
+        "sex",
+        "age",
+        "career",
+        "income_source",
+        "user_source",
+        "kyc_level",
+        "status",
+        "is_known_blacklist",
+        "needs_prediction",
+        "has_profile"
+      ]
+    }
+  }
+}

@@ -25,6 +25,7 @@ def fit_lgbm(
     train_frame: pd.DataFrame,
     valid_frame: pd.DataFrame | None,
     feature_columns: list[str],
+    random_seed: int = RANDOM_SEED,
 ) -> ModelFitResult:
     x_train, encoded_columns = encode_frame(train_frame, feature_columns)
     y_train = train_frame["status"].astype(int)
@@ -37,7 +38,7 @@ def fit_lgbm(
         num_leaves=31,
         subsample=0.9,
         colsample_bytree=0.9,
-        random_state=RANDOM_SEED,
+        random_state=random_seed,
         scale_pos_weight=negatives / positives,
         verbosity=-1,
         **runtime_params,
@@ -85,6 +86,8 @@ def fit_catboost(
     valid_frame: pd.DataFrame | None,
     feature_columns: list[str],
     focal_gamma: float = 0.0,
+    catboost_params: dict | None = None,
+    random_seed: int = RANDOM_SEED,
 ) -> ModelFitResult:
     try:
         from catboost import CatBoostClassifier  # type: ignore
@@ -106,14 +109,34 @@ def fit_catboost(
     # combining focal_gamma > 0 with class_weights double-counts class imbalance.
     # Solution: Logloss + class_weights handles imbalance cleanly.
     # focal_gamma param is accepted but ignored (kept for API compatibility).
+    hp = dict(catboost_params or {})
+    _max_cw = hp.pop("max_class_weight", 10.0)
+    _weight_ratio = min(negatives / positives, float(_max_cw))
     runtime_params = catboost_runtime_params()
+    # Override task_type from catboost_params (e.g. force CPU for Base B).
+    if "task_type" in hp:
+        runtime_params = dict(runtime_params)
+        runtime_params["task_type"] = hp.pop("task_type")
+        if runtime_params["task_type"] == "CPU":
+            runtime_params.pop("devices", None)
+            runtime_params["thread_count"] = hardware_profile().cpu_threads
+    _iters = int(hp.pop("iterations", 1500))
+    _esr = int(hp.pop("early_stopping_rounds", 100))
+    _depth = int(hp.pop("depth", 7))
+    _lr = float(hp.pop("learning_rate", 0.05))
+    _l2 = float(hp.pop("l2_leaf_reg", 3.0))
+    _bc = int(hp.pop("border_count", 254))
     _base_kwargs: dict = dict(
         loss_function="Logloss",
         eval_metric="Logloss",
-        iterations=500,
-        random_seed=RANDOM_SEED,
+        iterations=_iters,
+        random_seed=random_seed,
         verbose=False,
-        class_weights=[1.0, min(negatives / positives, 10.0)],
+        class_weights=[1.0, _weight_ratio],
+        depth=_depth,
+        learning_rate=_lr,
+        l2_leaf_reg=_l2,
+        border_count=_bc,
         **runtime_params,
     )
     model_kwargs = _base_kwargs
@@ -127,7 +150,7 @@ def fit_catboost(
         y_valid = valid_frame["status"].astype(int)
     try:
         if valid_x is not None and y_valid is not None:
-            model.fit(train_x, y_train, cat_features=cat_features, eval_set=(valid_x, y_valid), use_best_model=True, early_stopping_rounds=50)
+            model.fit(train_x, y_train, cat_features=cat_features, eval_set=(valid_x, y_valid), use_best_model=True, early_stopping_rounds=_esr)
             validation_probabilities = model.predict_proba(valid_x)[:, 1].tolist()
         else:
             model.fit(train_x, y_train, cat_features=cat_features)
@@ -141,7 +164,7 @@ def fit_catboost(
             **cpu_runtime,
         })
         if valid_x is not None and y_valid is not None:
-            model.fit(train_x, y_train, cat_features=cat_features, eval_set=(valid_x, y_valid), use_best_model=True, early_stopping_rounds=50)
+            model.fit(train_x, y_train, cat_features=cat_features, eval_set=(valid_x, y_valid), use_best_model=True, early_stopping_rounds=_esr)
             validation_probabilities = model.predict_proba(valid_x)[:, 1].tolist()
         else:
             model.fit(train_x, y_train, cat_features=cat_features)

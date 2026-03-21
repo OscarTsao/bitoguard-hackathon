@@ -7,6 +7,7 @@ import pandas as pd
 
 from official.cohorts import build_official_cohorts
 from official.common import EVENT_TIME_COLUMNS, feature_output_path, list_event_cutoffs, load_clean_table, safe_ratio, to_utc_timestamp
+from features.typology_features import compute_typology_features
 
 
 @dataclass(frozen=True)
@@ -262,6 +263,12 @@ def build_official_features(
             [
                 _add_group_aggregations(twd_window, "user_id", "amount_twd", f"twd_total_{window_tag}"),
                 _add_group_aggregations(
+                    twd_window[twd_window["kind_label"] == "deposit"],
+                    "user_id",
+                    "amount_twd",
+                    f"twd_deposit_{window_tag}",
+                ),
+                _add_group_aggregations(
                     twd_window[twd_window["kind_label"] == "withdrawal"],
                     "user_id",
                     "amount_twd",
@@ -328,6 +335,37 @@ def build_official_features(
     features["night_activity_ratio"] = features["night_activity_ratio"].fillna(0.0)
     features["fast_cashout_24h_flag"] = (features["fast_cashout_24h_count"] > 0).astype(int)
     features["fast_cashout_72h_flag"] = (features["fast_cashout_72h_count"] > 0).astype(int)
+
+    # account_age_days: days from user account creation to the snapshot cutoff.
+    if "created_at" in user_info.columns:
+        uid_created = user_info[["user_id", "created_at"]].copy()
+        uid_created["created_at"] = pd.to_datetime(uid_created["created_at"], utc=True, errors="coerce")
+        uid_created["account_age_days"] = (resolved_cutoff - uid_created["created_at"]).dt.total_seconds() / 86400.0
+        uid_created["account_age_days"] = uid_created["account_age_days"].clip(lower=0.0)
+        uid_created = uid_created[["user_id", "account_age_days"]].dropna()
+        features = features.merge(uid_created, on="user_id", how="left")
+        features["account_age_days"] = features["account_age_days"].fillna(0.0)
+
+    # cashout_ratio_7d: crypto outflow / fiat inflow in 7d window (layering signal).
+    dep_7d = features["twd_deposit_7d_sum"] if "twd_deposit_7d_sum" in features.columns else pd.Series(0.0, index=features.index)
+    cwd_7d = features["crypto_withdraw_7d_sum"] if "crypto_withdraw_7d_sum" in features.columns else pd.Series(0.0, index=features.index)
+    features["xch_cashout_ratio_7d"] = safe_ratio(cwd_7d, dep_7d + 1.0)
+
+    # FATF typology features: build a compatibility alias frame then merge.
+    typo_base = features.rename(columns={
+        "twd_deposit_count": "twd_dep_count",
+        "twd_deposit_sum": "twd_dep_sum",
+        "twd_deposit_7d_count": "twd_dep_7d_count",
+        "twd_deposit_7d_sum": "twd_dep_7d_sum",
+        "twd_deposit_30d_sum": "twd_dep_30d_sum",
+        "swap_total_count": "swap_count",
+    })
+    typology = compute_typology_features(typo_base)
+    features = features.merge(typology, on="user_id", how="left")
+    for col in ["structuring_ratio", "dormancy_burst_score", "round_amount_proxy",
+                "multi_asset_layering", "velocity_acceleration", "same_day_cycle_proxy"]:
+        if col in features.columns:
+            features[col] = features[col].fillna(0.0)
 
     features["snapshot_cutoff_at"] = resolved_cutoff
     features["snapshot_cutoff_tag"] = cutoff_tag

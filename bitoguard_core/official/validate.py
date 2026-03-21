@@ -45,6 +45,7 @@ def validate_official_model() -> dict[str, Any]:
         primary_oof["stacker_raw_probability"].to_numpy(),
         primary_oof["status"].astype(int).to_numpy(),
         primary_oof["primary_fold"].to_numpy(),
+        use_pu_adjustment=False,
     )
     selected_threshold = float(calibration_report["selected_threshold"])
     primary_oof["submission_probability"] = primary_calibrated

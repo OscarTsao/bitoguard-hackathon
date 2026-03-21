@@ -10,11 +10,13 @@ import pandas as pd
 from official.anomaly import build_official_anomaly_features
 from official.bundle import save_selected_bundle
 from official.common import RANDOM_SEED, feature_output_path, load_official_paths, save_json, save_pickle
+from official.correct_and_smooth import correct_and_smooth
 from official.features import build_official_features
 from official.graph_dataset import TransductiveGraph, build_transductive_graph
 from official.graph_features import build_official_graph_features
 from official.graph_model import save_graph_model, train_graphsage_model
-from official.modeling import fit_catboost
+from official.modeling import fit_catboost, fit_lgbm
+from official.modeling_xgb import fit_xgboost
 from official.rules import evaluate_official_rules
 from official.stacking import STACKER_FEATURE_COLUMNS, build_stacker_oof, save_stacker_model
 from official.transductive_features import build_transductive_feature_frame
@@ -38,6 +40,11 @@ LABEL_FREE_EXCLUDED_COLUMNS = {
     "is_shadow_overlap",
     "top_reason_codes",
 }
+
+# Multi-seed ensembles — averaging reduces prediction variance by 1/sqrt(n).
+_BASE_A_SEEDS = [42, 52, 62, 72]  # CatBoost: 4 seeds
+_BASE_D_SEEDS = [42, 123, 456]    # LightGBM: 3 seeds
+_BASE_E_SEEDS = [42, 123]         # XGBoost: 2 seeds (slower)
 
 PRIMARY_GRAPH_MAX_EPOCHS = 40
 FINAL_GRAPH_MIN_EPOCHS = 10
@@ -76,10 +83,6 @@ def _label_frame(dataset: pd.DataFrame) -> pd.DataFrame:
 
 
 def _label_free_feature_columns(dataset: pd.DataFrame) -> list[str]:
-    # Exclude columns that are fully null - these carry zero signal and cause CatBoost
-    # to crash when detected as categorical (object dtype with all-None values).
-    # All-null columns arise when new windowed features were added to the registry
-    # but the stored parquet was built before they were populated.
     non_null = {col for col in dataset.columns if not dataset[col].isna().all()}
     return [column for column in dataset.columns if column not in LABEL_FREE_EXCLUDED_COLUMNS and column in non_null]
 
@@ -122,12 +125,57 @@ def run_transductive_oof_pipeline(
         train_transductive = with_transductive_frame[with_transductive_frame["user_id"].astype(int).isin(train_users)].copy()
         valid_transductive = with_transductive_frame[with_transductive_frame["user_id"].astype(int).isin(valid_users)].copy()
 
-        base_a_fit = fit_catboost(train_label_free, valid_label_free, base_a_feature_columns, focal_gamma=2.0)
-        resolved_base_b_columns = base_b_feature_columns or [column for column in train_transductive.columns if column != "user_id"]
-        base_b_fit = fit_catboost(train_transductive, valid_transductive, resolved_base_b_columns, focal_gamma=2.0)
+        # Multi-seed CatBoost ensemble for Base A (4 seeds, reduces variance ~50%).
+        _base_a_val_probs = []
+        _base_a_models = []
+        for _seed in _BASE_A_SEEDS:
+            _fit = fit_catboost(train_label_free, valid_label_free, base_a_feature_columns, focal_gamma=2.0, random_seed=_seed)
+            _base_a_val_probs.append(_fit.validation_probabilities)
+            _base_a_models.append(_fit.model)
+        base_a_fit = type(_fit)(
+            model_name=_fit.model_name,
+            model=_base_a_models[0],
+            feature_columns=_fit.feature_columns,
+            encoded_columns=_fit.encoded_columns,
+            cat_features=_fit.cat_features,
+            validation_probabilities=np.mean(_base_a_val_probs, axis=0).tolist(),
+        )
 
-        # Sanity check: model probabilities should span a meaningful range.
-        # Near-constant output (all near-zero or all near-one) indicates training failure.
+        resolved_base_b_columns = base_b_feature_columns or [column for column in train_transductive.columns if column != "user_id"]
+        _base_b_params = {"task_type": "CPU", "l2_leaf_reg": 5.0}
+        base_b_fit = fit_catboost(train_transductive, valid_transductive, resolved_base_b_columns, focal_gamma=2.0, catboost_params=_base_b_params)
+
+        # Multi-seed LightGBM ensemble for Base D (3 seeds).
+        _base_d_val_probs = []
+        _base_d_fit = None
+        for _seed_d in _BASE_D_SEEDS:
+            _base_d_fit = fit_lgbm(train_label_free, valid_label_free, base_a_feature_columns, random_seed=_seed_d)
+            _base_d_val_probs.append(_base_d_fit.validation_probabilities)
+        base_d_fit = type(_base_d_fit)(
+            model_name=_base_d_fit.model_name,
+            model=_base_d_fit.model,
+            feature_columns=_base_d_fit.feature_columns,
+            encoded_columns=_base_d_fit.encoded_columns,
+            cat_features=_base_d_fit.cat_features,
+            validation_probabilities=np.mean(_base_d_val_probs, axis=0).tolist(),
+        )
+
+        # Multi-seed XGBoost ensemble for Base E (2 seeds).
+        _base_e_val_probs = []
+        _base_e_fit = None
+        for _seed_e in _BASE_E_SEEDS:
+            _base_e_fit = fit_xgboost(train_label_free, valid_label_free, base_a_feature_columns, random_seed=_seed_e)
+            _base_e_val_probs.append(_base_e_fit.validation_probabilities)
+        base_e_fit = type(_base_e_fit)(
+            model_name=_base_e_fit.model_name,
+            model=_base_e_fit.model,
+            feature_columns=_base_e_fit.feature_columns,
+            encoded_columns=_base_e_fit.encoded_columns,
+            cat_features=_base_e_fit.cat_features,
+            validation_probabilities=np.mean(_base_e_val_probs, axis=0).tolist(),
+        )
+
+        # Sanity checks
         if base_a_fit.validation_probabilities:
             va = np.array(base_a_fit.validation_probabilities)
             if va.mean() < 1e-4 or va.max() < 0.01:
@@ -148,14 +196,61 @@ def run_transductive_oof_pipeline(
             max_epochs=graph_max_epochs,
             hidden_dim=128,
         )
+        try:
+            import torch as _torch
+            if _torch.cuda.is_available():
+                _torch.cuda.empty_cache()
+        except Exception:
+            pass
+
+        # Correct-and-Smooth (C&S): graph post-processing on Base A OOF probs.
+        _train_a_probs = np.mean(
+            [m.predict_proba(train_label_free[base_a_feature_columns])[:, 1] for m in _base_a_models],
+            axis=0,
+        )
+        _val_a_probs = np.asarray(base_a_fit.validation_probabilities, dtype=float)
+        _cs_base_probs: dict[int, float] = {}
+        for _uid, _prob in zip(train_label_free["user_id"].astype(int), _train_a_probs):
+            _cs_base_probs[int(_uid)] = float(_prob)
+        for _uid, _prob in zip(valid_label_free["user_id"].astype(int), _val_a_probs):
+            _cs_base_probs[int(_uid)] = float(_prob)
+        # Include unlabeled users in C&S base_probs so their fraud signal propagates.
+        _all_labeled_ids = set(train_users) | set(valid_users)
+        _unlabeled_frame = label_free_frame[~label_free_frame["user_id"].astype(int).isin(_all_labeled_ids)]
+        if len(_unlabeled_frame) > 0:
+            _unlabeled_a_probs = np.mean(
+                [m.predict_proba(_unlabeled_frame[base_a_feature_columns])[:, 1] for m in _base_a_models],
+                axis=0,
+            )
+            for _uid, _prob in zip(_unlabeled_frame["user_id"].astype(int), _unlabeled_a_probs):
+                _cs_base_probs[int(_uid)] = float(_prob)
+        _cs_train_labels: dict[int, float] = dict(zip(
+            fold_train_labels["user_id"].astype(int),
+            fold_train_labels["status"].astype(float),
+        ))
+        _cs_result = correct_and_smooth(
+            graph, _cs_train_labels, _cs_base_probs,
+            alpha_correct=0.5, alpha_smooth=0.5,
+            n_correct_iter=50, n_smooth_iter=50,
+        )
+        _val_ids = valid_label_free["user_id"].astype(int).tolist()
+        _cs_val_probs = np.array(
+            [_cs_result.get(int(_uid), float(_p)) for _uid, _p in zip(_val_ids, _val_a_probs)],
+            dtype=float,
+        )
 
         fold_frame = valid_label_free[["user_id", "status"]].copy()
         fold_frame[fold_column] = fold_id
-        fold_frame["base_a_probability"] = np.asarray(base_a_fit.validation_probabilities, dtype=float)
+        fold_frame["base_a_probability"] = _val_a_probs
+        fold_frame["base_c_s_probability"] = _cs_val_probs
         fold_frame["base_b_probability"] = np.asarray(base_b_fit.validation_probabilities, dtype=float)
         fold_frame["base_c_probability"] = np.asarray(graph_fit.validation_probabilities, dtype=float)
-        fold_frame["rule_score"] = pd.to_numeric(valid_label_free["rule_score"], errors="coerce").fillna(0.0).to_numpy()
-        fold_frame["anomaly_score"] = pd.to_numeric(valid_label_free["anomaly_score"], errors="coerce").fillna(0.0).to_numpy()
+        fold_frame["base_d_probability"] = np.asarray(base_d_fit.validation_probabilities, dtype=float)
+        fold_frame["base_e_probability"] = np.asarray(base_e_fit.validation_probabilities, dtype=float)
+        fold_frame["rule_score"] = pd.to_numeric(valid_label_free["rule_score"], errors="coerce").fillna(0.0).to_numpy() if "rule_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
+        fold_frame["anomaly_score"] = pd.to_numeric(valid_label_free["anomaly_score"], errors="coerce").fillna(0.0).to_numpy() if "anomaly_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
+        fold_frame["crypto_anomaly_score"] = pd.to_numeric(valid_label_free["crypto_anomaly_score"], errors="coerce").fillna(0.0).to_numpy() if "crypto_anomaly_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
+        fold_frame["anomaly_score_segmented"] = pd.to_numeric(valid_label_free["anomaly_score_segmented"], errors="coerce").fillna(0.0).to_numpy() if "anomaly_score_segmented" in valid_label_free.columns else np.zeros(len(valid_label_free))
         rows.append(fold_frame)
         fold_training_meta.append(
             {
@@ -199,7 +294,7 @@ def train_official_model() -> dict[str, Any]:
         base_b_feature_columns=base_b_feature_columns,
         graph_max_epochs=PRIMARY_GRAPH_MAX_EPOCHS,
     )
-    primary_oof, stacker_model = build_stacker_oof(primary_oof, primary_split, fold_column="primary_fold")
+    primary_oof, stacker_model = build_stacker_oof(primary_oof, primary_split, fold_column="primary_fold", use_blend=True)
     primary_oof.to_parquet(artifacts["oof"], index=False)
 
     label_frame = _label_frame(dataset)
@@ -209,8 +304,19 @@ def train_official_model() -> dict[str, Any]:
     train_label_free = label_free_frame[label_free_frame["user_id"].astype(int).isin(labeled_user_ids)].copy()
     train_transductive = with_transductive_frame[with_transductive_frame["user_id"].astype(int).isin(labeled_user_ids)].copy()
 
-    base_a_final = fit_catboost(train_label_free, None, base_a_feature_columns, focal_gamma=2.0)
-    base_b_final = fit_catboost(train_transductive, None, base_b_feature_columns, focal_gamma=2.0)
+    # Multi-seed final models
+    _base_a_final_models = [
+        fit_catboost(train_label_free, None, base_a_feature_columns, focal_gamma=2.0, random_seed=_seed)
+        for _seed in _BASE_A_SEEDS
+    ]
+    base_a_final = _base_a_final_models[0]
+    _base_b_final_params = {"task_type": "CPU", "l2_leaf_reg": 5.0}
+    base_b_final = fit_catboost(train_transductive, None, base_b_feature_columns, focal_gamma=2.0, catboost_params=_base_b_final_params)
+    _base_d_finals = [fit_lgbm(train_label_free, None, base_a_feature_columns, random_seed=s) for s in _BASE_D_SEEDS]
+    base_d_final = _base_d_finals[0]
+    _base_e_finals = [fit_xgboost(train_label_free, None, base_a_feature_columns, random_seed=s) for s in _BASE_E_SEEDS]
+    base_e_final = _base_e_finals[0]
+
     graph_epochs = int(np.median([item["graph_best_epoch"] + 1 for item in fold_training_meta])) if fold_training_meta else 40
     graph_final = train_graphsage_model(
         graph,
@@ -222,16 +328,29 @@ def train_official_model() -> dict[str, Any]:
     )
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    base_a_path = paths.model_dir / f"official_catboost_base_a_{timestamp}.pkl"
+    base_a_paths = [paths.model_dir / f"official_catboost_base_a_seed{seed}_{timestamp}.pkl" for seed in _BASE_A_SEEDS]
+    base_a_path = base_a_paths[0]
     base_b_path = paths.model_dir / f"official_catboost_base_b_{timestamp}.pkl"
+    base_d_paths = [paths.model_dir / f"official_lgbm_base_d_seed{seed}_{timestamp}.pkl" for seed in _BASE_D_SEEDS]
+    base_d_path = base_d_paths[0]
+    base_e_paths = [paths.model_dir / f"official_xgboost_base_e_seed{seed}_{timestamp}.pkl" for seed in _BASE_E_SEEDS]
+    base_e_path = base_e_paths[0]
     graph_path = paths.model_dir / f"official_graphsage_{timestamp}.pt"
     stacker_path = paths.model_dir / f"official_stacker_{timestamp}.pkl"
     meta_path = paths.model_dir / f"official_transductive_{timestamp}.json"
 
-    save_pickle(base_a_final.model, base_a_path)
+    for _fit, _path in zip(_base_a_final_models, base_a_paths):
+        save_pickle(_fit.model, _path)
     save_pickle(base_b_final.model, base_b_path)
+    for _fit, _path in zip(_base_d_finals, base_d_paths):
+        save_pickle(_fit.model, _path)
+    for _fit, _path in zip(_base_e_finals, base_e_paths):
+        save_pickle(_fit.model, _path)
     save_graph_model(graph_final.model_state, graph_path)
     save_stacker_model(stacker_model, stacker_path)
+
+    from official.stacking import BlendEnsemble as _BlendEnsemble
+    blend_weights = stacker_model.weights if isinstance(stacker_model, _BlendEnsemble) else None
 
     meta = {
         "model_version": f"official_transductive_{timestamp}",
@@ -243,6 +362,7 @@ def train_official_model() -> dict[str, Any]:
         "base_a_feature_columns": base_a_feature_columns,
         "base_b_feature_columns": base_b_feature_columns,
         "stacker_feature_columns": STACKER_FEATURE_COLUMNS,
+        "blend_weights": blend_weights,
         "fold_training_meta": fold_training_meta,
         "train_rows": int(len(train_label_free)),
         "predict_rows": int(dataset["needs_prediction"].eq(True).sum()),
@@ -255,13 +375,23 @@ def train_official_model() -> dict[str, Any]:
         "primary_validation_protocol": meta["primary_validation_protocol"],
         "base_model_paths": {
             "base_a_catboost": str(base_a_path.relative_to(paths.artifact_dir)),
+            "base_a_catboost_seeds": [str(p.relative_to(paths.artifact_dir)) for p in base_a_paths],
             "base_b_catboost": str(base_b_path.relative_to(paths.artifact_dir)),
+            "base_d_lgbm": str(base_d_path.relative_to(paths.artifact_dir)),
+            "base_d_lgbm_seeds": [str(p.relative_to(paths.artifact_dir)) for p in base_d_paths],
+            "base_e_xgboost": str(base_e_path.relative_to(paths.artifact_dir)),
+            "base_e_xgboost_seeds": [str(p.relative_to(paths.artifact_dir)) for p in base_e_paths],
         },
         "graph_model_path": str(graph_path.relative_to(paths.artifact_dir)),
         "stacker_path": str(stacker_path.relative_to(paths.artifact_dir)),
         "stacker_feature_columns": STACKER_FEATURE_COLUMNS,
+        "blend_weights": blend_weights,
         "feature_columns_base_a": base_a_feature_columns,
         "feature_columns_base_b": base_b_feature_columns,
+        "feature_columns_base_d": base_a_feature_columns,
+        "feature_columns_base_e": base_a_feature_columns,
+        "encoded_columns_base_d": base_d_final.encoded_columns or [],
+        "encoded_columns_base_e": base_e_final.encoded_columns or [],
         "calibration_selection_basis": None,
         "secondary_stress_summary": None,
         "calibrator": None,
@@ -281,6 +411,8 @@ def train_official_model() -> dict[str, Any]:
         "model_version": meta["model_version"],
         "base_a_model_path": str(base_a_path),
         "base_b_model_path": str(base_b_path),
+        "base_d_model_path": str(base_d_path),
+        "base_e_model_path": str(base_e_path),
         "graph_model_path": str(graph_path),
         "stacker_path": str(stacker_path),
         "meta_path": str(meta_path),
