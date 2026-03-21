@@ -1,0 +1,20 @@
+=== Test 1: configurable_pipeline bare (no community, no extras) ===
+
+[configurable_pipeline] Experiment: gap_bare
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges']
+[cache] Base dataset loaded and cached.
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3741, weights={'base_a_probability': 0.05000000074505806, 'base_c_s_probability': 0.3499999940395355, 'base_e_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] CatBoost stacker peak OOF F1=0.3676
+[stacker] Selected BlendEnsemble (F1=0.3741)
+[configurable_pipeline] Result: F1=0.3787 P=0.3403 R=0.4268 AP=0.3265 thr=0.1800 flagged=2057 elapsed=240s [dormant=0.0000, active=0.3787]
+[RESULT] gap_bare F1=0.3787
+
+=== Test 2: Feature column audit ===
+[AUDIT] _load_dataset cols: 332, label_free_cols: 229
+[AUDIT] Sample excluded cols: ['user_id', 'status', 'is_known_blacklist', 'needs_prediction', 'in_train_label', 'in_predict_label', 'is_shadow_overlap', 'cohort', 'twd_total_1d_count', 'twd_total_1d_sum']
