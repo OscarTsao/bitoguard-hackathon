@@ -201,7 +201,7 @@ def run_transductive_oof_pipeline(
         if _gnn_os.environ.get("SKIP_GNN", "0") == "1":
             from official.graph_model import GraphModelFitResult as _GFR
             graph_fit = _GFR(
-                model_state={"metadata": {"user_ids": graph.user_ids, "max_epochs": 0, "hidden_dim": 128, "user_feature_columns": [], "best_epoch": 0}},
+                model_state={"state_dict": {}, "metadata": {"user_ids": graph.user_ids, "max_epochs": 0, "hidden_dim": 128, "user_feature_columns": [], "best_epoch": 0}},
                 model_meta={"user_ids": graph.user_ids, "max_epochs": 0, "hidden_dim": 128, "user_feature_columns": [], "best_epoch": 0},
                 full_probabilities=np.zeros(len(graph.user_ids), dtype=np.float32),
                 validation_probabilities=np.zeros(len(valid_users)),
@@ -350,7 +350,7 @@ def train_official_model() -> dict[str, Any]:
     if _gnn_os2.environ.get("SKIP_GNN", "0") == "1":
         from official.graph_model import GraphModelFitResult as _GFR2
         graph_final = _GFR2(
-            model_state={"metadata": {"user_ids": graph.user_ids, "max_epochs": 0, "hidden_dim": 128, "user_feature_columns": [], "best_epoch": 0}},
+            model_state={"state_dict": {}, "metadata": {"user_ids": graph.user_ids, "max_epochs": 0, "hidden_dim": 128, "user_feature_columns": [], "best_epoch": 0}},
             model_meta={"user_ids": graph.user_ids, "max_epochs": 0, "hidden_dim": 128, "user_feature_columns": [], "best_epoch": 0},
             full_probabilities=np.zeros(len(graph.user_ids), dtype=np.float32),
             validation_probabilities=None,

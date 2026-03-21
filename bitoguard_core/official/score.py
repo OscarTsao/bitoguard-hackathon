@@ -47,8 +47,12 @@ def score_official_predict() -> pd.DataFrame:
     # Base B: transductive CatBoost
     base_b_probability = base_b_model.predict_proba(scoring_transductive[base_b_cols])[:, 1]
 
-    # Base C: GraphSAGE
-    graph_probability_frame = predict_graph_model(graph, graph_model_state)
+    # Base C: GraphSAGE (skipped when SKIP_GNN=1)
+    import os as _skip_gnn_os
+    if _skip_gnn_os.environ.get("SKIP_GNN", "0") == "1" or not graph_model_state.get("state_dict"):
+        graph_probability_frame = pd.DataFrame({"user_id": graph.user_ids, "graph_probability": np.zeros(len(graph.user_ids), dtype=np.float32)})
+    else:
+        graph_probability_frame = predict_graph_model(graph, graph_model_state)
 
     # Base D: LightGBM multi-seed
     base_d_paths = bundle["base_model_paths"].get("base_d_lgbm_seeds") or [bundle["base_model_paths"].get("base_d_lgbm")]

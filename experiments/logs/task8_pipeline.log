@@ -1,0 +1,55 @@
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:320: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["twd_net_amount"] = features["twd_deposit_sum"] - features["twd_withdraw_sum"]
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:321: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["twd_in_out_ratio"] = safe_ratio(features["twd_deposit_sum"], features["twd_withdraw_sum"])
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:322: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["twd_withdraw_concentration"] = safe_ratio(features["twd_withdraw_max"], features["twd_withdraw_sum"])
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:323: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["crypto_net_amount"] = features["crypto_deposit_sum"] - features["crypto_withdraw_sum"]
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:324: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["crypto_in_out_ratio"] = safe_ratio(features["crypto_deposit_sum"], features["crypto_withdraw_sum"])
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:325: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["relation_fan_out_ratio"] = safe_ratio(features["relation_unique_counterparty_count"], features["relation_transfer_count"])
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:326: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["trade_buy_sell_ratio"] = safe_ratio(features["order_buy_sum"], features["order_sell_sum"])
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:327: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["swap_buy_sell_ratio"] = safe_ratio(features["swap_buy_sum"], features["swap_sell_sum"])
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:328: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["activity_days_total"] = features[["twd_active_days", "crypto_active_days", "trade_active_days", "swap_active_days"]].sum(axis=1)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:329: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["night_activity_ratio"] = (
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:336: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["fast_cashout_24h_flag"] = (features["fast_cashout_24h_count"] > 0).astype(int)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:337: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["fast_cashout_72h_flag"] = (features["fast_cashout_72h_count"] > 0).astype(int)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:71: FutureWarning: Downcasting behavior in `replace` is deprecated and will be removed in a future version. To retain the old behavior, explicitly call `result.infer_objects(copy=False)`. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  return (numerator / denominator).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:352: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["xch_cashout_ratio_7d"] = safe_ratio(cwd_7d, dep_7d + 1.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/features/typology_features.py:34: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  return base[col].fillna(fill)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/features/typology_features.py:34: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  return base[col].fillna(fill)
+/home/user/YuNing/bitoguard-hackathon/.venv/lib/python3.12/site-packages/sklearn/utils/validation.py:2749: UserWarning: X does not have valid feature names, but LocalOutlierFactor was fitted with feature names
+  warnings.warn(
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3628, weights={'base_c_s_probability': 0.3499999940395355, 'base_d_probability': 0.20000000298023224, 'base_cs_x_anomaly': 0.44999998807907104}
+[stacker] CatBoost stacker peak OOF F1=0.3481
+[stacker] Selected BlendEnsemble (F1=0.3628)
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3607, weights={'base_c_s_probability': 0.25, 'base_e_probability': 0.10000000149011612, 'base_d_probability': 0.10000000149011612, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] CatBoost stacker peak OOF F1=0.3340
+[stacker] Selected BlendEnsemble (F1=0.3607)
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+{'train_meta': {'model_version': 'official_transductive_20260321T162526Z', 'base_a_model_path': '/home/user/YuNing/bitoguard-hackathon/bitoguard_core/artifacts/models/official_catboost_base_a_seed42_20260321T162526Z.pkl', 'base_b_model_path': '/home/user/YuNing/bitoguard-hackathon/bitoguard_core/artifacts/models/official_catboost_base_b_20260321T162526Z.pkl', 'base_d_model_path': '/home/user/YuNing/bitoguard-hackathon/bitoguard_core/artifacts/models/official_lgbm_base_d_seed42_20260321T162526Z.pkl', 'base_e_model_path': '/home/user/YuNing/bitoguard-hackathon/bitoguard_core/artifacts/models/official_xgboost_base_e_seed42_20260321T162526Z.pkl', 'graph_model_path': '/home/user/YuNing/bitoguard-hackathon/bitoguard_core/artifacts/models/official_graphsage_20260321T162526Z.pt', 'stacker_path': '/home/user/YuNing/bitoguard-hackathon/bitoguard_core/artifacts/models/official_stacker_20260321T162526Z.pkl', 'meta_path': '/home/user/YuNing/bitoguard-hackathon/bitoguard_core/artifacts/models/official_transductive_20260321T162526Z.json', 'bundle_path': '/home/user/YuNing/bitoguard-hackathon/bitoguard_core/artifacts/official_bundle.json', 'oof_predictions_path': '/home/user/YuNing/bitoguard-hackathon/bitoguard_core/artifacts/official_features/official_oof_predictions.parquet'}, 'validation_report_path': 'bitoguard_core/artifacts/reports/official_validation_report.json', 'prediction_rows': 12753, 'selected_threshold': 0.17}

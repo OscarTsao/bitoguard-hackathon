@@ -1,0 +1,53 @@
+
+============================================================
+=== t7_threshold_hpo ===
+
+[configurable_pipeline] Experiment: t7_threshold_hpo
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'threshold_hpo', 'temporal_sequence_features', 'sequence_features']
+[cache] Base dataset loaded and cached.
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.8s
+[cache] Sequence features built and cached.
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.6s
+[cache] Temporal features built and cached.
+[configurable_pipeline] Temporal features: 23 cols added
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3764, weights={'base_a_probability': 0.10000000149011612, 'base_e_probability': 0.10000000149011612, 'base_c_s_probability': 0.4000000059604645, 'base_d_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.3499999940395355}
+[stacker] CatBoost stacker peak OOF F1=0.3620
+[stacker] Selected BlendEnsemble (F1=0.3764)
+[hpo_threshold] Best: method=isotonic pu=True thr=0.3537 F1=0.5221
+[configurable_pipeline] Threshold HPO: F1=0.5221 @ thr=0.3537
+[configurable_pipeline] Result: F1=0.3764 P=0.3362 R=0.4274 AP=0.3262 thr=0.2700 flagged=2085 elapsed=234s [dormant=0.0000, active=0.3764]
+[RESULT] t7_threshold_hpo: F1=0.3764 | clean_seq_temporal + threshold HPO
+
+============================================================
+=== t7_threshold_hpo_flow ===
+
+[configurable_pipeline] Experiment: t7_threshold_hpo_flow
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'threshold_hpo', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Sequence features: 20 cols added
+[configurable_pipeline] Temporal features: 23 cols added
+[stacker] BlendEnsemble peak OOF F1=0.3765, weights={'base_a_probability': 0.10000000149011612, 'base_e_probability': 0.10000000149011612, 'base_c_s_probability': 0.4000000059604645, 'base_d_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.3499999940395355}
+[stacker] CatBoost stacker peak OOF F1=0.3622
+[stacker] Selected BlendEnsemble (F1=0.3765)
+[hpo_threshold] Best: method=isotonic pu=True thr=0.3203 F1=0.5228
+[configurable_pipeline] Threshold HPO: F1=0.5228 @ thr=0.3203
+[configurable_pipeline] Result: F1=0.3765 P=0.3364 R=0.4274 AP=0.3262 thr=0.2700 flagged=2084 elapsed=212s [dormant=0.0000, active=0.3765]
+[RESULT] t7_threshold_hpo_flow: F1=0.3765 | clean_seq_temporal+flow + threshold HPO
+
+============================================================
+SUMMARY
+  t7_threshold_hpo                    F1=0.3764
+  t7_threshold_hpo_flow               F1=0.3765

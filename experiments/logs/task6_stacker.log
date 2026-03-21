@@ -1,0 +1,101 @@
+
+============================================================
+=== t6_blend ===
+
+[configurable_pipeline] Experiment: t6_blend
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'temporal_sequence_features', 'sequence_features']
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:320: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["twd_net_amount"] = features["twd_deposit_sum"] - features["twd_withdraw_sum"]
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:321: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["twd_in_out_ratio"] = safe_ratio(features["twd_deposit_sum"], features["twd_withdraw_sum"])
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:322: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["twd_withdraw_concentration"] = safe_ratio(features["twd_withdraw_max"], features["twd_withdraw_sum"])
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:323: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["crypto_net_amount"] = features["crypto_deposit_sum"] - features["crypto_withdraw_sum"]
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:324: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["crypto_in_out_ratio"] = safe_ratio(features["crypto_deposit_sum"], features["crypto_withdraw_sum"])
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:325: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["relation_fan_out_ratio"] = safe_ratio(features["relation_unique_counterparty_count"], features["relation_transfer_count"])
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:326: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["trade_buy_sell_ratio"] = safe_ratio(features["order_buy_sum"], features["order_sell_sum"])
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:327: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["swap_buy_sell_ratio"] = safe_ratio(features["swap_buy_sum"], features["swap_sell_sum"])
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:328: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["activity_days_total"] = features[["twd_active_days", "crypto_active_days", "trade_active_days", "swap_active_days"]].sum(axis=1)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:329: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["night_activity_ratio"] = (
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:336: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["fast_cashout_24h_flag"] = (features["fast_cashout_24h_count"] > 0).astype(int)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:337: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["fast_cashout_72h_flag"] = (features["fast_cashout_72h_count"] > 0).astype(int)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:71: FutureWarning: Downcasting behavior in `replace` is deprecated and will be removed in a future version. To retain the old behavior, explicitly call `result.infer_objects(copy=False)`. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  return (numerator / denominator).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/features.py:352: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["xch_cashout_ratio_7d"] = safe_ratio(cwd_7d, dep_7d + 1.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/features/typology_features.py:34: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  return base[col].fillna(fill)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/features/typology_features.py:34: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  return base[col].fillna(fill)
+/home/user/YuNing/bitoguard-hackathon/.venv/lib/python3.12/site-packages/sklearn/utils/validation.py:2749: UserWarning: X does not have valid feature names, but LocalOutlierFactor was fitted with feature names
+  warnings.warn(
+[cache] Base dataset loaded and cached.
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.6s
+[cache] Sequence features built and cached.
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.7s
+[cache] Temporal features built and cached.
+[configurable_pipeline] Temporal features: 23 cols added
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3764, weights={'base_a_probability': 0.10000000149011612, 'base_e_probability': 0.10000000149011612, 'base_c_s_probability': 0.4000000059604645, 'base_d_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.3499999940395355}
+[stacker] CatBoost stacker peak OOF F1=0.3609
+[stacker] Selected BlendEnsemble (F1=0.3764)
+[configurable_pipeline] Result: F1=0.3764 P=0.3362 R=0.4274 AP=0.3262 thr=0.2700 flagged=2085 elapsed=256s [dormant=0.0000, active=0.3764]
+[RESULT] t6_blend: F1=0.3764 | BlendEnsemble (baseline)
+
+============================================================
+=== t6_gbm ===
+
+[configurable_pipeline] Experiment: t6_gbm
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'gbm_stacker', 'temporal_sequence_features', 'sequence_features']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+[configurable_pipeline] Sequence features: 20 cols added
+[configurable_pipeline] Temporal features: 23 cols added
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3765, weights={'base_a_probability': 0.10000000149011612, 'base_e_probability': 0.10000000149011612, 'base_c_s_probability': 0.4000000059604645, 'base_d_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.3499999940395355}
+[stacker] CatBoost stacker peak OOF F1=0.3598
+[stacker] Selected BlendEnsemble (F1=0.3765)
+[configurable_pipeline] BlendEnsemble F1=0.3765 vs GBM stacker F1=0.3597
+[configurable_pipeline] BlendEnsemble wins — keeping blend probabilities.
+[configurable_pipeline] Result: F1=0.3765 P=0.3364 R=0.4274 AP=0.3262 thr=0.2700 flagged=2084 elapsed=212s [dormant=0.0000, active=0.3765]
+[RESULT] t6_gbm: F1=0.3765 | +GBM stacker
+
+============================================================
+=== t6_lr ===
+
+[configurable_pipeline] Experiment: t6_lr
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'temporal_sequence_features', 'sequence_features', 'lr_stacker']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+[configurable_pipeline] Sequence features: 20 cols added
+[configurable_pipeline] Temporal features: 23 cols added
+[configurable_pipeline] Result: F1=0.3689 P=0.3347 R=0.4110 AP=0.3280 thr=0.1850 flagged=2014 elapsed=172s [dormant=0.0000, active=0.3689]
+[RESULT] t6_lr: F1=0.3689 | +LR stacker
+
+============================================================
+SUMMARY
+  t6_blend                       F1=0.3764
+  t6_gbm                         F1=0.3765
+  t6_lr                          F1=0.3689
