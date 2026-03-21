@@ -1,0 +1,73 @@
+============================================================
+=== clean_baseline ===
+
+[configurable_pipeline] Experiment: clean_baseline
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges']
+[cache] Base dataset loaded and cached.
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+[stacker] BlendEnsemble peak OOF F1=0.3752, weights={'base_a_probability': 0.05000000074505806, 'base_c_s_probability': 0.10000000149011612, 'base_e_probability': 0.10000000149011612, 'base_d_probability': 0.10000000149011612, 'base_cs_x_anomaly': 0.6499999761581421}
+[stacker] CatBoost stacker peak OOF F1=0.3601
+[stacker] Selected BlendEnsemble (F1=0.3752)
+[configurable_pipeline] Result: F1=0.3752 P=0.3398 R=0.4189 AP=0.3170 thr=0.2100 flagged=2022 elapsed=207s [dormant=0.0000, active=0.3752]
+[RESULT] clean_baseline: F1=0.3752 | Clean baseline, no hpo_best_params
+
+============================================================
+=== clean_seq ===
+
+[configurable_pipeline] Experiment: clean_seq
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'sequence_features']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.7s
+[cache] Sequence features built and cached.
+[configurable_pipeline] Sequence features: 20 cols added
+[stacker] BlendEnsemble peak OOF F1=0.3768, weights={'base_e_probability': 0.15000000596046448, 'base_c_s_probability': 0.44999998807907104, 'base_cs_x_anomaly': 0.4000000059604645}
+[stacker] CatBoost stacker peak OOF F1=0.3672
+[stacker] Selected BlendEnsemble (F1=0.3768)
+[configurable_pipeline] Result: F1=0.3807 P=0.3587 R=0.4055 AP=0.3300 thr=0.2400 flagged=1854 elapsed=225s [dormant=0.0000, active=0.3807]
+[RESULT] clean_seq: F1=0.3807 | Clean + seq
+
+============================================================
+=== clean_seq_temporal ===
+
+[configurable_pipeline] Experiment: clean_seq_temporal
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'temporal_sequence_features', 'sequence_features']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.9s
+[cache] Temporal features built and cached.
+[configurable_pipeline] Temporal features: 23 cols added
+[stacker] BlendEnsemble peak OOF F1=0.3819, weights={'base_a_probability': 0.05000000074505806, 'base_e_probability': 0.10000000149011612, 'base_d_probability': 0.10000000149011612, 'base_c_s_probability': 0.20000000298023224, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] CatBoost stacker peak OOF F1=0.3719
+[stacker] Selected BlendEnsemble (F1=0.3819)
+[configurable_pipeline] Result: F1=0.3859 P=0.3675 R=0.4061 AP=0.3323 thr=0.2400 flagged=1812 elapsed=224s [dormant=0.0000, active=0.3859]
+[RESULT] clean_seq_temporal: F1=0.3859 | Clean + seq + temporal
+
+============================================================
+=== clean_best ===
+
+[configurable_pipeline] Experiment: clean_best
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Sequence features: 20 cols added
+[configurable_pipeline] Temporal features: 23 cols added
+[stacker] BlendEnsemble peak OOF F1=0.3848, weights={'base_e_probability': 0.05000000074505806, 'base_d_probability': 0.15000000596046448, 'base_c_s_probability': 0.25, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] CatBoost stacker peak OOF F1=0.3784
+[stacker] Selected BlendEnsemble (F1=0.3848)
+[configurable_pipeline] Result: F1=0.3848 P=0.3778 R=0.3921 AP=0.3294 thr=0.2500 flagged=1702 elapsed=215s [dormant=0.0000, active=0.3848]
+[RESULT] clean_best: F1=0.3848 | Clean + seq + temporal + flow
+
+============================================================
+SUMMARY
+  clean_baseline                 F1=0.3752
+  clean_seq                      F1=0.3807
+  clean_seq_temporal             F1=0.3859
+  clean_best                     F1=0.3848
