@@ -113,7 +113,7 @@ def _add_base_meta_features(frame: pd.DataFrame) -> pd.DataFrame:
     frame = frame.copy()
     available = [c for c in _BASE_PROB_COLUMNS if c in frame.columns]
     if available:
-        frame["max_base_probability"] = frame[available].max(axis=1)
+        frame["max_base_probability"] = frame[available].max(axis=1).fillna(0.0)
         frame["std_base_probability"] = frame[available].std(axis=1).fillna(0.0)
     else:
         frame["max_base_probability"] = 0.0
@@ -278,7 +278,10 @@ def _predict_stacker(model: Any, frame: pd.DataFrame, feature_columns: list[str]
 
 def fit_logistic_stacker(frame: pd.DataFrame, feature_columns: list[str]) -> LogisticRegression:
     model = LogisticRegression(max_iter=1000, random_state=RANDOM_SEED)
-    model.fit(frame[feature_columns], frame["status"].astype(int))
+    labeled = frame.dropna(subset=["status"])
+    X = labeled[feature_columns].fillna(0.0).to_numpy()
+    y = labeled["status"].astype(int).to_numpy()
+    model.fit(X, y)
     return model
 
 
