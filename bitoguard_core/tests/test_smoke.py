@@ -525,6 +525,38 @@ def test_score_v2_uses_transaction_for_db_write():
         ), "store.execute(DELETE) must not be called outside a transaction"
 
 
+
+
+def test_load_neighborhood_edges_caps_neighbor_ids():
+    """
+    _load_neighborhood_edges must cap neighbor_ids at _MAX_NEIGHBOR_IDS
+    to prevent unbounded SQL placeholder construction.
+    """
+    import pandas as pd
+    from unittest.mock import MagicMock
+    from api.main import _load_neighborhood_edges, _MAX_NEIGHBOR_IDS
+
+    many_neighbor_ids = [f"entity_{i}" for i in range(_MAX_NEIGHBOR_IDS + 100)]
+    one_hop_df = pd.DataFrame({
+        "src_id": ["focus_user"] * len(many_neighbor_ids),
+        "dst_id": many_neighbor_ids,
+        "src_type": ["user"] * len(many_neighbor_ids),
+        "dst_type": ["wallet"] * len(many_neighbor_ids),
+        "relation_type": ["owns_wallet"] * len(many_neighbor_ids),
+        "edge_id": [f"e{i}" for i in range(len(many_neighbor_ids))],
+    })
+
+    store = MagicMock()
+    store.fetch_df.side_effect = [one_hop_df, pd.DataFrame()]
+
+    _load_neighborhood_edges(store, "focus_user", max_hops=2)
+
+    second_call_sql = store.fetch_df.call_args_list[1][0][0]
+    placeholder_count = second_call_sql.count("?")
+    assert placeholder_count // 2 <= _MAX_NEIGHBOR_IDS, (
+        f"SQL had {placeholder_count // 2} neighbors; must be capped at {_MAX_NEIGHBOR_IDS}"
+    )
+
 @pytest.mark.integration
 def test_alerts_generated_after_scoring() -> None:
     """Guards against threshold miscalibration causing zero alerts.

@@ -343,3 +343,20 @@ def test_normalize_replaces_canonical_with_empty_frame(tmp_path: Path, monkeypat
 
     users = store.read_table("canonical.users")
     assert users.empty
+
+def test_replace_table_in_transaction_rejects_unknown_table():
+    """_replace_table_in_transaction must reject tables not in the allowlist."""
+    import duckdb
+    import pandas as pd
+    from pipeline.normalize import _replace_table_in_transaction
+
+    conn = duckdb.connect(':memory:')
+    df = pd.DataFrame([{'col': 1}])
+    try:
+        _replace_table_in_transaction(conn, 'evil.injected_table', df)
+        assert False, 'Should have raised ValueError for unknown table'
+    except ValueError as e:
+        assert 'not in the allowed' in str(e).lower() or 'allowlist' in str(e).lower() or 'evil' in str(e)
+    finally:
+        conn.close()
+
