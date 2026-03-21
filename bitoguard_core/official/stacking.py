@@ -286,7 +286,13 @@ def _auto_select_best_stacker(
     frame: pd.DataFrame,
     fold_column: str,
 ) -> tuple[pd.DataFrame, Any]:
-    """Auto-select between BlendEnsemble and CatBoost stacker via OOF F1."""
+    """Auto-select between BlendEnsemble and CatBoost stacker via OOF F1.
+
+    ABLATION_FAST: CatBoost stacker comparison skipped (env ABLATION_FAST=1).
+    BlendEnsemble is used directly to save ~25-30s per experiment.
+    Restore full comparison for final submission by unsetting ABLATION_FAST.
+    """
+    import os
     stacker_cols = [c for c in STACKER_FEATURE_COLUMNS if c in frame.columns]
 
     blend_weights = tune_blend_weights(frame)
@@ -299,6 +305,11 @@ def _auto_select_best_stacker(
         labeled_blend["stacker_raw_probability"].to_numpy(),
     )
     print(f"[stacker] BlendEnsemble peak OOF F1={blend_f1:.4f}, weights={blend_weights}")
+
+    # Skip CatBoost stacker for ablation speed (saves ~25s per experiment).
+    if os.environ.get("ABLATION_FAST", "0") == "1":
+        print(f"[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble")
+        return blend_frame, blend_model
 
     try:
         oof_rows: list[pd.DataFrame] = []

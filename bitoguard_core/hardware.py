@@ -101,23 +101,23 @@ def describe_hardware() -> str:
 
 def lightgbm_runtime_params() -> dict[str, Any]:
     profile = hardware_profile()
-    params: dict[str, Any] = {
-        "n_jobs": profile.cpu_threads,
-    }
     if profile.gpu_enabled:
-        params["device_type"] = "gpu"
-        params["max_bin"] = 255
-    return params
+        return {
+            "device_type": "gpu",
+            "max_bin": 255,
+            # Half CPU threads in GPU path — leaves headroom for concurrent CatBoost CPU Base B.
+            "n_jobs": max(1, profile.cpu_threads // 2),
+        }
+    return {"n_jobs": profile.cpu_threads}
 
 
 def xgboost_runtime_params() -> dict[str, Any]:
     profile = hardware_profile()
-    params: dict[str, Any] = {
-        "n_jobs": profile.cpu_threads,
-        "tree_method": "hist",
-    }
-    params["device"] = "cuda" if profile.gpu_enabled else "cpu"
-    return params
+    if profile.gpu_enabled:
+        # In GPU path, XGBoost uses GPU for tree building; n_jobs only affects
+        # preprocessing. Omit to leave CPU threads free for concurrent Base B.
+        return {"tree_method": "hist", "device": "cuda"}
+    return {"tree_method": "hist", "device": "cpu", "n_jobs": profile.cpu_threads}
 
 
 def catboost_runtime_params() -> dict[str, Any]:
@@ -132,6 +132,10 @@ def catboost_runtime_params() -> dict[str, Any]:
         params["task_type"] = "GPU"
         if profile.gpu_device_id is not None:
             params["devices"] = str(profile.gpu_device_id)
+        # Safety margin for coexisting Jupyter kernels using VRAM.
+        params["gpu_ram_part"] = 0.5
+        # Plain boosting is faster on GPU (no ordering overhead vs Ordered default).
+        params["boosting_type"] = "Plain"
     else:
         params["task_type"] = "CPU"
     return params

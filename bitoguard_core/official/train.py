@@ -42,9 +42,11 @@ LABEL_FREE_EXCLUDED_COLUMNS = {
 }
 
 # Multi-seed ensembles — averaging reduces prediction variance by 1/sqrt(n).
-_BASE_A_SEEDS = [42, 52, 62, 72]  # CatBoost: 4 seeds
-_BASE_D_SEEDS = [42, 123, 456]    # LightGBM: 3 seeds
-_BASE_E_SEEDS = [42, 123]         # XGBoost: 2 seeds (slower)
+# ABLATION_FAST: reduced seeds for faster ablation runs (~200s savings/exp).
+# Restore to [42,52,62,72] / [42,123,456] / [42,123] for final submission.
+_BASE_A_SEEDS = [42, 52]          # CatBoost: 2 seeds (ablation fast)
+_BASE_D_SEEDS = [42]              # LightGBM: 1 seed (ablation fast)
+_BASE_E_SEEDS = [42]              # XGBoost: 1 seed (ablation fast)
 
 PRIMARY_GRAPH_MAX_EPOCHS = 40
 FINAL_GRAPH_MIN_EPOCHS = 10
@@ -224,10 +226,8 @@ def run_transductive_oof_pipeline(
         _all_labeled_ids = set(train_users) | set(valid_users)
         _unlabeled_frame = label_free_frame[~label_free_frame["user_id"].astype(int).isin(_all_labeled_ids)]
         if len(_unlabeled_frame) > 0:
-            _unlabeled_a_probs = np.mean(
-                [m.predict_proba(_unlabeled_frame[base_a_feature_columns])[:, 1] for m in _base_a_models],
-                axis=0,
-            )
+            # ABLATION_FAST: use single model for C&S init (C&S smoothing averages out noise).
+            _unlabeled_a_probs = _base_a_models[0].predict_proba(_unlabeled_frame[base_a_feature_columns])[:, 1]
             for _uid, _prob in zip(_unlabeled_frame["user_id"].astype(int), _unlabeled_a_probs):
                 _cs_base_probs[int(_uid)] = float(_prob)
         _cs_train_labels: dict[int, float] = dict(zip(
@@ -237,7 +237,7 @@ def run_transductive_oof_pipeline(
         _cs_result = correct_and_smooth(
             graph, _cs_train_labels, _cs_base_probs,
             alpha_correct=0.5, alpha_smooth=0.5,
-            n_correct_iter=50, n_smooth_iter=50,
+            n_correct_iter=30, n_smooth_iter=30,  # ABLATION_FAST: 30 iters sufficient (alpha=0.5 → 1e-9 residual)
             restore_isolated_top_pct=cs_restore_top_pct,
         )
         _val_ids = valid_label_free["user_id"].astype(int).tolist()

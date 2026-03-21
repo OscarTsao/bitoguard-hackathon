@@ -37,10 +37,11 @@ def fit_xgboost(
     p = params or {}
 
     model_kwargs = dict(
-        n_estimators=p.get("n_estimators", 1500),
-        max_depth=p.get("max_depth", 7),
+        n_estimators=p.get("n_estimators", 800),   # ABLATION_FAST: 800 (restore 1500 for final)
+        max_depth=p.get("max_depth", 6),            # ABLATION_FAST: 6 (restore 7 for final)
         learning_rate=p.get("learning_rate", 0.05),
         subsample=p.get("subsample", 0.8),
+        sampling_method=p.get("sampling_method", "gradient_based"),  # GPU-optimised sampling
         colsample_bytree=p.get("colsample_bytree", 0.8),
         reg_alpha=p.get("reg_alpha", 0.1),
         reg_lambda=p.get("reg_lambda", 5.0),
@@ -50,7 +51,7 @@ def fit_xgboost(
         eval_metric="logloss",
         random_state=p.get("random_state", random_seed),
         verbosity=0,
-        early_stopping_rounds=100,
+        early_stopping_rounds=50,   # ABLATION_FAST: 50 (restore 100 for final)
         **runtime_params,
     )
 
