@@ -21,53 +21,28 @@ class ModelFitResult:
     validation_probabilities: list[float] | None
 
 
-def _pu_sample_weight(y_train: pd.Series, negative_weight: float) -> np.ndarray:
-    labels = y_train.astype(int).to_numpy()
-    positives = max(1, int(labels.sum()))
-    negatives = max(1, len(labels) - positives)
-    return np.where(labels == 1, negatives / positives, float(negative_weight)).astype(np.float32)
-
-
 def fit_lgbm(
     train_frame: pd.DataFrame,
     valid_frame: pd.DataFrame | None,
     feature_columns: list[str],
-    negative_weight: float = 1.0,
     random_seed: int = RANDOM_SEED,
 ) -> ModelFitResult:
-    import lightgbm as lgb
     x_train, encoded_columns = encode_frame(train_frame, feature_columns)
     y_train = train_frame["status"].astype(int)
-    sample_weight = _pu_sample_weight(y_train, negative_weight)
+    positives = max(1, int(y_train.sum()))
+    negatives = max(1, len(y_train) - positives)
     runtime_params = lightgbm_runtime_params()
-    # v41: LightGBM hyperparameter improvements.
-    # - num_leaves: 31 → 127 — old value severely under-capacitated the model for ~160 features.
-    #   num_leaves=31 ≈ depth-5 tree; 127 ≈ depth-7, matching CatBoost depth=9 capacity better.
-    #   LightGBM leaf-wise growth with 127 leaves can capture complex interactions without
-    #   the depth bottleneck (CatBoost uses level-wise growth which is fundamentally different).
-    # - n_estimators: 400 → 2000 — with early stopping, optimal tree count is found automatically.
-    #   400 was fixed and possibly underfit; GPU training makes 2000 trees affordable.
-    # - early_stopping_rounds: 50 — prevents overfitting. Previously missing entirely!
-    #   Without this, LightGBM trained exactly 400 trees regardless of validation performance.
-    # - min_child_samples: 20 — leaf regularization (reduces overfitting on rare positive class).
-    # - reg_lambda: 5.0 — L2 regularization matching XGBoost (XGBoost also uses reg_lambda=5.0).
-    # Expected: Base D AP from 0.2705 → 0.285+ (better generalization on 160 features).
     model_kwargs = dict(
-        n_estimators=2000,
+        n_estimators=400,
         learning_rate=0.05,
-        num_leaves=127,
+        num_leaves=31,
         subsample=0.9,
         colsample_bytree=0.9,
-        min_child_samples=20,
-        reg_lambda=5.0,
         random_state=random_seed,
+        scale_pos_weight=negatives / positives,
         verbosity=-1,
         **runtime_params,
     )
-    _early_stop_callbacks = [
-        lgb.early_stopping(50, verbose=False),
-        lgb.log_evaluation(period=-1),
-    ]
     model = LGBMClassifier(**model_kwargs)
     validation_probabilities: list[float] | None = None
     x_valid = None
@@ -77,10 +52,10 @@ def fit_lgbm(
         y_valid = valid_frame["status"].astype(int)
     try:
         if x_valid is not None and y_valid is not None:
-            model.fit(x_train, y_train, sample_weight=sample_weight, eval_set=[(x_valid, y_valid)], callbacks=_early_stop_callbacks)
+            model.fit(x_train, y_train, eval_set=[(x_valid, y_valid)], eval_metric="binary_logloss")
             validation_probabilities = model.predict_proba(x_valid)[:, 1].tolist()
         else:
-            model.fit(x_train, y_train, sample_weight=sample_weight)
+            model.fit(x_train, y_train)
     except Exception:
         # GPU may be unavailable at runtime despite detection; retry on CPU.
         if runtime_params.get("device_type") != "gpu":
@@ -92,10 +67,10 @@ def fit_lgbm(
             "device_type": "cpu",
         })
         if x_valid is not None and y_valid is not None:
-            model.fit(x_train, y_train, sample_weight=sample_weight, eval_set=[(x_valid, y_valid)], callbacks=_early_stop_callbacks)
+            model.fit(x_train, y_train, eval_set=[(x_valid, y_valid)], eval_metric="binary_logloss")
             validation_probabilities = model.predict_proba(x_valid)[:, 1].tolist()
         else:
-            model.fit(x_train, y_train, sample_weight=sample_weight)
+            model.fit(x_train, y_train)
     return ModelFitResult(
         model_name="lgbm",
         model=model,
@@ -111,31 +86,14 @@ def fit_catboost(
     valid_frame: pd.DataFrame | None,
     feature_columns: list[str],
     focal_gamma: float = 0.0,
-    negative_weight: float = 1.0,
-    random_seed: int = RANDOM_SEED,
     catboost_params: dict | None = None,
+    random_seed: int = RANDOM_SEED,
 ) -> ModelFitResult:
-    """Fit CatBoost classifier.
-
-    Parameters
-    ----------
-    catboost_params : Optional dict of CatBoost hyperparameters (from HPO).
-        Supported keys: depth, learning_rate, l2_leaf_reg, random_strength,
-        bagging_temperature, border_count, min_data_in_leaf, max_class_weight.
-        Any key not provided falls back to its default value.
-    """
     try:
         from catboost import CatBoostClassifier  # type: ignore
     except ImportError as exc:  # pragma: no cover - optional dependency path
         raise ImportError("CatBoost is not installed. Install catboost to enable this path.") from exc
 
-    hp = dict(catboost_params or {})
-    # v4/configurable: PU learning — reduce negative class weight since some
-    # "negatives" are actually unlabeled positives. Extracted here before hp
-    # is passed to CatBoost (which does not recognize this key).
-    _pu_neg_weight = hp.pop("pu_negative_weight", None)
-    if _pu_neg_weight is not None:
-        negative_weight = float(_pu_neg_weight)
     cat_features = [
         column for column in feature_columns
         if pd.api.types.is_object_dtype(train_frame[column])
@@ -143,92 +101,73 @@ def fit_catboost(
         or pd.api.types.is_categorical_dtype(train_frame[column])
     ]
     y_train = train_frame["status"].astype(int)
-    _positives = max(1, int(y_train.sum()))
-    _negatives = max(1, len(y_train) - _positives)
-    # Cap class weight ratio. Uncapped 30x ratio causes Base B CatBoost to
-    # compress all probabilities near zero. Default cap is 10x.
-    _max_cw = hp.get("max_class_weight", 10.0)
-    _weight_ratio = min(float(_negatives) / _positives, _max_cw)
-    class_weights = [float(negative_weight), _weight_ratio]
+    positives = max(1, int(y_train.sum()))
+    negatives = max(1, len(y_train) - positives)
+    # Use Logloss + class_weights for all cases. CatBoost's built-in Focal loss
+    # causes "Logloss metric shouldn't have focal_gamma parameter" validation errors
+    # in catboost 1.2.x when combined with AUC eval_metric. More importantly,
+    # combining focal_gamma > 0 with class_weights double-counts class imbalance.
+    # Solution: Logloss + class_weights handles imbalance cleanly.
+    # focal_gamma param is accepted but ignored (kept for API compatibility).
+    hp = dict(catboost_params or {})
+    _max_cw = hp.pop("max_class_weight", 10.0)
+    _weight_ratio = min(negatives / positives, float(_max_cw))
     runtime_params = catboost_runtime_params()
-    # Allow catboost_params to override task_type (e.g. force CPU for secondary OOF
-    # to avoid GPU OOM when GPU is already saturated from primary training).
+    # Override task_type from catboost_params (e.g. force CPU for Base B).
     if "task_type" in hp:
         runtime_params = dict(runtime_params)
-        runtime_params["task_type"] = hp["task_type"]
-        if hp["task_type"] == "CPU":
+        runtime_params["task_type"] = hp.pop("task_type")
+        if runtime_params["task_type"] == "CPU":
             runtime_params.pop("devices", None)
             runtime_params["thread_count"] = hardware_profile().cpu_threads
-    _depth = hp.get("depth", 7)
-    _lr = hp.get("learning_rate", 0.05)
-    _l2 = hp.get("l2_leaf_reg", 3.0)
-    _rs = hp.get("random_strength", 1.0)
-    _bt = hp.get("bagging_temperature", 1.0)
-    _bc = hp.get("border_count", 254)
-    _mdl = hp.get("min_data_in_leaf", 1)
-    # iterations/early_stopping_rounds: match HPO budget (HPO uses 1500/100).
-    # Without this, HPO params tuned at 1500 iter underperform at default 1000.
-    _iters = hp.get("iterations", 1500)
-    _esr = hp.get("early_stopping_rounds", 100)
-    model = CatBoostClassifier(
+    _iters = int(hp.pop("iterations", 1500))
+    _esr = int(hp.pop("early_stopping_rounds", 100))
+    _depth = int(hp.pop("depth", 7))
+    _lr = float(hp.pop("learning_rate", 0.05))
+    _l2 = float(hp.pop("l2_leaf_reg", 3.0))
+    _bc = int(hp.pop("border_count", 254))
+    _base_kwargs: dict = dict(
         loss_function="Logloss",
         eval_metric="Logloss",
-        class_weights=class_weights,
+        iterations=_iters,
         random_seed=random_seed,
         verbose=False,
-        iterations=_iters,
+        class_weights=[1.0, _weight_ratio],
         depth=_depth,
         learning_rate=_lr,
         l2_leaf_reg=_l2,
-        random_strength=_rs,
-        bagging_temperature=_bt,
         border_count=_bc,
-        min_data_in_leaf=_mdl,
         **runtime_params,
     )
+    model_kwargs = _base_kwargs
+    model = CatBoostClassifier(**model_kwargs)
     validation_probabilities: list[float] | None = None
+    train_x = train_frame[feature_columns]
+    valid_x = None
+    y_valid = None
     if valid_frame is not None and not valid_frame.empty:
+        valid_x = valid_frame[feature_columns]
         y_valid = valid_frame["status"].astype(int)
-        try:
-            model.fit(train_frame[feature_columns], y_train, cat_features=cat_features,
-                      eval_set=(valid_frame[feature_columns], y_valid),
-                      use_best_model=True, early_stopping_rounds=_esr)
-        except Exception:
-            if runtime_params.get("task_type") != "GPU":
-                raise
-            model = CatBoostClassifier(
-                loss_function="Logloss", eval_metric="Logloss",
-                class_weights=class_weights,
-                random_seed=random_seed, verbose=False,
-                iterations=_iters,
-                depth=_depth, learning_rate=_lr,
-                l2_leaf_reg=_l2, random_strength=_rs,
-                bagging_temperature=_bt, border_count=_bc,
-                min_data_in_leaf=_mdl,
-                task_type="CPU", thread_count=hardware_profile().cpu_threads,
-            )
-            model.fit(train_frame[feature_columns], y_train, cat_features=cat_features,
-                      eval_set=(valid_frame[feature_columns], y_valid),
-                      use_best_model=True, early_stopping_rounds=_esr)
-        validation_probabilities = model.predict_proba(valid_frame[feature_columns])[:, 1].tolist()
-    else:
-        try:
-            model.fit(train_frame[feature_columns], y_train, cat_features=cat_features)
-        except Exception:
-            if runtime_params.get("task_type") != "GPU":
-                raise
-            model = CatBoostClassifier(
-                loss_function="Logloss", eval_metric="Logloss",
-                class_weights=class_weights,
-                random_seed=random_seed, verbose=False,
-                iterations=_iters,
-                depth=_depth, learning_rate=_lr,
-                l2_leaf_reg=_l2, random_strength=_rs,
-                bagging_temperature=_bt, border_count=_bc,
-                min_data_in_leaf=_mdl,
-                task_type="CPU", thread_count=hardware_profile().cpu_threads,
-            )
-            model.fit(train_frame[feature_columns], y_train, cat_features=cat_features)
+    try:
+        if valid_x is not None and y_valid is not None:
+            model.fit(train_x, y_train, cat_features=cat_features, eval_set=(valid_x, y_valid), use_best_model=True, early_stopping_rounds=_esr)
+            validation_probabilities = model.predict_proba(valid_x)[:, 1].tolist()
+        else:
+            model.fit(train_x, y_train, cat_features=cat_features)
+    except Exception:
+        # Retry on CPU when GPU training is not usable on this runtime.
+        if runtime_params.get("task_type") != "GPU":
+            raise
+        cpu_runtime = {"task_type": "CPU", "thread_count": hardware_profile().cpu_threads}
+        model = CatBoostClassifier(**{
+            **model_kwargs,
+            **cpu_runtime,
+        })
+        if valid_x is not None and y_valid is not None:
+            model.fit(train_x, y_train, cat_features=cat_features, eval_set=(valid_x, y_valid), use_best_model=True, early_stopping_rounds=_esr)
+            validation_probabilities = model.predict_proba(valid_x)[:, 1].tolist()
+        else:
+            model.fit(train_x, y_train, cat_features=cat_features)
     # Sanity: warn if model outputs near-constant probabilities (indicates training failure)
     if validation_probabilities:
         _vp = np.array(validation_probabilities, dtype=float)

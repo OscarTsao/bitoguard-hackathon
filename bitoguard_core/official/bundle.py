@@ -81,16 +81,10 @@ def load_selected_bundle(path: Path | None = None, require_ready: bool = False) 
         if isinstance(bundle.get(key), str):
             bundle[key] = _remap_path(bundle[key], artifact_dir, model_dir, feature_dir)
     if isinstance(bundle.get("base_model_paths"), dict):
-        remapped: dict[str, Any] = {}
-        for k, v in bundle["base_model_paths"].items():
-            if isinstance(v, list):
-                # base_a_catboost_seeds is a list of paths
-                remapped[k] = [_remap_path(p, artifact_dir, model_dir) for p in v]
-            elif isinstance(v, str):
-                remapped[k] = _remap_path(v, artifact_dir, model_dir)
-            else:
-                remapped[k] = v
-        bundle["base_model_paths"] = remapped
+        bundle["base_model_paths"] = {
+            k: ([_remap_path(p, artifact_dir, model_dir) for p in v] if isinstance(v, list) else _remap_path(v, artifact_dir, model_dir))
+            for k, v in bundle["base_model_paths"].items()
+        }
     if isinstance(bundle.get("calibrator"), dict) and isinstance(bundle["calibrator"].get("calibrator_path"), str):
         bundle["calibrator"]["calibrator_path"] = _remap_path(
             bundle["calibrator"]["calibrator_path"], artifact_dir, model_dir

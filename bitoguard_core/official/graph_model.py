@@ -88,6 +88,15 @@ def train_graphsage_model(
     weight_decay: float = 1e-4,
     patience: int = 12,
 ) -> GraphModelFitResult:
+    # Skip GNN entirely when max_epochs=0 (graphsage_3layer disabled) — avoids torch import.
+    if max_epochs <= 0:
+        n_users = len(graph.user_ids)
+        return GraphModelFitResult(
+            model_state={"metadata": {"user_ids": graph.user_ids, "max_epochs": 0, "hidden_dim": hidden_dim, "user_feature_columns": [], "best_epoch": 0}},
+            model_meta={"user_ids": graph.user_ids, "max_epochs": 0, "hidden_dim": hidden_dim, "user_feature_columns": [], "best_epoch": 0},
+            validation_probabilities=None,
+            full_probabilities=np.zeros(n_users, dtype=np.float32),
+        )
     torch, F, nn = _require_torch()
     _seed_everything(torch)
     feature_columns = _user_feature_columns(graph)

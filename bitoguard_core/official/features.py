@@ -7,6 +7,7 @@ import pandas as pd
 
 from official.cohorts import build_official_cohorts
 from official.common import EVENT_TIME_COLUMNS, feature_output_path, list_event_cutoffs, load_clean_table, safe_ratio, to_utc_timestamp
+from features.typology_features import compute_typology_features
 
 
 @dataclass(frozen=True)
@@ -172,7 +173,6 @@ def build_official_features(
         "has_level2_kyc",
         "days_email_to_level1",
         "days_level1_to_level2",
-        "confirmed_at",
     ]
     profile = user_info[[column for column in profile_columns if column in user_info.columns]].copy()
     base = cohorts.drop(
@@ -245,113 +245,13 @@ def build_official_features(
 
     fast_cashout = _fast_cashout_features(twd_transfer, crypto_transfer)
 
-    # ── Taiwan-time corrected swap night ratio (sep=+0.179, r=0.116 w/ anomaly) ──
-    # Existing swap_night_ratio uses UTC 0-5 = Taiwan 8-13 (morning). Correct to:
-    # Taiwan night 22:00-05:59 = UTC 14:00-21:59.
-    swap_night_tw = _boolean_ratio(
-        usdt_swap, "user_id",
-        usdt_swap["created_at"].dt.hour.isin(range(14, 22)),
-        "swap_night_ratio_tw",
-    )
-
-    # ── External withdrawal fraction: proportion of crypto withdrawals that go off-exchange ──
-    # Fraudsters cash-out externally more (sep=+0.108, r=0.120 w/ anomaly — orthogonal)
-    _ct_wd_all = crypto_transfer[crypto_transfer["kind_label"] == "withdrawal"].copy()
-    _ct_wd_ext = _ct_wd_all[_ct_wd_all["is_external_transfer"].eq(True)]
-    _ct_wd_all_cnt = _ct_wd_all.groupby("user_id")["user_id"].count().rename("_all")
-    _ct_wd_ext_cnt = _ct_wd_ext.groupby("user_id")["user_id"].count().rename("_ext")
-    _ct_wd_frac = pd.DataFrame({"_all": _ct_wd_all_cnt, "_ext": _ct_wd_ext_cnt}).fillna(0)
-    _ct_wd_frac["crypto_wd_ext_frac"] = (
-        _ct_wd_frac["_ext"] / (_ct_wd_frac["_all"] + 1e-9)
-    ).clip(0, 1).astype("float32")
-    crypto_wd_ext_frac = _ct_wd_frac[["crypto_wd_ext_frac"]].reset_index()
-
-    # ── Taiwan-time night & weekend TWD deposit/withdrawal timing features ─────
-    # Taiwan = UTC+8. Night = Taiwan 22:00-05:59 = UTC 14:00-21:59.
-    # Weekend adjustment: UTC hour >= 16 means Taiwan has crossed midnight.
-    twd_dep = twd_transfer[twd_transfer["kind_label"] == "deposit"].copy()
-    _dep_utc_hour = twd_dep["created_at"].dt.hour
-    twd_deposit_night = _boolean_ratio(
-        twd_dep, "user_id",
-        _dep_utc_hour.isin(range(14, 22)),
-        "twd_deposit_night_ratio_tw",
-    )
-    # NOTE: twd_deposit_weekend_ratio removed (sep=-0.058: fraudsters deposit LESS on weekends,
-    # hurts the model by adding inverted noise). twd_withdraw_night_ratio removed (sep=+0.019,
-    # too weak to help and adds noise).
-
-    # ── External crypto wallet diversity (structuring / layering signals) ──────
-    ct_ext_dep = crypto_transfer[
-        (crypto_transfer["kind_label"] == "deposit")
-        & (crypto_transfer["is_external_transfer"].eq(True))
-    ].copy()
-    crypto_dep_wallets = _nunique_or_empty(ct_ext_dep, "user_id", "from_wallet_hash", "crypto_unique_deposit_wallets")
-    ct_ext_wd = crypto_transfer[
-        (crypto_transfer["kind_label"] == "withdrawal")
-        & (crypto_transfer["is_external_transfer"].eq(True))
-    ].copy()
-    crypto_wd_wallets = _nunique_or_empty(ct_ext_wd, "user_id", "to_wallet_hash", "crypto_unique_withdraw_wallets")
-
-    # ── Crypto external transfer IP diversity (high separation for fraud) ───────
-    # Fraudsters use more unique IPs for external crypto transfers (sep=0.87 on labeled data)
-    ct_ext_all = crypto_transfer[crypto_transfer["is_external_transfer"].eq(True)].copy()
-    crypto_ext_ip_diversity = _nunique_or_empty(ct_ext_all, "user_id", "source_ip_hash", "crypto_ext_ip_diversity")
-
-    # ── TWD deposit coefficient of variation (irregular deposit amounts) ────────
-    twd_dep_cv = (
-        twd_transfer[twd_transfer["kind_label"] == "deposit"]
-        .groupby("user_id")["amount_twd"]
-        .agg(lambda x: float(x.std() / (x.mean() + 1)) if len(x) > 1 else 0.0)
-        .reset_index(name="twd_deposit_cv")
-    )
-
-    # ── Transaction velocity features (txns per active day — sep=0.22-0.28) ────
-    _ct_days = crypto_transfer.groupby("user_id")["created_at"].transform(lambda x: x.dt.date.nunique())
-    _ct_per_day = (
-        crypto_transfer.assign(_active_days=_ct_days)
-        .groupby("user_id")
-        .agg(_count=("created_at", "count"), _days=("_active_days", "first"))
-        .reset_index()
-    )
-    _ct_per_day["crypto_txn_velocity"] = (
-        _ct_per_day["_count"] / (_ct_per_day["_days"] + 1)
-    ).astype("float32")
-    crypto_txn_velocity = _ct_per_day[["user_id", "crypto_txn_velocity"]]
-
-    _twd_days = twd_transfer.groupby("user_id")["created_at"].transform(lambda x: x.dt.date.nunique())
-    _twd_per_day = (
-        twd_transfer.assign(_active_days=_twd_days)
-        .groupby("user_id")
-        .agg(_count=("created_at", "count"), _days=("_active_days", "first"))
-        .reset_index()
-    )
-    _twd_per_day["twd_txn_velocity"] = (
-        _twd_per_day["_count"] / (_twd_per_day["_days"] + 1)
-    ).astype("float32")
-    twd_txn_velocity = _twd_per_day[["user_id", "twd_txn_velocity"]]
-
-    # ── Round-number TWD amount ratio (structuring signal, sep=+0.108) ──────────
-    # Use round+int to avoid floating-point precision issues (amounts are float from 1e-8 scaling)
-    _twd_round = twd_transfer[["user_id", "amount_twd"]].copy()
-    _twd_round["_is_round"] = ((_twd_round["amount_twd"].round().astype("int64") % 10000) == 0).astype("float32")
-    twd_round_ratio = (
-        _twd_round.groupby("user_id")["_is_round"]
-        .mean()
-        .reset_index(name="twd_round_10k_ratio")
-        .assign(twd_round_10k_ratio=lambda df: df["twd_round_10k_ratio"].astype("float32"))
-    )
-
     frames = [
         twd_stats, twd_deposit, twd_withdraw, twd_days, twd_last,
-        twd_deposit_night,
         crypto_stats, crypto_withdraw, crypto_deposit, crypto_days, crypto_last, crypto_protocols,
         crypto_currencies, crypto_internal_ratio, relation_counts, relation_users,
-        crypto_dep_wallets, crypto_wd_wallets, crypto_ext_ip_diversity,
         trade_stats, trade_buy, trade_sell, trade_days, trade_night, trade_market, trade_source_api, trade_concentration,
         swap_stats, swap_buy, swap_sell, swap_days, swap_night,
-        fast_cashout, twd_dep_cv,
-        crypto_txn_velocity, twd_txn_velocity, twd_round_ratio,
-        swap_night_tw, crypto_wd_ext_frac,
+        fast_cashout,
     ]
     resolved_cutoff = cutoff_ts or list_event_cutoffs()[1]
     for window_days, window_tag in ROLLING_WINDOWS:
@@ -362,6 +262,12 @@ def build_official_features(
         frames.extend(
             [
                 _add_group_aggregations(twd_window, "user_id", "amount_twd", f"twd_total_{window_tag}"),
+                _add_group_aggregations(
+                    twd_window[twd_window["kind_label"] == "deposit"],
+                    "user_id",
+                    "amount_twd",
+                    f"twd_deposit_{window_tag}",
+                ),
                 _add_group_aggregations(
                     twd_window[twd_window["kind_label"] == "withdrawal"],
                     "user_id",
@@ -430,221 +336,40 @@ def build_official_features(
     features["fast_cashout_24h_flag"] = (features["fast_cashout_24h_count"] > 0).astype(int)
     features["fast_cashout_72h_flag"] = (features["fast_cashout_72h_count"] > 0).astype(int)
 
-    # Defragment the DataFrame before adding many new columns (avoids PerformanceWarning).
-    features = features.copy()
+    # account_age_days: days from user account creation to the snapshot cutoff.
+    if "created_at" in user_info.columns:
+        uid_created = user_info[["user_id", "created_at"]].copy()
+        uid_created["created_at"] = pd.to_datetime(uid_created["created_at"], utc=True, errors="coerce")
+        uid_created["account_age_days"] = (resolved_cutoff - uid_created["created_at"]).dt.total_seconds() / 86400.0
+        uid_created["account_age_days"] = uid_created["account_age_days"].clip(lower=0.0)
+        uid_created = uid_created[["user_id", "account_age_days"]].dropna()
+        features = features.merge(uid_created, on="user_id", how="left")
+        features["account_age_days"] = features["account_age_days"].fillna(0.0)
 
-    # ── FATF AML typology proxy features ─────────────────────────────────────
-    _dep_count = features["twd_deposit_count"].fillna(0)
-    _dep_sum   = features["twd_deposit_sum"].fillna(0)
-    _dep_avg   = features["twd_deposit_avg"].fillna(0)
-    _dep_max   = features["twd_deposit_max"].fillna(0)
-    _age       = features["age"].fillna(0)
-    # 1. Structuring ratio: many small sub-50k TWD deposits vs total volume
-    features["typology_structuring_ratio"] = (
-        (_dep_count / (_dep_sum / 50_000.0 + 1.0)).clip(0, 10) / 10.0
-    ).astype("float32")
-    # 2. Dormancy-burst: old account with recent transfer activity
-    #    Uses days_since_last_twd_transfer (low = recent); twd_total_{7d} unavailable
-    _days_since = features["days_since_last_twd_transfer"].fillna(999)
-    features["typology_dormancy_burst"] = (
-        (_age / 365.0).clip(0, 1)
-        * (1.0 / (_days_since / 7.0 + 1.0))
-        * (_dep_count > 0).astype(float)
-    ).clip(0, 1).astype("float32")
-    # 3. Round-amount proxy: avg deposit near NT$10k multiples
-    _avg_dep_val = _dep_sum / (_dep_count + 1.0)
-    _remainder   = _avg_dep_val % 10_000.0
-    features["typology_round_amount"] = (
-        (1.0 - _remainder / 10_000.0).clip(0, 1)
-    ).astype("float32")
-    # 4. Multi-asset layering: swap activity × cashout intensity
-    _swap_cnt     = features["swap_total_count"].fillna(0)
-    _cashout_rate = features["fast_cashout_72h_count"].fillna(0) / (_dep_count + 1.0)
-    features["typology_multi_asset_layering"] = (
-        (_swap_cnt * _cashout_rate).clip(0, 10)
-    ).astype("float32")
-    # 5. Deposit spike: max/avg ratio indicates burst deposits (velocity proxy)
-    #    twd_total_{7d,30d} are 100% null; use max-to-avg concentration instead.
-    features["typology_velocity_accel"] = (
-        (_dep_max / (_dep_avg + 1.0)).clip(0, 10)
-    ).astype("float32")
-    # 6. Same-day cycle: rapid fiat-in → crypto-out indicator
-    features["typology_same_day_cycle"] = (
-        features["fast_cashout_24h_count"].fillna(0).clip(0, 10)
-    ).astype("float32")
-    # 7. Cashout ratio: fraction of total TWD that is withdrawal (layering signal)
-    features["typology_cashout_ratio"] = safe_ratio(
-        features["twd_withdraw_sum"].fillna(0),
-        features["twd_total_sum"].fillna(0),
-    ).astype("float32")
-    # 8. Deposit concentration: largest single deposit / total (burst indicator)
-    features["typology_deposit_spike"] = safe_ratio(
-        _dep_max,
-        _dep_sum,
-    ).astype("float32")
+    # cashout_ratio_7d: crypto outflow / fiat inflow in 7d window (layering signal).
+    dep_7d = features["twd_deposit_7d_sum"] if "twd_deposit_7d_sum" in features.columns else pd.Series(0.0, index=features.index)
+    cwd_7d = features["crypto_withdraw_7d_sum"] if "crypto_withdraw_7d_sum" in features.columns else pd.Series(0.0, index=features.index)
+    features["xch_cashout_ratio_7d"] = safe_ratio(cwd_7d, dep_7d + 1.0)
 
-    # ── Career-peer comparison features ─────────────────────────────────────
-    # Fraudsters transact much more than career peers (sep=14-28 on labeled data).
-    # Group-median is label-free (no status used) — safe for Base A.
-    _career_med_dep = features.groupby("career")["twd_deposit_sum"].transform("median").fillna(0.0)
-    features["twd_deposit_vs_career_peer"] = safe_ratio(
-        features["twd_deposit_sum"], _career_med_dep + 1.0,
-    ).clip(0, 100).astype("float32")
-    _career_med_ct_wd = features.groupby("career")["crypto_withdraw_sum"].transform("median").fillna(0.0)
-    features["crypto_withdraw_vs_career_peer"] = safe_ratio(
-        features["crypto_withdraw_sum"], _career_med_ct_wd + 1.0,
-    ).clip(0, 100).astype("float32")
-
-    # ── Account age features (newer accounts + faster first-crypto = higher risk) ──
-    # account_age_days: sep=-234 (fraudsters have younger accounts)
-    # days_to_first_crypto: sep=-54 (fraudsters start crypto faster after signup)
-    _ct_first = crypto_transfer.groupby("user_id")["created_at"].min().reset_index(name="_first_crypto_at")
-    features = features.merge(_ct_first, on="user_id", how="left")
-    _confirmed = pd.to_datetime(features.get("confirmed_at"), errors="coerce", utc=True)
-    _snapshot_ts = pd.Timestamp(resolved_cutoff, tz="UTC") if not isinstance(resolved_cutoff, pd.Timestamp) else resolved_cutoff.tz_localize("UTC") if resolved_cutoff.tzinfo is None else resolved_cutoff
-    features["account_age_days"] = (
-        (_snapshot_ts - _confirmed).dt.days.clip(0, 3650).fillna(0)
-    ).astype("float32")
-    features["days_to_first_crypto"] = (
-        pd.to_datetime(features["_first_crypto_at"], errors="coerce", utc=True) - _confirmed
-    ).dt.days.clip(0, 3650).fillna(0).astype("float32")
-    features = features.drop(columns=["_first_crypto_at", "confirmed_at"], errors="ignore")
-
-    # === NEW FEATURE MODULES (Tasks 1, 3, 4) ===
-
-    # Task 1: Dormancy score — explicit feature so model uses it directly
-    try:
-        from features.dormancy import compute_dormancy_score
-        features["dormancy_score"] = compute_dormancy_score(features)
-    except Exception as _e:
-        print(f"[WARN] dormancy_score failed: {_e}")
-
-    # Prepare normalized DataFrames for event-level modules
-    # Official pipeline uses created_at/kind_label; modules expect occurred_at/direction
-    try:
-        _fiat_norm = twd_transfer[["user_id", "created_at", "amount_twd", "kind_label"]].copy()
-        _fiat_norm = _fiat_norm.rename(columns={"created_at": "occurred_at", "kind_label": "direction"})
-
-        _crypto_norm = crypto_transfer[["user_id", "created_at", "amount_twd_equiv", "kind_label"]].copy()
-        _crypto_norm = _crypto_norm.rename(columns={"created_at": "occurred_at", "kind_label": "direction"})
-
-        # Combine swap + trading as the trades table, normalized for module column names
-        _swap_norm = usdt_swap[["user_id", "created_at", "twd_amount", "kind_label"]].copy()
-        _swap_norm = _swap_norm.rename(columns={"created_at": "occurred_at", "twd_amount": "notional_twd"})
-        _swap_norm["side"] = _swap_norm["kind_label"].map({
-            "buy_usdt_with_twd": "buy", "sell_usdt_for_twd": "sell"
-        }).fillna("buy")
-        _swap_norm["order_type"] = "instant_swap"
-
-        _trade_norm = usdt_twd_trading[["user_id", "updated_at", "trade_notional_twd", "side_label", "order_type_label"]].copy()
-        _trade_norm = _trade_norm.rename(columns={
-            "updated_at": "occurred_at",
-            "trade_notional_twd": "notional_twd",
-            "side_label": "side",
-            "order_type_label": "order_type",
-        })
-        _trade_norm["side"] = _trade_norm["side"].map({
-            "buy_usdt_with_twd": "buy", "sell_usdt_for_twd": "sell"
-        }).fillna(_trade_norm["side"])
-
-        _trades_norm = pd.concat([_swap_norm[["user_id", "occurred_at", "notional_twd", "side", "order_type"]],
-                                   _trade_norm[["user_id", "occurred_at", "notional_twd", "side", "order_type"]]],
-                                  ignore_index=True)
-        _event_dfs_ready = True
-    except Exception as _e:
-        print(f"[WARN] Event DataFrame normalization failed: {_e}")
-        _event_dfs_ready = False
-
-    # Task 3: Event n-gram features (temporal ordering)
-    if _event_dfs_ready:
-        try:
-            from features.event_ngram_features import compute_event_ngram_features
-            _ngram_df = compute_event_ngram_features(_fiat_norm, _crypto_norm, _trades_norm)
-            if not _ngram_df.empty:
-                _ngram_df["user_id"] = pd.to_numeric(_ngram_df["user_id"], errors="coerce").astype("Int64")
-                features = features.merge(_ngram_df, on="user_id", how="left")
-        except Exception as _e:
-            print(f"[WARN] Event n-gram features failed: {_e}")
-
-    # Task 4: Statistical features (Benford, entropy, burst)
-    if _event_dfs_ready:
-        try:
-            from features.statistical_features import compute_statistical_features
-            _stat_df = compute_statistical_features(_fiat_norm, _crypto_norm, _trades_norm)
-            if not _stat_df.empty:
-                _stat_df["user_id"] = pd.to_numeric(_stat_df["user_id"], errors="coerce").astype("Int64")
-                features = features.merge(_stat_df, on="user_id", how="left")
-        except Exception as _e:
-            print(f"[WARN] Statistical features failed: {_e}")
-
-    # v49: FN-targeting features — detect "rapid-flow non-structuring" fraud pattern.
-    # FN analysis: missed positives have older accounts (297d median) + no round-10K
-    # structuring + very rapid cashouts. These features target that specific pattern.
-
-    # account_age_bracket: 0=new(<90d), 1=young(90-180d), 2=mature(180-365d), 3=old(>365d)
-    if "account_age_days" in features.columns:
-        features["account_age_bracket"] = pd.cut(
-            features["account_age_days"].clip(0, 1000),
-            bins=[-1, 90, 180, 365, 1001],
-            labels=[0, 1, 2, 3]
-        ).astype(float)
-
-    # twd_nonround_activity_score: high twd volume with low round-amount ratio
-    # targets users making many irregular-amount deposits/withdrawals
-    if all(c in features.columns for c in ["twd_total_count", "twd_round_10k_ratio"]):
-        twd_nonround = features["twd_total_count"].clip(0, 500) / 500.0
-        twd_nonround = twd_nonround * (1.0 - features["twd_round_10k_ratio"].fillna(0))
-        features["twd_nonround_activity_score"] = twd_nonround.fillna(0)
-
-    # rapid_crypto_concentration: crypto volume concentrated in few days (velocity burst)
-    if all(c in features.columns for c in ["crypto_total_count", "crypto_active_days"]):
-        crypto_days_nonzero = features["crypto_active_days"].replace(0, np.nan)
-        features["crypto_txn_per_active_day"] = (features["crypto_total_count"] / crypto_days_nonzero).fillna(0)
-
-    # mature_account_velocity: old accounts with high recent activity (dormancy + burst)
-    if all(c in features.columns for c in ["account_age_days", "twd_total_7d_count", "twd_total_count"]):
-        age_norm = (features["account_age_days"] / 365.0).clip(0, 3)
-        recent_frac = (features["twd_total_7d_count"] / features["twd_total_count"].replace(0, np.nan)).fillna(0)
-        features["mature_account_recent_burst"] = (age_norm * recent_frac).fillna(0)
-
-    # v50: Type B composite — old account + high crypto + non-structuring.
-    # Directly targets the FN fraud pattern identified by oracle analysis:
-    # age_norm × log-crypto-volume × (1 - round_ratio) ≈ "crypto exfiltration" signal.
-    if all(c in features.columns for c in ["account_age_days", "crypto_total_sum", "twd_round_10k_ratio"]):
-        _age_norm = (features["account_age_days"] / 365.0).clip(0, 3) / 3.0
-        _crypto_norm = np.log1p(features["crypto_total_sum"]).clip(0, 15) / 15.0
-        _non_round = (1.0 - features["twd_round_10k_ratio"].fillna(0)).clip(0, 1)
-        features["type_b_composite"] = (_age_norm * _crypto_norm * _non_round).astype("float32")
-
-    # v50: Crypto-to-fiat volume dominance ratio.
-    # High crypto/fiat = exfiltration pattern; FN mean crypto=35K vs TN=11K.
-    if all(c in features.columns for c in ["crypto_total_sum", "twd_total_sum"]):
-        _fiat = features["twd_total_sum"].clip(0, None).fillna(0) + 1.0
-        features["crypto_fiat_ratio"] = (
-            np.log1p(features["crypto_total_sum"]) / np.log1p(_fiat)
-        ).clip(0, 5).astype("float32")
-
-    # v50: Cross-channel dormancy gap — fiat dormant but crypto active.
-    # Type B exfiltration: days_since_last_twd >> days_since_last_crypto.
-    if all(c in features.columns for c in ["days_since_last_twd_transfer", "days_since_last_crypto_transfer"]):
-        _twd_rec = np.log1p(features["days_since_last_twd_transfer"].fillna(999))
-        _crypto_rec = np.log1p(features["days_since_last_crypto_transfer"].fillna(999))
-        features["cross_channel_dormancy_gap"] = (_twd_rec - _crypto_rec).clip(-5, 5).astype("float32")
-
-    # Fill NaN for all new columns
-    _new_numeric = [
-        c for c in features.columns
-        if c not in {"user_id", "cohort", "status", "is_known_blacklist", "needs_prediction",
-                     "in_train_label", "in_predict_label", "is_shadow_overlap", "snapshot_cutoff_at",
-                     "snapshot_cutoff_tag"}
-        and pd.api.types.is_numeric_dtype(features[c])
-    ]
-    features[_new_numeric] = features[_new_numeric].fillna(0.0)
+    # FATF typology features: build a compatibility alias frame then merge.
+    typo_base = features.rename(columns={
+        "twd_deposit_count": "twd_dep_count",
+        "twd_deposit_sum": "twd_dep_sum",
+        "twd_deposit_7d_count": "twd_dep_7d_count",
+        "twd_deposit_7d_sum": "twd_dep_7d_sum",
+        "twd_deposit_30d_sum": "twd_dep_30d_sum",
+        "swap_total_count": "swap_count",
+    })
+    typology = compute_typology_features(typo_base)
+    features = features.merge(typology, on="user_id", how="left")
+    for col in ["structuring_ratio", "dormancy_burst_score", "round_amount_proxy",
+                "multi_asset_layering", "velocity_acceleration", "same_day_cycle_proxy"]:
+        if col in features.columns:
+            features[col] = features[col].fillna(0.0)
 
     features["snapshot_cutoff_at"] = resolved_cutoff
     features["snapshot_cutoff_tag"] = cutoff_tag
     features.to_parquet(feature_output_path("official_user_features", cutoff_tag), index=False)
-    features = features.copy()
     return features
 
 

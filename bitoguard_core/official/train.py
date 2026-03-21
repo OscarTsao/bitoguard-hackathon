@@ -10,11 +10,11 @@ import pandas as pd
 from official.anomaly import build_official_anomaly_features
 from official.bundle import save_selected_bundle
 from official.common import RANDOM_SEED, feature_output_path, load_official_paths, save_json, save_pickle
+from official.correct_and_smooth import correct_and_smooth
 from official.features import build_official_features
 from official.graph_dataset import TransductiveGraph, build_transductive_graph
 from official.graph_features import build_official_graph_features
 from official.graph_model import save_graph_model, train_graphsage_model
-from official.correct_and_smooth import correct_and_smooth
 from official.modeling import fit_catboost, fit_lgbm
 from official.modeling_xgb import fit_xgboost
 from official.rules import evaluate_official_rules
@@ -39,62 +39,15 @@ LABEL_FREE_EXCLUDED_COLUMNS = {
     "in_predict_label",
     "is_shadow_overlap",
     "top_reason_codes",
-    # Constant columns (nunique=1 across all users — zero variance, zero signal):
-    "has_profile",
-    "kyc_level",
-    "has_email_confirmation",
-    "has_level1_kyc",
-    "has_level2_kyc",
-    # Near-empty rolling window order/trade features (<0.05% non-zero):
-    "order_total_1d_count", "order_total_1d_sum", "order_total_1d_avg", "order_total_1d_max",
-    "order_total_3d_count", "order_total_3d_sum", "order_total_3d_avg", "order_total_3d_max",
-    "order_total_7d_count", "order_total_7d_sum", "order_total_7d_avg", "order_total_7d_max",
-    "order_total_30d_count", "order_total_30d_sum", "order_total_30d_avg", "order_total_30d_max",
-    "trade_active_days_1d", "trade_active_days_3d", "trade_active_days_7d", "trade_active_days_30d",
-    # NOTE: AML rule binary flags intentionally INCLUDED in Base A.
-    # v30: Re-including rule flags (fast_cashout_24h, shared_ip_ring, etc.) recovered
-    # ~0.045 F1 vs the excluded version. Rule flags directly encode domain expert
-    # AML patterns; CatBoost can learn interactions with them even when component
-    # features are present. Stacker still uses them as separate meta-features too.
-    #
-    # v32: lof_score and ocsvm_score excluded from Base A.
-    # OOF analysis confirms these are ANTI-predictive in Base A:
-    #   lof_score  AP=0.0326 (near-random)
-    #   ocsvm_score AUC=0.3639 (inverted signal: high OCSVM → lower fraud prob)
-    # Despite having 2.6–2.8% CatBoost importance, these features cause wrong-direction
-    # splits that waste model capacity. Excluding them recovers those splits for
-    # legitimate signal features (account_age, days_email_to_level1, etc.).
-    # These scores still appear as anomaly_score meta-features in the final stacker.
-    "lof_score",
-    "ocsvm_score",
 }
 
-# Seeds for multi-seed CatBoost ensemble — averaging 4 seeds reduces Base A variance.
-# v37: Added seed=72 (4th seed). 3→4 seeds reduces variance ~13% (1/sqrt(4) vs 1/sqrt(3))
-# adding ~0.001-0.002 F1 at cost of +33% Base A training time per fold.
-_BASE_A_SEEDS = [42, 52, 62, 72]
+# Multi-seed ensembles — averaging reduces prediction variance by 1/sqrt(n).
+_BASE_A_SEEDS = [42, 52, 62, 72]  # CatBoost: 4 seeds
+_BASE_D_SEEDS = [42, 123, 456]    # LightGBM: 3 seeds
+_BASE_E_SEEDS = [42, 123]         # XGBoost: 2 seeds (slower)
 
-# v42: Multi-seed ensembles for LightGBM (Base D) and XGBoost (Base E).
-# Different seeds produce different feature subsamplings (colsample=0.9, subsample=0.9).
-# 3 seeds reduces Base D/E variance by 42% (1/sqrt(3) vs 1 seed) at cost of 3x training time.
-# LightGBM with early_stopping (v41) is fast enough that 3 seeds adds ~60s per fold.
-# XGBoost uses 2 seeds (slower due to 1500 iterations) for a 29% variance reduction.
-_BASE_D_SEEDS = [42, 123, 456]  # LightGBM: 3 seeds
-_BASE_E_SEEDS = [42, 123]  # XGBoost: 2 seeds (slower model)
-
-# v36: Increased GNN fold epochs from 5→10 after switching to symmetric D^{-1/2}AD^{-1/2}
-# normalization (graph_model.py). The previous source-only D^{-1}A caused hub nodes
-# (degree=849) to dominate all connected nodes' embeddings, making more epochs worse.
-# With symmetric norm, hub influence scales as 1/sqrt(hub_degree * dst_degree), reducing
-# over-smoothing. 10 epochs adds ~7.5 min but may lift GNN from AP=0.033 to AP>0.08.
-# v43: Increase GNN epochs now that the model starts from a sensible prior (log(pi/(1-pi)) bias)
-# and uses input BatchNorm + AP-based early stopping (graph_model.py). With correct initialization,
-# the model needs more epochs to escape the prior and learn discriminative features.
-# PRIMARY (per-fold): 10→30 — allows early stopping (patience=8) to find true optimum.
-# FINAL: 5→20 — median of fold best epochs determines final budget; minimum 20 ensures
-# the final model at least matches per-fold training depth.
-PRIMARY_GRAPH_MAX_EPOCHS = 30
-FINAL_GRAPH_MIN_EPOCHS = 20
+PRIMARY_GRAPH_MAX_EPOCHS = 40
+FINAL_GRAPH_MIN_EPOCHS = 10
 
 
 def _load_dataset(cutoff_tag: str = "full") -> pd.DataFrame:
@@ -111,155 +64,7 @@ def _load_dataset(cutoff_tag: str = "full") -> pd.DataFrame:
     dataset = dataset.merge(pd.read_parquet(graph_path), on=["user_id", "snapshot_cutoff_at", "snapshot_cutoff_tag"], how="left")
     dataset = dataset.merge(pd.read_parquet(anomaly_path), on=["user_id", "snapshot_cutoff_at", "snapshot_cutoff_tag"], how="left")
     dataset = dataset.merge(evaluate_official_rules(dataset), on="user_id", how="left")
-    # v37: Hard-FN interaction features — targeting stealth fraudsters (account_age~384d,
-    # no multi-asset layering, low swap volume, late crypto adoption). Analysis of 602 hard
-    # FNs (base_a<0.3) vs 1038 TPs shows these interaction features have:
-    #   stealth_dormancy AUC=0.686 (anti-corr with base_a=-0.41 → captures blind spot)
-    #   activity_sparsity AUC=0.684 (anti-corr=-0.34)
-    #   round_dormant AUC=0.641 (old accounts with round-amount patterns)
-    #   late_crypto_ratio AUC=0.562 (fraction of account life before first crypto)
-    # These differ from v33 velocity features (temporal windows, regressed -0.004):
-    # these are static profile ratios encoding FATF typology "dormant account" pattern.
-    import numpy as _np
-    _age = dataset["account_age_days"].fillna(0).clip(0).astype("float32")
-    _layering = dataset["typology_multi_asset_layering"].fillna(0).clip(0, 1).astype("float32")
-    _twd_days = dataset["twd_active_days"].fillna(0).astype("float32")
-    _swap_days = dataset["swap_active_days"].fillna(0).astype("float32")
-    _dtfc = dataset["days_to_first_crypto"].fillna(0).astype("float32")
-    _round_amt = dataset["typology_round_amount"].fillna(0).astype("float32")
-    # Stealth dormancy: old account × low layering — strongest discriminator
-    dataset["stealth_dormancy"] = (
-        _np.log1p(_age) * (1.0 - _layering)
-    ).clip(0, 10).astype("float32")
-    # Activity sparsity: how many days between active days (high = mostly dormant)
-    dataset["activity_sparsity"] = (
-        _np.log1p(_age / (_twd_days + _swap_days + 1.0))
-    ).clip(0, 8).astype("float32")
-    # Round-amount dormant: round deposits by old accounts (structuring in aged accts)
-    dataset["round_dormant"] = (
-        _round_amt * (_age > 300).astype("float32")
-    ).astype("float32")
-    # Late crypto ratio: fraction of account life before first crypto (0–1)
-    dataset["late_crypto_ratio"] = (
-        _dtfc / (_age + 1.0)
-    ).clip(0, 1).astype("float32")
-    # v38: Graph-intensity features — age-normalized connectivity rates encoding
-    # "how fast has this user built up wallet/crypto connections relative to account age".
-    # Analysis of 984 FNs (stacker_prob<0.31, status=1) vs 49K negatives shows:
-    #   wallet_degree_per_age: AUC=0.685 globally, AUC=0.639 FN vs Neg
-    #     FN=0.0109 wallets/day vs Neg=0.0064 — 1.7x: sleeper accounts accumulate connections faster
-    #   crypto_wallet_per_age: AUC=0.573, AUC FN vs Neg=0.608
-    #     FN=0.0045 vs Neg=0.0023 — 2.0x: FNs use more unique deposit wallets per day
-    # These are orthogonal to absolute counts (wallet_entity_degree, crypto_unique_deposit_wallets)
-    # already in the model — the age-normalization exposes the "sleeper activation rate" pattern.
-    _age_days = _age.clip(1)  # avoid division by zero
-    _wallet_deg = dataset["wallet_entity_degree"].fillna(0).clip(0).astype("float32")
-    _crypto_wallets = dataset["crypto_unique_deposit_wallets"].fillna(0).clip(0).astype("float32")
-    dataset["wallet_degree_per_age"] = (
-        _wallet_deg / _age_days
-    ).clip(0, 0.1).astype("float32")  # cap at 0.1 wallets/day (prevents outlier dominance)
-    dataset["crypto_wallet_per_age"] = (
-        _crypto_wallets / _age_days
-    ).clip(0, 0.05).astype("float32")  # cap at 0.05 wallets/day
-    # v39: Recency-fraction feature — "what fraction of account lifetime since last crypto activity".
-    # Analysis shows FNs (sleeper reactivation pattern) have high recency fraction:
-    #   recency_crypto_fraction: AUC=0.677 globally, AUC=0.627 FN-vs-Neg
-    #     FN=0.404 vs Neg=0.274 — 1.5x: sleepers last used crypto 40% of account age ago
-    # Captures orthogonal signal to wallet_degree_per_age (connection density vs activity recency).
-    # Correlation with wallet_per_age=0.48 — distinct enough to add value.
-    # CatBoost approximates ratios via 2+ tree splits; explicit ratio is more efficient.
-    _days_since_crypto = dataset["days_since_last_crypto_transfer"].fillna(0).clip(0).astype("float32")
-    dataset["recency_crypto_fraction"] = (
-        _days_since_crypto / _age_days
-    ).clip(0, 3).astype("float32")  # cap at 3x account age (extreme outlier prevention)
-    # v43: Additional sleeper-fraudster features targeting the hard-FN pattern.
-    # Analysis of 984 hard FNs vs 49K negatives reveals 3 patterns not fully captured:
-    #
-    # 1. stealth_dormancy degrades for fraudsters doing any swap activity
-    #    (the (1-layering) multiplier → 0 when layering>0, missing ~30% of hard FNs).
-    #    Fix: age-weighted recency fraction without swap-activity penalty.
-    #      FN profile: age=539, recency=0.404 → score=6.29*0.404=2.54
-    #      Neg profile: age=200, recency=0.150 → score=5.30*0.150=0.80
-    #      Expected AUC: 0.69+ (better than stealth_dormancy=0.686 for partial-layering FNs)
-    _recency = dataset["recency_crypto_fraction"].astype("float32")
-    dataset["stealth_dormancy_raw"] = (
-        _np.log1p(_age) * _recency
-    ).clip(0, 12).astype("float32")
-
-    # 2. Total sparsity including crypto activity — extends activity_sparsity (v37)
-    #    which only uses TWD+swap days (misses crypto-only reactivation sleepers).
-    #    Users dormant in TWD/swap but suddenly active in crypto get low activity_sparsity
-    #    but high crypto_session_gap — complementary to the existing feature.
-    _crypto_days = dataset["crypto_active_days"].fillna(0).astype("float32")
-    dataset["total_activity_sparsity"] = (
-        _np.log1p(_age / (_twd_days + _swap_days + _crypto_days + 1.0))
-    ).clip(0, 8).astype("float32")
-
-    # v44: Amount-per-account-age features — orthogonal to count-based velocity.
-    # These normalize total transaction VALUE by account_age_days rather than active_days.
-    # Analysis results:
-    #   crypto_volume_per_age:    AUC=0.707, AP=0.111 (vs crypto_txn_velocity AUC=0.632, AP=0.052)
-    #   crypto_withdraw_per_age:  AUC=0.696, AP=0.124 — specifically targets crypto outflow rate
-    #   twd_volume_per_age:       AUC=0.696, AP=0.114, corr(twd_total_sum)=0.19 (orthogonal!)
-    #   swap_volume_per_age:      AUC=0.667, AP=0.119, corr(swap_total_sum)≈0.2 (orthogonal!)
-    # Hard FNs (account_age=539d, moderate volumes): per-day volume shows concentrated activity.
-    # All divisors (total_sum, etc.) are in feature set — but age-normalization is more tree-efficient
-    # (1 split vs 2+ to capture ratio) and avoids depth waste.
-    _crypto_sum = dataset["crypto_total_sum"].fillna(0).clip(0).astype("float32")
-    _crypto_withdraw_sum = dataset["crypto_withdraw_sum"].fillna(0).clip(0).astype("float32")
-    _twd_sum = dataset["twd_total_sum"].fillna(0).clip(0).astype("float32")
-    _swap_sum = dataset["swap_total_sum"].fillna(0).clip(0).astype("float32")
-    _age_safe = _age.clip(1)  # avoid division by zero
-    dataset["crypto_volume_per_age"] = (
-        _np.log1p(_crypto_sum / _age_safe)
-    ).clip(0, 15).astype("float32")
-    dataset["crypto_withdraw_per_age"] = (
-        _np.log1p(_crypto_withdraw_sum / _age_safe)
-    ).clip(0, 15).astype("float32")
-    dataset["twd_volume_per_age"] = (
-        _np.log1p(_twd_sum / _age_safe)
-    ).clip(0, 15).astype("float32")
-    dataset["swap_volume_per_age"] = (
-        _np.log1p(_swap_sum / _age_safe)
-    ).clip(0, 15).astype("float32")
-
-    # v46: Per-active-day volume features — burst concentration signal for medium hard-FNs.
-    # OOF analysis: 678 medium hard FNs (blend_prob 0.10-0.31) show concentrated burst patterns.
-    # crypto_volume_per_active_day: AUC=0.662, AP=0.0596 > crypto_txn_velocity (AUC=0.632, AP=0.052).
-    #   Normalizes AMOUNT by active-days (not by count as txn_velocity does), capturing
-    #   sleepers who make few large-value transactions in few active days.
-    # swap_volume_per_active_day: AUC=0.664, AP=0.0892 — strong fraud signal.
-    #   swap_active_days (AUC=0.652) only counts days; the per-day AMOUNT reveals burst swappers.
-    #   Hard FNs have concentrated swap usage relative to their limited active days.
-    # NOTE: twd_deposit_per_active_day skipped — near-duplicate of existing twd_txn_velocity.
-    _crypto_days_safe = _crypto_days.clip(1)
-    _swap_days_safe = _swap_days.clip(1)
-    dataset["crypto_volume_per_active_day"] = (
-        _np.log1p(_crypto_sum / _crypto_days_safe)
-    ).clip(0, 15).astype("float32")
-    dataset["swap_volume_per_active_day"] = (
-        _np.log1p(_swap_sum / _swap_days_safe)
-    ).clip(0, 15).astype("float32")
-
-    # v46: Burst-concentration score — high-volume crypto flow concentrated into few active days.
-    # crypto_burst_score = (1 - active_fraction) × crypto_volume_per_age
-    # = (fraction of account lifetime that is DORMANT) × (total crypto flow per account-age day)
-    # AUC=0.701, AP=0.0947 — strongest new feature in v46 analysis.
-    # Captures two distinct fraud patterns simultaneously:
-    #   a. TYPICAL positives: younger accounts (age=451d) with high crypto volumes → high per-age
-    #      ratio; active_fraction may vary but the product captures high-volume young accounts.
-    #   b. SLEEPER positives: older accounts (age=770d) with few active days but large crypto flows
-    #      → very low active_fraction (0.007) × high per-age volume = extreme burst score.
-    # Low correlation with account_age (corr=-0.19), orthogonal to raw amount features.
-    _all_active_days = (_twd_days + _swap_days + _crypto_days).clip(0)
-    _active_fraction = (_all_active_days / _age_safe).clip(0, 1).astype("float32")
-    dataset["crypto_burst_score"] = (
-        (1.0 - _active_fraction) * dataset["crypto_volume_per_age"]
-    ).clip(0, 15).astype("float32")
-
     return dataset
-
-
 
 
 def _artifact_paths(paths: Any) -> dict[str, Path]:
@@ -278,10 +83,6 @@ def _label_frame(dataset: pd.DataFrame) -> pd.DataFrame:
 
 
 def _label_free_feature_columns(dataset: pd.DataFrame) -> list[str]:
-    # Exclude columns that are fully null - these carry zero signal and cause CatBoost
-    # to crash when detected as categorical (object dtype with all-None values).
-    # All-null columns arise when new windowed features were added to the registry
-    # but the stored parquet was built before they were populated.
     non_null = {col for col in dataset.columns if not dataset[col].isna().all()}
     return [column for column in dataset.columns if column not in LABEL_FREE_EXCLUDED_COLUMNS and column in non_null]
 
@@ -309,9 +110,6 @@ def run_transductive_oof_pipeline(
     base_a_feature_columns: list[str],
     base_b_feature_columns: list[str] | None = None,
     graph_max_epochs: int = 40,
-    catboost_params: dict | None = None,
-    use_negative_propagation: bool = False,
-    cs_restore_top_pct: float = 0.0,
 ) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
     label_frame = _label_frame(dataset)
     assignments = iter_fold_assignments(split_frame, fold_column)
@@ -319,9 +117,7 @@ def run_transductive_oof_pipeline(
     fold_training_meta: list[dict[str, Any]] = []
     for fold_id, train_users, valid_users in assignments:
         fold_train_labels = label_frame[label_frame["user_id"].astype(int).isin(train_users)].copy()
-        transductive_features = build_transductive_feature_frame(
-            graph, fold_train_labels, use_negative_propagation=use_negative_propagation
-        )
+        transductive_features = build_transductive_feature_frame(graph, fold_train_labels)
         label_free_frame, with_transductive_frame = _prepare_base_frames(dataset, transductive_features)
 
         train_label_free = label_free_frame[label_free_frame["user_id"].astype(int).isin(train_users)].copy()
@@ -329,40 +125,27 @@ def run_transductive_oof_pipeline(
         train_transductive = with_transductive_frame[with_transductive_frame["user_id"].astype(int).isin(train_users)].copy()
         valid_transductive = with_transductive_frame[with_transductive_frame["user_id"].astype(int).isin(valid_users)].copy()
 
-        # Multi-seed ensemble for Base A — average 3 seeds to reduce variance.
+        # Multi-seed CatBoost ensemble for Base A (4 seeds, reduces variance ~50%).
         _base_a_val_probs = []
         _base_a_models = []
         for _seed in _BASE_A_SEEDS:
-            _fit = fit_catboost(train_label_free, valid_label_free, base_a_feature_columns, focal_gamma=2.0, random_seed=_seed, catboost_params=catboost_params)
+            _fit = fit_catboost(train_label_free, valid_label_free, base_a_feature_columns, focal_gamma=2.0, random_seed=_seed)
             _base_a_val_probs.append(_fit.validation_probabilities)
             _base_a_models.append(_fit.model)
-        from dataclasses import replace as _replace
-        base_a_fit = _fit  # keep last ModelFitResult as template
-        base_a_fit = type(base_a_fit)(
-            model_name=base_a_fit.model_name,
+        base_a_fit = type(_fit)(
+            model_name=_fit.model_name,
             model=_base_a_models[0],
-            feature_columns=base_a_fit.feature_columns,
-            encoded_columns=base_a_fit.encoded_columns,
-            cat_features=base_a_fit.cat_features,
+            feature_columns=_fit.feature_columns,
+            encoded_columns=_fit.encoded_columns,
+            cat_features=_fit.cat_features,
             validation_probabilities=np.mean(_base_a_val_probs, axis=0).tolist(),
         )
+
         resolved_base_b_columns = base_b_feature_columns or [column for column in train_transductive.columns if column != "user_id"]
-        # v36: Force CPU for Base B to avoid GPU CatBoost class_weight collapse.
-        # GPU CatBoost with max_class_weight=7.4 causes near-constant output (~0.19 for ALL users,
-        # positives mean=0.1953 vs negatives mean=0.1900 — diff=0.005). AP=0.0715 → excluded from blend.
-        # CPU CatBoost is numerically stable with class_weights.
-        _base_b_params = dict(catboost_params or {})
-        _base_b_params["task_type"] = "CPU"
-        # v46: Override l2_leaf_reg for Base B. HPO tunes l2=59.58 for Base A (label-free
-        # tabular ~150 features with relatively low redundancy). Base B has 218 features
-        # (tabular + 38 transductive), where many transductive features (PPR values, BFS
-        # distances, neighbor counts) are sparse/near-zero and need LOWER regularization to
-        # contribute signal. With l2=59.58, Base B AP=0.074 (OOF avg) — below the 0.08 blend
-        # threshold, excluded from the ensemble. With l2=5.0, fold-0 ablation shows AP=0.088
-        # (above threshold), while maintaining AUC=0.700 and preserving CPU stability.
-        _base_b_params["l2_leaf_reg"] = 5.0  # v46: Base B-specific l2 (HPO's 59.58 too high)
+        _base_b_params = {"task_type": "CPU", "l2_leaf_reg": 5.0}
         base_b_fit = fit_catboost(train_transductive, valid_transductive, resolved_base_b_columns, focal_gamma=2.0, catboost_params=_base_b_params)
-        # v42: Multi-seed ensemble for Base D (LightGBM) — 3 seeds, 42% variance reduction.
+
+        # Multi-seed LightGBM ensemble for Base D (3 seeds).
         _base_d_val_probs = []
         _base_d_fit = None
         for _seed_d in _BASE_D_SEEDS:
@@ -376,7 +159,8 @@ def run_transductive_oof_pipeline(
             cat_features=_base_d_fit.cat_features,
             validation_probabilities=np.mean(_base_d_val_probs, axis=0).tolist(),
         )
-        # v42: Multi-seed ensemble for Base E (XGBoost) — 2 seeds, 29% variance reduction.
+
+        # Multi-seed XGBoost ensemble for Base E (2 seeds).
         _base_e_val_probs = []
         _base_e_fit = None
         for _seed_e in _BASE_E_SEEDS:
@@ -391,8 +175,7 @@ def run_transductive_oof_pipeline(
             validation_probabilities=np.mean(_base_e_val_probs, axis=0).tolist(),
         )
 
-        # Sanity check: model probabilities should span a meaningful range.
-        # Near-constant output (all near-zero or all near-one) indicates training failure.
+        # Sanity checks
         if base_a_fit.validation_probabilities:
             va = np.array(base_a_fit.validation_probabilities)
             if va.mean() < 1e-4 or va.max() < 0.01:
@@ -411,12 +194,8 @@ def run_transductive_oof_pipeline(
             train_user_ids=train_users,
             valid_user_ids=valid_users,
             max_epochs=graph_max_epochs,
-            hidden_dim=96,
+            hidden_dim=128,
         )
-        # Release GPU memory held by GNN tensors before next CatBoost fold.
-        # Without this, 10+ GB GNN tensors persist in CUDA cache across fold
-        # iterations, causing OOM when CatBoost tries to allocate GPU memory
-        # in the next fold (or when a concurrent process does the same).
         try:
             import torch as _torch
             if _torch.cuda.is_available():
@@ -424,10 +203,7 @@ def run_transductive_oof_pipeline(
         except Exception:
             pass
 
-        # Correct-and-Smooth (C&S): graph-based post-processing on Base A OOF probs.
-        # Uses training-fold labels only (no label leakage from val fold).
-        # For train fold: predict with the Base A models (overfit but OK — residuals absorb error).
-        # For val fold: use unbiased OOF predictions.
+        # Correct-and-Smooth (C&S): graph post-processing on Base A OOF probs.
         _train_a_probs = np.mean(
             [m.predict_proba(train_label_free[base_a_feature_columns])[:, 1] for m in _base_a_models],
             axis=0,
@@ -438,13 +214,7 @@ def run_transductive_oof_pipeline(
             _cs_base_probs[int(_uid)] = float(_prob)
         for _uid, _prob in zip(valid_label_free["user_id"].astype(int), _val_a_probs):
             _cs_base_probs[int(_uid)] = float(_prob)
-        # v36: include unlabeled predict_label users in C&S base_probs.
-        # Without this, unlabeled users default to base_vec=0 in the adjacency
-        # multiplication, suppressing fraud signal that flows through them.
-        # Including their Base A predictions allows the Smooth step to propagate
-        # elevated fraud signals from potential unlabeled fraudsters to their
-        # connected labeled neighbors (helps connected hard FNs in val fold).
-        # No leakage: we only use val_users' corrected scores in the result.
+        # Include unlabeled users in C&S base_probs so their fraud signal propagates.
         _all_labeled_ids = set(train_users) | set(valid_users)
         _unlabeled_frame = label_free_frame[~label_free_frame["user_id"].astype(int).isin(_all_labeled_ids)]
         if len(_unlabeled_frame) > 0:
@@ -462,7 +232,6 @@ def run_transductive_oof_pipeline(
             graph, _cs_train_labels, _cs_base_probs,
             alpha_correct=0.5, alpha_smooth=0.5,
             n_correct_iter=50, n_smooth_iter=50,
-            restore_isolated_top_pct=cs_restore_top_pct,
         )
         _val_ids = valid_label_free["user_id"].astype(int).tolist()
         _cs_val_probs = np.array(
@@ -478,36 +247,10 @@ def run_transductive_oof_pipeline(
         fold_frame["base_c_probability"] = np.asarray(graph_fit.validation_probabilities, dtype=float)
         fold_frame["base_d_probability"] = np.asarray(base_d_fit.validation_probabilities, dtype=float)
         fold_frame["base_e_probability"] = np.asarray(base_e_fit.validation_probabilities, dtype=float)
-        fold_frame["rule_score"] = (
-            pd.to_numeric(valid_label_free["rule_score"], errors="coerce").fillna(0.0).to_numpy()
-            if "rule_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
-        )
-        fold_frame["anomaly_score"] = (
-            pd.to_numeric(valid_label_free["anomaly_score"], errors="coerce").fillna(0.0).to_numpy()
-            if "anomaly_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
-        )
-        # lof_score/ocsvm_score are collected for backward compat but not in STACKER_FEATURE_COLUMNS
-        # (weak predictors that add noise; removed in v30 stacker simplification).
-        fold_frame["lof_score"] = (
-            pd.to_numeric(valid_label_free["lof_score"], errors="coerce").fillna(0.0).to_numpy()
-            if "lof_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
-        )
-        fold_frame["ocsvm_score"] = (
-            pd.to_numeric(valid_label_free["ocsvm_score"], errors="coerce").fillna(0.0).to_numpy()
-            if "ocsvm_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
-        )
-        # v51-fix: Propagate anomaly_score_segmented and crypto_anomaly_score to the OOF frame.
-        # These are produced by anomaly.py but were missing from the fold_frame, causing
-        # stacker features (base_cs_x_crypto_anomaly, base_a_x_crypto_anomaly) and blend
-        # candidate (anomaly_score_segmented) to silently default to 0.0 in stacking.py.
-        fold_frame["anomaly_score_segmented"] = (
-            pd.to_numeric(valid_label_free["anomaly_score_segmented"], errors="coerce").fillna(0.0).to_numpy()
-            if "anomaly_score_segmented" in valid_label_free.columns else np.zeros(len(valid_label_free))
-        )
-        fold_frame["crypto_anomaly_score"] = (
-            pd.to_numeric(valid_label_free["crypto_anomaly_score"], errors="coerce").fillna(0.0).to_numpy()
-            if "crypto_anomaly_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
-        )
+        fold_frame["rule_score"] = pd.to_numeric(valid_label_free["rule_score"], errors="coerce").fillna(0.0).to_numpy() if "rule_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
+        fold_frame["anomaly_score"] = pd.to_numeric(valid_label_free["anomaly_score"], errors="coerce").fillna(0.0).to_numpy() if "anomaly_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
+        fold_frame["crypto_anomaly_score"] = pd.to_numeric(valid_label_free["crypto_anomaly_score"], errors="coerce").fillna(0.0).to_numpy() if "crypto_anomaly_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
+        fold_frame["anomaly_score_segmented"] = pd.to_numeric(valid_label_free["anomaly_score_segmented"], errors="coerce").fillna(0.0).to_numpy() if "anomaly_score_segmented" in valid_label_free.columns else np.zeros(len(valid_label_free))
         rows.append(fold_frame)
         fold_training_meta.append(
             {
@@ -526,16 +269,6 @@ def train_official_model() -> dict[str, Any]:
     dataset = _load_dataset("full")
     paths = load_official_paths()
     artifacts = _artifact_paths(paths)
-
-    # Load Optuna HPO params if available
-    try:
-        from official.hpo import load_hpo_best_params
-        catboost_params = load_hpo_best_params()
-        if catboost_params:
-            import logging
-            logging.getLogger(__name__).info(f"Using HPO params: {catboost_params}")
-    except Exception:
-        catboost_params = None
 
     primary_split = build_primary_transductive_splits(
         dataset,
@@ -560,15 +293,7 @@ def train_official_model() -> dict[str, Any]:
         base_a_feature_columns=base_a_feature_columns,
         base_b_feature_columns=base_b_feature_columns,
         graph_max_epochs=PRIMARY_GRAPH_MAX_EPOCHS,
-        catboost_params=catboost_params,
     )
-    # v32: Switch to nonlinear CatBoost stacker (depth=3, l2=15, min_data_in_leaf=30).
-    # BlendEnsemble (linear) gains only +0.005 AP over Base A alone because:
-    #   - Base B AP=0.0867 (compressed probs, std=0.012) adds minimal signal to linear blend
-    #   - CatBoost stacker learns "base_a > t1 AND anomaly > t2" interactions that LR/blend miss
-    # v33: Reverted to blend ensemble — CatBoost stacker (v32) regressed AP to 0.2973
-    # vs blend AP 0.3017 (+0.006 advantage). Blend directly maximizes F1 over all
-    # integer weight compositions at step=0.05; CatBoost overfits on the small meta-level.
     primary_oof, stacker_model = build_stacker_oof(primary_oof, primary_split, fold_column="primary_fold", use_blend=True)
     primary_oof.to_parquet(artifacts["oof"], index=False)
 
@@ -579,25 +304,19 @@ def train_official_model() -> dict[str, Any]:
     train_label_free = label_free_frame[label_free_frame["user_id"].astype(int).isin(labeled_user_ids)].copy()
     train_transductive = with_transductive_frame[with_transductive_frame["user_id"].astype(int).isin(labeled_user_ids)].copy()
 
-    # Multi-seed final ensemble — train one model per seed for ensemble scoring.
+    # Multi-seed final models
     _base_a_final_models = [
-        fit_catboost(train_label_free, None, base_a_feature_columns, focal_gamma=2.0, random_seed=_seed, catboost_params=catboost_params)
+        fit_catboost(train_label_free, None, base_a_feature_columns, focal_gamma=2.0, random_seed=_seed)
         for _seed in _BASE_A_SEEDS
     ]
-    base_a_final = _base_a_final_models[0]  # used for cat_features / feature_columns metadata
-    # v36: CPU mode for Base B final model (same reason as in OOF loop above).
-    # v46: Override l2_leaf_reg=5.0 (same reason as OOF loop fix).
-    _base_b_final_params = dict(catboost_params or {})
-    _base_b_final_params["task_type"] = "CPU"
-    _base_b_final_params["l2_leaf_reg"] = 5.0  # v46: Base B-specific l2 (HPO's 59.58 too high)
+    base_a_final = _base_a_final_models[0]
+    _base_b_final_params = {"task_type": "CPU", "l2_leaf_reg": 5.0}
     base_b_final = fit_catboost(train_transductive, None, base_b_feature_columns, focal_gamma=2.0, catboost_params=_base_b_final_params)
-    # v42: Multi-seed final ensemble for Base D and Base E (no validation set for final training).
-    # Save last-seed model as primary for serialization; scoring uses the averaged ensemble approach
-    # via seed_ensemble_d/e paths stored in bundle (each seed model persisted separately).
     _base_d_finals = [fit_lgbm(train_label_free, None, base_a_feature_columns, random_seed=s) for s in _BASE_D_SEEDS]
-    base_d_final = _base_d_finals[0]  # primary model for metadata; scoring averages all seeds
+    base_d_final = _base_d_finals[0]
     _base_e_finals = [fit_xgboost(train_label_free, None, base_a_feature_columns, random_seed=s) for s in _BASE_E_SEEDS]
-    base_e_final = _base_e_finals[0]  # primary model for metadata; scoring averages all seeds
+    base_e_final = _base_e_finals[0]
+
     graph_epochs = int(np.median([item["graph_best_epoch"] + 1 for item in fold_training_meta])) if fold_training_meta else 40
     graph_final = train_graphsage_model(
         graph,
@@ -605,33 +324,17 @@ def train_official_model() -> dict[str, Any]:
         train_user_ids=labeled_user_ids,
         valid_user_ids=None,
         max_epochs=max(FINAL_GRAPH_MIN_EPOCHS, graph_epochs),
-        hidden_dim=64,
+        hidden_dim=128,
     )
-    try:
-        import torch as _torch
-        if _torch.cuda.is_available():
-            _torch.cuda.empty_cache()
-    except Exception:
-        pass
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    base_a_paths = [
-        paths.model_dir / f"official_catboost_base_a_seed{seed}_{timestamp}.pkl"
-        for seed in _BASE_A_SEEDS
-    ]
-    base_a_path = base_a_paths[0]  # primary path for backward compat
+    base_a_paths = [paths.model_dir / f"official_catboost_base_a_seed{seed}_{timestamp}.pkl" for seed in _BASE_A_SEEDS]
+    base_a_path = base_a_paths[0]
     base_b_path = paths.model_dir / f"official_catboost_base_b_{timestamp}.pkl"
-    # v42: Save all seed models for multi-seed ensemble scoring.
-    base_d_paths = [
-        paths.model_dir / f"official_lgbm_base_d_seed{seed}_{timestamp}.pkl"
-        for seed in _BASE_D_SEEDS
-    ]
-    base_d_path = base_d_paths[0]  # primary path for backward compat
-    base_e_paths = [
-        paths.model_dir / f"official_xgboost_base_e_seed{seed}_{timestamp}.pkl"
-        for seed in _BASE_E_SEEDS
-    ]
-    base_e_path = base_e_paths[0]  # primary path for backward compat
+    base_d_paths = [paths.model_dir / f"official_lgbm_base_d_seed{seed}_{timestamp}.pkl" for seed in _BASE_D_SEEDS]
+    base_d_path = base_d_paths[0]
+    base_e_paths = [paths.model_dir / f"official_xgboost_base_e_seed{seed}_{timestamp}.pkl" for seed in _BASE_E_SEEDS]
+    base_e_path = base_e_paths[0]
     graph_path = paths.model_dir / f"official_graphsage_{timestamp}.pt"
     stacker_path = paths.model_dir / f"official_stacker_{timestamp}.pkl"
     meta_path = paths.model_dir / f"official_transductive_{timestamp}.json"
@@ -646,7 +349,6 @@ def train_official_model() -> dict[str, Any]:
     save_graph_model(graph_final.model_state, graph_path)
     save_stacker_model(stacker_model, stacker_path)
 
-    # Extract blend weights from the stacker model (if using BlendEnsemble).
     from official.stacking import BlendEnsemble as _BlendEnsemble
     blend_weights = stacker_model.weights if isinstance(stacker_model, _BlendEnsemble) else None
 
@@ -664,7 +366,6 @@ def train_official_model() -> dict[str, Any]:
         "fold_training_meta": fold_training_meta,
         "train_rows": int(len(train_label_free)),
         "predict_rows": int(dataset["needs_prediction"].eq(True).sum()),
-        "catboost_hpo_params": catboost_params,
     }
     save_json(meta, meta_path)
 
@@ -677,7 +378,6 @@ def train_official_model() -> dict[str, Any]:
             "base_a_catboost_seeds": [str(p.relative_to(paths.artifact_dir)) for p in base_a_paths],
             "base_b_catboost": str(base_b_path.relative_to(paths.artifact_dir)),
             "base_d_lgbm": str(base_d_path.relative_to(paths.artifact_dir)),
-            # v42: Multi-seed paths for Base D and E; score.py averages over all seeds.
             "base_d_lgbm_seeds": [str(p.relative_to(paths.artifact_dir)) for p in base_d_paths],
             "base_e_xgboost": str(base_e_path.relative_to(paths.artifact_dir)),
             "base_e_xgboost_seeds": [str(p.relative_to(paths.artifact_dir)) for p in base_e_paths],
@@ -711,6 +411,7 @@ def train_official_model() -> dict[str, Any]:
         "model_version": meta["model_version"],
         "base_a_model_path": str(base_a_path),
         "base_b_model_path": str(base_b_path),
+        "base_d_model_path": str(base_d_path),
         "base_e_model_path": str(base_e_path),
         "graph_model_path": str(graph_path),
         "stacker_path": str(stacker_path),

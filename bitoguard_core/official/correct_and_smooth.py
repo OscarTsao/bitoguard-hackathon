@@ -49,123 +49,79 @@ def correct_and_smooth(
         Mapping of ``user_id -> probability`` in [0, 1] produced by the
         base model (e.g. CatBoost Base A out-of-fold predictions).
     alpha_correct:
-        Diffusion rate for the **correct** step.  At each iteration the
-        residual vector is updated as
-        ``r^{t+1} = alpha * r^{0} + (1 - alpha) * A @ r^{t}``.
-        Higher alpha retains more of the original residual signal; lower
-        alpha lets the graph smooth it further.
+        Diffusion rate for the **correct** step.
     alpha_smooth:
-        Diffusion rate for the **smooth** step.  Same formula applied to
-        the corrected probability vector.
+        Diffusion rate for the **smooth** step.
     n_correct_iter:
         Number of power-iteration steps in the correct phase.
     n_smooth_iter:
         Number of power-iteration steps in the smooth phase.
     restore_isolated:
-        If True (default), isolated nodes (degree=0 in the collapsed graph) are
-        restored to their corrected (pre-smooth) probability after the smooth step.
-        Without this, the smooth iteration `f = alpha * f0 + (1-alpha) * A@f`
-        converges to `alpha * f0 = 0.5 * corrected` for isolated nodes after
-        one iteration — systematically halving scores for ~55% of users who
-        have no graph connections.  Among these, ~735 (45% of all 1640 positives)
-        have their score halved relative to Base A, creating a systematic recall
-        gap for isolated fraudsters.  Restoring isolated scores to their corrected
-        value (= base_prob, since no residual propagates to isolated nodes) avoids
-        this without affecting connected users.
+        If True, isolated nodes (degree=0) are restored to their corrected
+        (pre-smooth) probability after the smooth step.
+    restore_isolated_top_pct:
+        If > 0, only restore the top-P% of isolated users by base probability.
 
     Returns
     -------
     dict[int, float]
-        Mapping of ``user_id -> corrected_smooth_probability`` for every
-        user present in *base_probs*.  Users that do not appear in the
-        graph are returned with their original base probability unchanged.
+        Mapping of ``user_id -> corrected_smooth_probability``.
     """
 
     n_users = len(graph.user_ids)
 
-    # -- Early exit: nothing to propagate --------------------------------
     if n_users == 0 or graph.collapsed_edges.empty:
         return dict(base_probs)
 
-    # -- Build the row-normalised adjacency matrix -----------------------
     adj = _normalized_adjacency(graph)  # sparse CSR, shape (n_users, n_users)
 
-    # v45: Detect isolated nodes (degree=0) to enable post-smooth restoration.
-    # Isolated nodes have no outgoing edges in the normalised adjacency.
-    # Their row sum in the UN-normalised matrix is 0.
     degree = np.asarray(adj.sum(axis=1)).ravel()
-    isolated_mask = (degree == 0)  # True for nodes with no edges
+    isolated_mask = (degree == 0)
 
-    # -- Construct dense vectors aligned with graph.user_ids ordering ----
     base_vec = np.zeros(n_users, dtype=np.float64)
     for user_id, prob in base_probs.items():
         idx = graph.user_index.get(user_id)
         if idx is not None:
             base_vec[idx] = prob
 
-    # Residual vector: (y_true - base_prob) for training users, 0 elsewhere.
-    # This is the key to avoiding label leakage: only training-fold labels
-    # contribute to the correction signal.
     residual_vec = np.zeros(n_users, dtype=np.float64)
     for user_id, label in train_labels.items():
         idx = graph.user_index.get(user_id)
         if idx is not None:
             residual_vec[idx] = float(label) - base_vec[idx]
 
-    # ====================================================================
     # Step 1: CORRECT -- propagate residuals
-    # r^{t+1} = alpha * r^{0} + (1 - alpha) * A @ r^{t}
-    # ====================================================================
     r0 = residual_vec.copy()
     r = residual_vec.copy()
     for _ in range(n_correct_iter):
         r = alpha_correct * r0 + (1.0 - alpha_correct) * (adj @ r)
 
-    # Apply correction: base_prob + propagated_residual
     corrected = base_vec + r
-    # Clip to valid probability range for numerical stability
     np.clip(corrected, 0.0, 1.0, out=corrected)
 
-    # ====================================================================
     # Step 2: SMOOTH -- propagate corrected predictions
-    # f^{t+1} = alpha * f^{0} + (1 - alpha) * A @ f^{t}
-    # ====================================================================
     f0 = corrected.copy()
     f = corrected.copy()
     for _ in range(n_smooth_iter):
         f = alpha_smooth * f0 + (1.0 - alpha_smooth) * (adj @ f)
 
-    # Final clip for numerical stability
     np.clip(f, 0.0, 1.0, out=f)
 
-    # v45: Restore isolated nodes to their corrected (pre-smooth) scores.
-    # For isolated nodes, the smooth step converges to alpha * corrected after
-    # the first iteration, so f[isolated] = 0.5 * corrected = 0.5 * base_prob.
-    # Restoring to corrected preserves base_prob for ~55% of users who have no
-    # graph connections, recovering recall for isolated positives.
     if restore_isolated and isolated_mask.any():
         f[isolated_mask] = corrected[isolated_mask]
 
-    # v50: Selective isolated-user restoration — only restore the top-P% of isolated
-    # users by base_a probability. Targets high-confidence isolated positives while
-    # avoiding the FP surge from blanket restore_isolated=True (-0.015 F1 regress).
-    # Isolated positives have base_a mean=0.346 vs most isolated negatives which are low.
-    # restore_isolated_top_pct=0.05 → restore top 5% (~1,700 users), ~50 TPs captured.
     if restore_isolated_top_pct > 0.0 and isolated_mask.any():
         iso_probs = base_vec[isolated_mask]
         pct_threshold = np.percentile(iso_probs, 100.0 * (1.0 - restore_isolated_top_pct))
-        # Build full-array restore mask: isolated AND above threshold
         restore_mask = isolated_mask & (base_vec >= pct_threshold)
         f[restore_mask] = corrected[restore_mask]
 
-    # -- Map back to user_id -> probability ------------------------------
     result: dict[int, float] = {}
     for user_id, prob in base_probs.items():
         idx = graph.user_index.get(user_id)
         if idx is not None:
             result[user_id] = float(f[idx])
         else:
-            # User is not in the graph; return base probability unchanged
             result[user_id] = prob
 
     return result

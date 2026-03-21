@@ -7,7 +7,6 @@ provides ensemble diversity.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -26,25 +25,12 @@ def fit_xgboost(
     params: dict[str, Any] | None = None,
     random_seed: int = RANDOM_SEED,
 ) -> ModelFitResult:
-    """Fit XGBoost classifier with GPU support and early stopping.
-
-    Parameters
-    ----------
-    train_frame : Training data with feature columns and 'status' label.
-    valid_frame : Validation data (optional). If provided, early stopping is used.
-    feature_columns : List of feature column names.
-    params : Optional override params (depth, learning_rate, etc.).
-    """
+    """Fit XGBoost classifier with GPU support and early stopping."""
     x_train, encoded_columns = encode_frame(train_frame, feature_columns)
     y_train = train_frame["status"].astype(int)
 
     positives = max(1, int(y_train.sum()))
     negatives = max(1, len(y_train) - positives)
-    # v41: Raise XGBoost scale_pos_weight cap from 10x to 15x.
-    # Actual imbalance ~30x; 10x was leaving positives under-weighted.
-    # CatBoost recovered with max_class_weight=10.6 (HPO best). XGBoost
-    # handles class imbalance differently (direct gradient scaling vs tree-level),
-    # so 15x provides stronger positive signal without gradient collapse risk.
     scale_pos_weight = min(float(negatives) / positives, 15.0)
 
     runtime_params = xgboost_runtime_params()
@@ -76,15 +62,14 @@ def fit_xgboost(
         try:
             model.fit(x_train, y_train, eval_set=[(x_valid, y_valid)], verbose=False)
         except Exception:
-            # GPU fallback
             if runtime_params.get("device") != "cuda":
                 raise
             cpu_params = {**model_kwargs, "device": "cpu", "tree_method": "hist"}
+            cpu_params.pop("n_jobs", None)
             model = XGBClassifier(**cpu_params)
             model.fit(x_train, y_train, eval_set=[(x_valid, y_valid)], verbose=False)
         validation_probabilities = model.predict_proba(x_valid)[:, 1].tolist()
     else:
-        # No eval set — remove early_stopping_rounds
         model_kwargs.pop("early_stopping_rounds", None)
         model = XGBClassifier(**model_kwargs)
         try:
@@ -93,6 +78,7 @@ def fit_xgboost(
             if runtime_params.get("device") != "cuda":
                 raise
             cpu_params = {**model_kwargs, "device": "cpu", "tree_method": "hist"}
+            cpu_params.pop("n_jobs", None)
             model = XGBClassifier(**cpu_params)
             model.fit(x_train, y_train)
 
