@@ -89,6 +89,69 @@ COMPONENTS: dict[str, dict[str, Any]] = {
 
 DEFAULT_CONFIG: dict[str, bool] = {name: comp["default"] for name, comp in COMPONENTS.items()}
 
+# ---------------------------------------------------------------------------
+# Module-level feature cache — avoids rebuilding identical features between
+# sequential experiments in the same process (~30s saved per experiment).
+# ---------------------------------------------------------------------------
+_FEATURE_CACHE: dict[str, Any] = {}
+
+
+def _cached_base_dataset() -> pd.DataFrame:
+    """Load and cache the base dataset + rules (identical across all experiments)."""
+    if "base_dataset" not in _FEATURE_CACHE:
+        from official.train import _load_dataset
+        from official.rules import evaluate_official_rules
+        ds = _load_dataset("full")
+        rule_df = evaluate_official_rules(ds)
+        _rule_cols_to_drop = [c for c in rule_df.columns if c != "user_id" and c in ds.columns]
+        if _rule_cols_to_drop:
+            ds = ds.drop(columns=_rule_cols_to_drop)
+        ds = ds.merge(rule_df, on="user_id", how="left")
+        _FEATURE_CACHE["base_dataset"] = ds
+        print("[cache] Base dataset loaded and cached.")
+    return _FEATURE_CACHE["base_dataset"].copy()
+
+
+def _cached_sequence_features(dataset: pd.DataFrame) -> pd.DataFrame | None:
+    """Build and cache sequence features (only depends on raw events, not config)."""
+    if "sequence_features" not in _FEATURE_CACHE:
+        try:
+            from official.sequence_features import build_sequence_features
+            _FEATURE_CACHE["sequence_features"] = build_sequence_features(dataset)
+            print("[cache] Sequence features built and cached.")
+        except Exception as e:
+            print(f"[cache] sequence_features failed: {e}")
+            _FEATURE_CACHE["sequence_features"] = None
+    return _FEATURE_CACHE["sequence_features"]
+
+
+def _cached_temporal_features(dataset: pd.DataFrame) -> pd.DataFrame | None:
+    """Build and cache temporal sequence features (skip_layering=True, default fast mode)."""
+    if "temporal_features" not in _FEATURE_CACHE:
+        try:
+            from official.temporal_features import build_temporal_features
+            _FEATURE_CACHE["temporal_features"] = build_temporal_features(dataset, skip_layering=True)
+            print("[cache] Temporal features built and cached.")
+        except Exception as e:
+            print(f"[cache] temporal_features failed: {e}")
+            _FEATURE_CACHE["temporal_features"] = None
+    return _FEATURE_CACHE["temporal_features"]
+
+
+def _cached_lag_features(dataset: pd.DataFrame) -> pd.DataFrame | None:
+    """Build and cache lag/cross-channel correlation features."""
+    if "lag_features" not in _FEATURE_CACHE:
+        try:
+            from official.lag_features import build_lag_features
+            _FEATURE_CACHE["lag_features"] = build_lag_features(dataset)
+            print("[cache] Lag features built and cached.")
+        except Exception as e:
+            print(f"[cache] lag_features failed: {e}")
+            _FEATURE_CACHE["lag_features"] = None
+    return _FEATURE_CACHE["lag_features"]
+
+
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -407,7 +470,6 @@ def run_configurable_pipeline(
                     n_positives_in_seed, elapsed_seconds, experiment_id
     """
     from official.graph_dataset import build_transductive_graph
-    from official.rules import evaluate_official_rules
     from official.stacking import (
         STACKER_FEATURE_COLUMNS,
         BlendEnsemble,
@@ -419,7 +481,6 @@ def run_configurable_pipeline(
         PRIMARY_GRAPH_MAX_EPOCHS,
         _label_frame,
         _label_free_feature_columns,
-        _load_dataset,
         _transductive_feature_columns,
         run_transductive_oof_pipeline,
     )
@@ -464,21 +525,13 @@ def run_configurable_pipeline(
         }
 
     # ------------------------------------------------------------------
-    # 1. Load dataset + rules
+    # 1. Load dataset + rules (cached across sequential experiments)
     # ------------------------------------------------------------------
-    dataset = _load_dataset("full")
+    dataset = _cached_base_dataset()
 
     # Optionally add feature engineering node attributes
     if cfg.get("feature_eng_node_attrs"):
         dataset = _add_feature_eng_node_attrs(dataset)
-
-    rule_df = evaluate_official_rules(dataset)
-    # Drop any rule columns already present to avoid _x/_y suffix collision on re-merge.
-    # The features parquet may already contain rule_score from a previous pipeline run.
-    _rule_cols_to_drop = [c for c in rule_df.columns if c != "user_id" and c in dataset.columns]
-    if _rule_cols_to_drop:
-        dataset = dataset.drop(columns=_rule_cols_to_drop)
-    dataset = dataset.merge(rule_df, on="user_id", how="left")
 
     label_frame = _label_frame(dataset)
     original_user_ids = set(label_frame["user_id"].astype(int).tolist())
@@ -576,50 +629,46 @@ def run_configurable_pipeline(
 
     # ── Phase 2A-2: Raw event sequence features ───────────────────────────────
     if cfg.get("sequence_features"):
-        try:
-            from official.sequence_features import build_sequence_features
-            seq_df = build_sequence_features(dataset)
-            if not seq_df.empty and len(seq_df.columns) > 1:
-                new_cols = [c for c in seq_df.columns if c != "user_id"]
-                dataset = dataset.merge(seq_df, on="user_id", how="left")
-                for col in new_cols:
-                    if col in dataset.columns:
-                        dataset[col] = dataset[col].fillna(0.0)
-                print(f"[configurable_pipeline] Sequence features: {len(new_cols)} cols added")
-        except Exception as e:
-            print(f"[configurable_pipeline] sequence_features failed: {e}")
+        seq_df = _cached_sequence_features(dataset)
+        if seq_df is not None and not seq_df.empty and len(seq_df.columns) > 1:
+            new_cols = [c for c in seq_df.columns if c != "user_id"]
+            dataset = dataset.merge(seq_df, on="user_id", how="left")
+            for col in new_cols:
+                if col in dataset.columns:
+                    dataset[col] = dataset[col].fillna(0.0)
+            print(f"[configurable_pipeline] Sequence features: {len(new_cols)} cols added")
 
     # ── Phase 2A: Temporal sequence features ──────────────────────────────────
     if cfg.get("temporal_sequence_features"):
-        try:
-            from official.temporal_features import build_temporal_features
-            # skip_layering=True for speed during ablation; set False for final run
-            _skip_layering = not cfg.get("temporal_layering", False)
-            temp_df = build_temporal_features(dataset, skip_layering=_skip_layering)
-            if not temp_df.empty and len(temp_df.columns) > 1:
-                new_cols = [c for c in temp_df.columns if c != "user_id"]
-                dataset = dataset.merge(temp_df, on="user_id", how="left")
-                for col in new_cols:
-                    if col in dataset.columns:
-                        dataset[col] = dataset[col].fillna(0.0)
-                print(f"[configurable_pipeline] Temporal features: {len(new_cols)} cols added")
-        except Exception as e:
-            print(f"[configurable_pipeline] temporal_sequence_features failed: {e}")
+        # Use cache when skip_layering=True (default); bypass cache when temporal_layering=True
+        _skip_layering = not cfg.get("temporal_layering", False)
+        if _skip_layering:
+            temp_df = _cached_temporal_features(dataset)
+        else:
+            try:
+                from official.temporal_features import build_temporal_features
+                temp_df = build_temporal_features(dataset, skip_layering=False)
+            except Exception as e:
+                print(f"[configurable_pipeline] temporal_sequence_features failed: {e}")
+                temp_df = None
+        if temp_df is not None and not temp_df.empty and len(temp_df.columns) > 1:
+            new_cols = [c for c in temp_df.columns if c != "user_id"]
+            dataset = dataset.merge(temp_df, on="user_id", how="left")
+            for col in new_cols:
+                if col in dataset.columns:
+                    dataset[col] = dataset[col].fillna(0.0)
+            print(f"[configurable_pipeline] Temporal features: {len(new_cols)} cols added")
 
     # ── Tier D: lag/cross-channel correlation features ────────────────────────
     if cfg.get("lag_features"):
-        try:
-            from official.lag_features import build_lag_features
-            lag_df = build_lag_features(dataset)
-            if not lag_df.empty and len(lag_df.columns) > 1:
-                dataset = dataset.merge(lag_df, on="user_id", how="left")
-                new_cols = [c for c in lag_df.columns if c != "user_id"]
-                for col in new_cols:
-                    if col in dataset.columns:
-                        dataset[col] = dataset[col].fillna(0.0)
-                print(f"[configurable_pipeline] Lag features: {len(new_cols)} cols added")
-        except Exception as e:
-            print(f"[configurable_pipeline] lag_features failed: {e}")
+        lag_df = _cached_lag_features(dataset)
+        if lag_df is not None and not lag_df.empty and len(lag_df.columns) > 1:
+            dataset = dataset.merge(lag_df, on="user_id", how="left")
+            new_cols = [c for c in lag_df.columns if c != "user_id"]
+            for col in new_cols:
+                if col in dataset.columns:
+                    dataset[col] = dataset[col].fillna(0.0)
+            print(f"[configurable_pipeline] Lag features: {len(new_cols)} cols added")
 
     # ── Tier D: GRU sequence branch ───────────────────────────────────────────
     if cfg.get("gru_sequence_branch"):
