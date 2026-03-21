@@ -1,0 +1,372 @@
+
+======================================================================
+PHASE 3A: CatBoost Base A Optuna HPO
+======================================================================
+[HPO] FAILED: No module named 'optuna'
+Traceback (most recent call last):
+  File "/home/user/YuNing/bitoguard-hackathon/phase3_hpo.py", line 62, in <module>
+    from official.hpo import run_hpo_study
+  File "/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/hpo.py", line 24, in <module>
+    import optuna
+ModuleNotFoundError: No module named 'optuna'
+
+
+============================================================
+=== p3a_hpo_validate_fast ===
+Config extras: []
+Mode: ABLATION_FAST
+
+[configurable_pipeline] Experiment: p3a_hpo_validate_fast
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.7s
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.7s
+[configurable_pipeline] Temporal features: 23 cols added
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3805, weights={'base_e_probability': 0.05000000074505806, 'base_c_s_probability': 0.5, 'base_d_probability': 0.10000000149011612, 'base_cs_x_anomaly': 0.3499999940395355}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[configurable_pipeline] Result: F1=0.3805 P=0.3336 R=0.4427 AP=0.3248 thr=0.2700 flagged=2176 elapsed=254s [dormant=0.0000, active=0.3805]
+[EXP] p3a_hpo_validate_fast: F1=0.3805 | Best config + HPO params (ABLATION_FAST validate)
+Result: F1=0.3805 AP=0.0000 (0s)
+
+======================================================================
+PHASE 3B: Untested flags ablation
+======================================================================
+
+============================================================
+=== p3b_lag ===
+Config extras: ['seq_lag_features']
+Mode: ABLATION_FAST
+
+[configurable_pipeline] Experiment: p3b_lag
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges', 'seq_lag_features']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.6s
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.7s
+[configurable_pipeline] Temporal features: 23 cols added
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3771, weights={'base_a_probability': 0.10000000149011612, 'base_c_s_probability': 0.20000000298023224, 'base_e_probability': 0.10000000149011612, 'base_d_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[configurable_pipeline] Result: F1=0.3853 P=0.3452 R=0.4360 AP=0.3385 thr=0.2000 flagged=2071 elapsed=245s [dormant=0.0000, active=0.3853]
+[EXP] p3b_lag: F1=0.3853 | +seq_lag_features on best config
+Result: F1=0.3853 AP=0.0000 (0s)
+
+============================================================
+=== p3b_threshold_hpo ===
+Config extras: ['threshold_hpo']
+Mode: ABLATION_FAST
+
+[configurable_pipeline] Experiment: p3b_threshold_hpo
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'threshold_hpo', 'community_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.6s
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.7s
+[configurable_pipeline] Temporal features: 23 cols added
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3771, weights={'base_a_probability': 0.10000000149011612, 'base_c_s_probability': 0.20000000298023224, 'base_e_probability': 0.10000000149011612, 'base_d_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[hpo_threshold] Best: method=isotonic pu=True thr=0.3537 F1=0.5301
+[configurable_pipeline] Threshold HPO: F1=0.5301 @ thr=0.3537
+[configurable_pipeline] Result: F1=0.3853 P=0.3452 R=0.4360 AP=0.3385 thr=0.2000 flagged=2071 elapsed=249s [dormant=0.0000, active=0.3853]
+[EXP] p3b_threshold_hpo: F1=0.3853 | +threshold_hpo on best config
+Result: F1=0.3853 AP=0.0000 (0s)
+
+============================================================
+=== p3b_self_train ===
+Config extras: ['self_training']
+Mode: ABLATION_FAST
+
+[configurable_pipeline] Experiment: p3b_self_train
+[configurable_pipeline] Enabled components: ['self_training', 'multi_scale_ppr', 'temporal_edges', 'community_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+[configurable_pipeline] Delegating to self_training pipeline...
+
+[self_training] Training label-free base models (once)...
+
+[self_training] ==================================================
+[self_training] Round 0: 1640 positives (0 pseudo), 49377 negatives
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+FAILED: CUDA error: no kernel image is available for execution on the device
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+Traceback (most recent call last):
+  File "/home/user/YuNing/bitoguard-hackathon/phase3_hpo.py", line 39, in run_exp
+    result = run_configurable_pipeline(config=config, experiment_id=exp_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/configurable_pipeline.py", line 446, in run_configurable_pipeline
+    st_result = run_fast_self_training(
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/self_training.py", line 248, in run_fast_self
+
+============================================================
+=== p3b_neg_prop ===
+Config extras: ['negative_propagation']
+Mode: ABLATION_FAST
+
+[configurable_pipeline] Experiment: p3b_neg_prop
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'negative_propagation', 'temporal_edges', 'community_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.4s
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.9s
+[configurable_pipeline] Temporal features: 23 cols added
+[stacker] BlendEnsemble peak OOF F1=0.3771, weights={'base_a_probability': 0.10000000149011612, 'base_c_s_probability': 0.20000000298023224, 'base_e_probability': 0.10000000149011612, 'base_d_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[configurable_pipeline] Result: F1=0.3853 P=0.3452 R=0.4360 AP=0.3385 thr=0.2000 flagged=2071 elapsed=246s [dormant=0.0000, active=0.3853]
+[EXP] p3b_neg_prop: F1=0.3853 | +negative_propagation on best config
+Result: F1=0.3853 AP=0.0000 (0s)
+
+============================================================
+=== p3b_lag_temp ===
+Config extras: ['seq_lag_features']
+Mode: ABLATION_FAST
+
+[configurable_pipeline] Experiment: p3b_lag_temp
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges', 'seq_lag_features']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.5s
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.8s
+[configurable_pipeline] Temporal features: 23 cols added
+[stacker] BlendEnsemble peak OOF F1=0.3771, weights={'base_a_probability': 0.10000000149011612, 'base_c_s_probability': 0.20000000298023224, 'base_e_probability': 0.10000000149011612, 'base_d_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[configurable_pipeline] Result: F1=0.3853 P=0.3452 R=0.4360 AP=0.3385 thr=0.2000 flagged=2071 elapsed=246s [dormant=0.0000, active=0.3853]
+[EXP] p3b_lag_temp: F1=0.3853 | +seq_lag + all temporal on best config
+Result: F1=0.3853 AP=0.0000 (0s)
+
+======================================================================
+PHASE 4: Stacker architecture experiments (FULL params)
+======================================================================
+
+============================================================
+=== p4_lr_stacker ===
+Config extras: ['lr_stacker']
+Mode: FULL params
+
+[configurable_pipeline] Experiment: p4_lr_stacker
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges', 'lr_stacker']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.5s
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.6s
+[configurable_pipeline] Temporal features: 23 cols added
+FAILED: Input X contains NaN.
+LogisticRegression does not accept missing values encoded as NaN natively. For supervised learning, you might want to consider sklearn.ensemble.HistGradientBoostingClassifier and Regressor which accept missing values encoded as NaNs natively. Alternatively, it is possible to preprocess the data, for instance by using an imputer transformer in a pipeline or drop samples with missing values. See https://scikit-learn.org/stable/modules/impute.html You can find a list of all estimators that handle NaN values at the following page: https://scikit-learn.org/stable/modules/impute.html#estimators-that-handle-nan-values
+Traceback (most recent call last):
+  File "/home/user/YuNing/bitoguard-hackathon/phase3_hpo.py", line 39, in run_exp
+    result = run_configurable_pipeline(config=config, experiment_id=exp_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/configurable_pipeline.py", line 731, in run_configurable_pipeline
+    oof_frame, stacker_model = build_stacker_oof(
+                               ^^^^^^^^^^^^^^^^^^
+  File "/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py", line 372, i
+
+============================================================
+=== p4_gbm_stacker ===
+Config extras: ['gbm_stacker']
+Mode: FULL params
+
+[configurable_pipeline] Experiment: p4_gbm_stacker
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'gbm_stacker', 'community_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.6s
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.8s
+[configurable_pipeline] Temporal features: 23 cols added
+[stacker] BlendEnsemble peak OOF F1=0.3786, weights={'base_a_probability': 0.25, 'base_c_s_probability': 0.30000001192092896, 'base_d_probability': 0.10000000149011612, 'base_cs_x_anomaly': 0.3499999940395355}
+[stacker] CatBoost stacker peak OOF F1=0.3705
+[stacker] Selected BlendEnsemble (F1=0.3786)
+[configurable_pipeline] BlendEnsemble F1=0.3835 vs GBM stacker F1=0.3726
+[configurable_pipeline] BlendEnsemble wins — keeping blend probabilities.
+[configurable_pipeline] Result: F1=0.3835 P=0.3554 R=0.4165 AP=0.3388 thr=0.2800 flagged=1922 elapsed=269s [dormant=0.0000, active=0.3835]
+[EXP] p4_gbm_stacker: F1=0.3835 | Best config + gbm_stacker (LightGBM) FULL params
+Result: F1=0.3835 AP=0.0000 (0s)
+
+============================================================
+=== p4_best_full ===
+Config extras: []
+Mode: FULL params
+
+[configurable_pipeline] Experiment: p4_best_full
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.6s
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.7s
+[configurable_pipeline] Temporal features: 23 cols added
+[stacker] BlendEnsemble peak OOF F1=0.3836, weights={'base_a_probability': 0.05000000074505806, 'base_c_s_probability': 0.30000001192092896, 'base_e_probability': 0.05000000074505806, 'base_d_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] CatBoost stacker peak OOF F1=0.3700
+[stacker] Selected BlendEnsemble (F1=0.3836)
+[configurable_pipeline] Result: F1=0.3836 P=0.3559 R=0.4159 AP=0.3361 thr=0.1900 flagged=1916 elapsed=261s [dormant=0.0000, active=0.3836]
+[EXP] p4_best_full: F1=0.3836 | Best config FULL params, CatBoost stacker auto-select
+Result: F1=0.3836 AP=0.0000 (0s)
+
+======================================================================
+PHASE 6: Flow graph variants
+======================================================================
+
+============================================================
+=== p6_directed_flow ===
+Config extras: ['directed_flow_edges']
+Mode: ABLATION_FAST
+
+[configurable_pipeline] Experiment: p6_directed_flow
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'directed_flow_edges', 'community_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.5s
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.6s
+[configurable_pipeline] Temporal features: 23 cols added
+[stacker] BlendEnsemble peak OOF F1=0.3771, weights={'base_a_probability': 0.10000000149011612, 'base_c_s_probability': 0.20000000298023224, 'base_e_probability': 0.10000000149011612, 'base_d_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[configurable_pipeline] Result: F1=0.3853 P=0.3452 R=0.4360 AP=0.3385 thr=0.2000 flagged=2071 elapsed=246s [dormant=0.0000, active=0.3853]
+[EXP] p6_directed_flow: F1=0.3853 | +directed_flow_edges on best config
+Result: F1=0.3853 AP=0.0000 (0s)
+
+============================================================
+=== p6_profile_sim ===
+Config extras: ['profile_similarity_edges']
+Mode: ABLATION_FAST
+
+[configurable_pipeline] Experiment: p6_profile_sim
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'profile_similarity_edges', 'community_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.6s
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.7s
+[configurable_pipeline] Temporal features: 23 cols added
+[stacker] BlendEnsemble peak OOF F1=0.3771, weights={'base_a_probability': 0.10000000149011612, 'base_c_s_probability': 0.20000000298023224, 'base_e_probability': 0.10000000149011612, 'base_d_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[configurable_pipeline] Result: F1=0.3853 P=0.3452 R=0.4360 AP=0.3385 thr=0.2000 flagged=2071 elapsed=247s [dormant=0.0000, active=0.3853]
+[EXP] p6_profile_sim: F1=0.3853 | +profile_similarity_edges on best config
+Result: F1=0.3853 AP=0.0000 (0s)
+
+============================================================
+=== p6_all_flow ===
+Config extras: ['directed_flow_edges', 'profile_similarity_edges']
+Mode: ABLATION_FAST
+
+[configurable_pipeline] Experiment: p6_all_flow
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'profile_similarity_edges', 'directed_flow_edges', 'community_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.6s
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.8s
+[configurable_pipeline] Temporal features: 23 cols added
+[stacker] BlendEnsemble peak OOF F1=0.3771, weights={'base_a_probability': 0.10000000149011612, 'base_c_s_probability': 0.20000000298023224, 'base_e_probability': 0.10000000149011612, 'base_d_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[configurable_pipeline] Result: F1=0.3853 P=0.3452 R=0.4360 AP=0.3385 thr=0.2000 flagged=2071 elapsed=244s [dormant=0.0000, active=0.3853]
+[EXP] p6_all_flow: F1=0.3853 | +all flow variants on best config
+Result: F1=0.3853 AP=0.0000 (0s)
+
+======================================================================
+=== FULL PIPELINE SUMMARY ===
+Experiment                          F1  Status
+----------------------------------------------------------------------
+p3a_hpo_validate_fast           0.3805  ok
+p3b_lag                         0.3853  ok
+p3b_threshold_hpo               0.3853  ok
+p3b_self_train                      --  FAILED: CUDA error: no kernel image is a
+p3b_neg_prop                    0.3853  ok
+p3b_lag_temp                    0.3853  ok
+p4_lr_stacker                       --  FAILED: Input X contains NaN.
+LogisticRe
+p4_gbm_stacker                  0.3835  ok
+p4_best_full                    0.3836  ok
+p6_directed_flow                0.3853  ok
+p6_profile_sim                  0.3853  ok
+p6_all_flow                     0.3853  ok
+======================================================================
+
+Overall best: p3b_lag F1=0.3853

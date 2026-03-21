@@ -1,0 +1,213 @@
+Mode: ABLATION_FAST (screening)
+
+============================================================
+=== p1_baseline: DEFAULT_CONFIG baseline ===
+
+[configurable_pipeline] Experiment: p1_baseline
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+Warning: less than 75% GPU memory available for training. Free: 20815.75 Total: 32100.6875
+Warning: less than 75% GPU memory available for training. Free: 20813.75 Total: 32100.6875
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3736, weights={'base_c_s_probability': 0.25, 'base_e_probability': 0.20000000298023224, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[configurable_pipeline] Result: F1=0.3736 P=0.3487 R=0.4024 AP=0.3228 thr=0.2300 flagged=1893 elapsed=292s [dormant=0.0000, active=0.3736]
+[EXP] p1_baseline: F1=0.3736 | DEFAULT_CONFIG baseline [ABLATION_FAST=True]
+Result: F1=0.3736 AP=0.3228 (292s)
+
+============================================================
+=== p1_seq: +sequence_features ===
+
+[configurable_pipeline] Experiment: p1_seq
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features', 'sequence_features']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 14.9s
+[configurable_pipeline] Sequence features: 20 cols added
+Warning: less than 75% GPU memory available for training. Free: 13875.75 Total: 32100.6875
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3797, weights={'base_a_probability': 0.15000000596046448, 'base_e_probability': 0.15000000596046448, 'base_c_s_probability': 0.30000001192092896, 'base_cs_x_anomaly': 0.4000000059604645}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[configurable_pipeline] Result: F1=0.3797 P=0.3481 R=0.4177 AP=0.3315 thr=0.2900 flagged=1968 elapsed=306s [dormant=0.0000, active=0.3797]
+[EXP] p1_seq: F1=0.3797 | +sequence_features [ABLATION_FAST=True]
+Result: F1=0.3797 AP=0.3315 (306s)
+
+============================================================
+=== p1_temp: +temporal_sequence_features ===
+
+[configurable_pipeline] Experiment: p1_temp
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features', 'temporal_sequence_features']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.9s
+[configurable_pipeline] Temporal features: 23 cols added
+Warning: less than 75% GPU memory available for training. Free: 20815.75 Total: 32100.6875
+Warning: less than 75% GPU memory available for training. Free: 20815.75 Total: 32100.6875
+Warning: less than 75% GPU memory available for training. Free: 13875.75 Total: 32100.6875
+Warning: less than 75% GPU memory available for training. Free: 17345.75 Total: 32100.6875
+Warning: less than 75% GPU memory available for training. Free: 13875.75 Total: 32100.6875
+Warning: less than 75% GPU memory available for training. Free: 17345.75 Total: 32100.6875
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3743, weights={'base_e_probability': 0.20000000298023224, 'base_c_s_probability': 0.5, 'base_cs_x_anomaly': 0.30000001192092896}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[configurable_pipeline] Result: F1=0.3743 P=0.3471 R=0.4061 AP=0.3248 thr=0.2900 flagged=1919 elapsed=321s [dormant=0.0000, active=0.3743]
+[EXP] p1_temp: F1=0.3743 | +temporal_sequence_features [ABLATION_FAST=True]
+Result: F1=0.3743 AP=0.3248 (321s)
+
+============================================================
+=== p1_seq_temp: +seq+temporal ===
+
+[configurable_pipeline] Experiment: p1_seq_temp
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features', 'temporal_sequence_features', 'sequence_features']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 14.3s
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 9.1s
+[configurable_pipeline] Temporal features: 23 cols added
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3749, weights={'base_e_probability': 0.10000000149011612, 'base_c_s_probability': 0.44999998807907104, 'base_d_probability': 0.10000000149011612, 'base_cs_x_anomaly': 0.3499999940395355}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[configurable_pipeline] Result: F1=0.3801 P=0.3414 R=0.4287 AP=0.3280 thr=0.2800 flagged=2059 elapsed=271s [dormant=0.0000, active=0.3801]
+[EXP] p1_seq_temp: F1=0.3801 | +seq+temporal [ABLATION_FAST=True]
+Result: F1=0.3801 AP=0.3280 (271s)
+
+============================================================
+=== p1_flow: +flow_graph_edges ===
+
+[configurable_pipeline] Experiment: p1_flow
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features', 'flow_graph_edges']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3734, weights={'base_c_s_probability': 0.25, 'base_e_probability': 0.20000000298023224, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[configurable_pipeline] Result: F1=0.3734 P=0.3487 R=0.4018 AP=0.3215 thr=0.2300 flagged=1890 elapsed=227s [dormant=0.0000, active=0.3734]
+[EXP] p1_flow: F1=0.3734 | +flow_graph_edges [ABLATION_FAST=True]
+Result: F1=0.3734 AP=0.3215 (227s)
+
+============================================================
+=== p1_all_new: +seq+temporal+flow ===
+
+[configurable_pipeline] Experiment: p1_all_new
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.7s
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.6s
+[configurable_pipeline] Temporal features: 23 cols added
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3805, weights={'base_e_probability': 0.05000000074505806, 'base_c_s_probability': 0.5, 'base_d_probability': 0.10000000149011612, 'base_cs_x_anomaly': 0.3499999940395355}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[configurable_pipeline] Result: F1=0.3805 P=0.3336 R=0.4427 AP=0.3248 thr=0.2700 flagged=2176 elapsed=251s [dormant=0.0000, active=0.3805]
+[EXP] p1_all_new: F1=0.3805 | +seq+temporal+flow [ABLATION_FAST=True]
+Result: F1=0.3805 AP=0.3248 (251s)
+
+============================================================
+=== p1_lr: +lr_stacker ===
+
+[configurable_pipeline] Experiment: p1_lr
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features', 'lr_stacker']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+FAILED (192s): Input X contains NaN.
+LogisticRegression does not accept missing values encoded as NaN natively. For supervised learning, you might want to consider sklearn.ensemble.HistGradientBoostingClassifier and Regressor which accept missing values encoded as NaNs natively. Alternatively, it is possible to preprocess the data, for instance by using an imputer transformer in a pipeline or drop samples with missing values. See https://scikit-learn.org/stable/modules/impute.html You can find a list of all estimators that handle NaN values at the following page: https://scikit-learn.org/stable/modules/impute.html#estimators-that-handle-nan-values
+Traceback (most recent call last):
+  File "/home/user/YuNing/bitoguard-hackathon/phase1_ablation.py", line 34, in <module>
+    r = run_configurable_pipeline(config=cfg, experiment_id=exp_id)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/configurable_pipeline.py", line 731, in run_configurable_pipeline
+    oof_frame, stacker_model = build_stacker_oof(
+                               ^^^^^^^^^^^^^^^^^^
+  File "/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py", line 368, in build_stacker_oof
+    model = fit_logistic_stacker(train_frame, available_cols)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py", line 281, in fit_logistic_stacker
+    model.fit(frame[feature_columns], frame["status"].astype(int))
+  File "/home/user/YuNing/bitoguard-hackathon/.venv/lib/python3.12/site-packages/sklearn/base.py", line 1365, in wrapper
+    return fit_method(estimator, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/YuNing/bitoguard-hackathon/.venv/lib/python3.12/site-packages/sklearn/linear_model/_logistic.py", line 1247, in fit
+    X, y = validate_data(
+           ^^^^^^^^^^^^^^
+  File "/home/user/YuNing/bitoguard-hackathon/.venv/lib/python3.12/site-packages/sklearn/utils/validation.py", line 2971, in validate_data
+    X, y = check_X_y(X, y, **check_params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/YuNing/bitoguard-hackathon/.venv/lib/python3.12/site-packages/sklearn/utils/validation.py", line 1368, in check_X_y
+    X = check_array(
+        ^^^^^^^^^^^^
+  File "/home/user/YuNing/bitoguard-hackathon/.venv/lib/python3.12/site-packages/sklearn/utils/validation.py", line 1105, in check_array
+    _assert_all_finite(
+  File "/home/user/YuNing/bitoguard-hackathon/.venv/lib/python3.12/site-packages/sklearn/utils/validation.py", line 120, in _assert_all_finite
+    _assert_all_finite_element_wise(
+  File "/home/user/YuNing/bitoguard-hackathon/.venv/lib/python3.12/site-packages/sklearn/utils/validation.py", line 169, in _assert_all_finite_element_wise
+    raise ValueError(msg_err)
+ValueError: Input X contains NaN.
+LogisticRegression does not accept missing values encoded as NaN natively. For supervised learning, you might want to consider sklearn.ensemble.HistGradientBoostingClassifier and Regressor which accept missing values encoded as NaNs natively. Alternatively, it is possible to preprocess the data, for instance by using an imputer transformer in a pipeline or drop samples with missing values. See https://scikit-learn.org/stable/modules/impute.html You can find a list of all estimators that handle NaN values at the following page: https://scikit-learn.org/stable/modules/impute.html#estimators-that-handle-nan-values
+
+============================================================
+=== p1_ewhpo: +edge_weight_hpo ===
+
+[configurable_pipeline] Experiment: p1_ewhpo
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'edge_weight_hpo', 'temporal_edges', 'community_features']
+[configurable_pipeline] Using HPO edge weights: {'relation': 0.6169051256794393, 'wallet_small': 0.2768493714671583, 'wallet_medium': 0.6775526837621274, 'ip_small': 1.427005782988897, 'ip_medium': 0.7827830226577133, 'temporal_small': 0.12437747944682707, 'temporal_medium': 0.2940262815772039}
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[stacker] BlendEnsemble peak OOF F1=0.3670, weights={'base_a_probability': 0.10000000149011612, 'base_c_s_probability': 0.25, 'base_e_probability': 0.10000000149011612, 'base_cs_x_anomaly': 0.550000011920929}
+[stacker] ABLATION_FAST: skipping CatBoost stacker, using BlendEnsemble
+[configurable_pipeline] Result: F1=0.3713 P=0.3659 R=0.3768 AP=0.3189 thr=0.2600 flagged=1689 elapsed=247s [dormant=0.0000, active=0.3713]
+[EXP] p1_ewhpo: F1=0.3713 | +edge_weight_hpo [ABLATION_FAST=True]
+Result: F1=0.3713 AP=0.3189 (247s)
+
+============================================================
+=== PHASE 1 SUMMARY ===
+  p1_baseline            F1=0.3736 AP=0.3228 Δ=+0.0000 ~ neutral (292s)
+  p1_seq                 F1=0.3797 AP=0.3315 Δ=+0.0061 ✓ POSITIVE (306s)
+  p1_temp                F1=0.3743 AP=0.3248 Δ=+0.0007 ~ neutral (321s)
+  p1_seq_temp            F1=0.3801 AP=0.3280 Δ=+0.0065 ✓ POSITIVE (271s)
+  p1_flow                F1=0.3734 AP=0.3215 Δ=-0.0002 ~ neutral (227s)
+  p1_all_new             F1=0.3805 AP=0.3248 Δ=+0.0069 ✓ POSITIVE (251s)
+  p1_lr                  F1=0.0000 AP=0.0000 Δ=-0.3736 ✗ harmful (192s)
+  p1_ewhpo               F1=0.3713 AP=0.3189 Δ=-0.0023 ✗ harmful (247s)

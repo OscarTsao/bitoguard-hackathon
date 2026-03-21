@@ -1,0 +1,110 @@
+phase3 done
+
+======================================================================
+B2: Validate best config + HPO params (FULL params)
+======================================================================
+
+============================================================
+=== b2_hpo_validate_full [FULL] ===
+Config extras: []
+
+[configurable_pipeline] Experiment: b2_hpo_validate_full
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+[cache] Base dataset loaded and cached.
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 13.7s
+[cache] Sequence features built and cached.
+[configurable_pipeline] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 8.7s
+[cache] Temporal features built and cached.
+[configurable_pipeline] Temporal features: 23 cols added
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3850, weights={'base_a_probability': 0.20000000298023224, 'base_c_s_probability': 0.44999998807907104, 'base_cs_x_anomaly': 0.3499999940395355}
+[stacker] CatBoost stacker peak OOF F1=0.3723
+[stacker] Selected BlendEnsemble (F1=0.3850)
+[configurable_pipeline] Result: F1=0.3850 P=0.3536 R=0.4226 AP=0.3319 thr=0.2500 flagged=1960 elapsed=376s [dormant=0.0000, active=0.3850]
+[EXP] b2_hpo_validate_full: F1=0.3850 | Best config + HPO params FULL
+
+======================================================================
+B3: Best + lag + lr_stacker (FULL params)
+======================================================================
+
+============================================================
+=== b3_lag_lr_full [FULL] ===
+Config extras: ['lag_features', 'lr_stacker']
+
+[configurable_pipeline] Experiment: b3_lag_lr_full
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features', 'lag_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges', 'lr_stacker']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[configurable_pipeline] Sequence features: 20 cols added
+[configurable_pipeline] Temporal features: 23 cols added
+[cache] Lag features built and cached.
+[configurable_pipeline] Lag features: 12 cols added
+/home/user/YuNing/bitoguard-hackathon/.venv/lib/python3.12/site-packages/sklearn/utils/validation.py:2742: UserWarning: X has feature names, but LogisticRegression was fitted without feature names
+  warnings.warn(
+FAILED: Input X contains NaN.
+LogisticRegression does not accept missing values encoded as NaN natively. For supervised learning, you might want to consider sklearn.ensemble.HistGradientBoostingClassifier and Regressor which accept missing values encoded as NaNs natively. Alternatively, it is possible to preprocess the data, for instance by using an imputer transformer in a pipeline or drop samples with missing values. See https://scikit-learn.org/stable/modules/impute.html You can find a list of all estimators that handle NaN values at the following page: https://scikit-learn.org/stable/modules/impute.html#estimators-that-handle-nan-values
+Traceback (most recent call last):
+  File "/home/user/YuNing/bitoguard-hackathon/phase_final.py", line 37, in run_exp
+    result = run_configurable_pipeline(config=config, experiment_id=exp_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/configurable_pipeline.py", line 780, in run_configurable_pipeline
+    oof_frame, stacker_model = build_stacker_oof(
+                               ^^^^^^^^^^^^^^^^^^
+  File "/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py", line 372, in build_stacker_oof
+    valid_frame["stacker_raw_probability"] = model.predict_proba(valid_frame[available_cols])[:, 1]
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+======================================================================
+B4: Best + lag (FULL params)
+======================================================================
+
+============================================================
+=== b4_lag_full [FULL] ===
+Config extras: ['lag_features']
+
+[configurable_pipeline] Experiment: b4_lag_full
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'community_features', 'lag_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
+[configurable_pipeline] Community features (label-free): ['community_id', 'community_size', 'community_max_degree', 'cross_community_edges']
+[configurable_pipeline] Sequence features: 20 cols added
+[configurable_pipeline] Temporal features: 23 cols added
+[configurable_pipeline] Lag features: 12 cols added
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/YuNing/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.3831, weights={'base_a_probability': 0.05000000074505806, 'base_c_s_probability': 0.3499999940395355, 'base_e_probability': 0.10000000149011612, 'base_d_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.44999998807907104}
+[stacker] CatBoost stacker peak OOF F1=0.3715
+[stacker] Selected BlendEnsemble (F1=0.3831)
+[configurable_pipeline] Result: F1=0.3831 P=0.3483 R=0.4256 AP=0.3397 thr=0.2100 flagged=2004 elapsed=354s [dormant=0.0000, active=0.3831]
+[EXP] b4_lag_full: F1=0.3831 | Best+lag FULL params
+
+======================================================================
+B5: Flow extras ablation (FAST)
+======================================================================
+
+============================================================
+=== b5_lag_flow_all [FAST] ===
+Config extras: ['lag_features', 'directed_flow_edges', 'profile_similarity_edges']
+
+[configurable_pipeline] Experiment: b5_lag_flow_all
+[configurable_pipeline] Enabled components: ['multi_scale_ppr', 'temporal_edges', 'profile_similarity_edges', 'directed_flow_edges', 'community_features', 'lag_features', 'temporal_sequence_features', 'sequence_features', 'flow_graph_edges']
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+  [flow_graph_edges] 1085 user pairs, 0.191 mean weight
