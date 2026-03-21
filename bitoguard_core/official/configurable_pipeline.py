@@ -34,7 +34,7 @@ COMPONENTS: dict[str, dict[str, Any]] = {
     "threshold_hpo":            {"tier": "A", "default": False},
     "pu_learning_loss":         {"tier": "A", "default": False},
     "node2vec_embeddings":      {"tier": "A", "default": False},
-    "graphsage_3layer":         {"tier": "B", "default": True},     # already in v47
+    "graphsage_3layer":         {"tier": "B", "default": False},    # no-GNN wins (+0.012 F1, GNN AP=0.061)
     "gbm_stacker":              {"tier": "B", "default": False},
     "profile_similarity_edges": {"tier": "B", "default": False},
     "hub_ip_pruning":           {"tier": "B", "default": False},
@@ -43,7 +43,7 @@ COMPONENTS: dict[str, dict[str, Any]] = {
     "feature_eng_node_attrs":   {"tier": "B", "default": False},
     "label_spreading":          {"tier": "B", "default": False},
     # Tier D: new methods
-    "community_features":       {"tier": "D", "default": False},
+    "community_features":       {"tier": "D", "default": True},     # +0.012 F1, confirmed 10+ seeds
     "lag_features":             {"tier": "D", "default": False},
     "gru_sequence_branch":      {"tier": "D", "default": False},
     "dgi_rf_features":          {"tier": "D", "default": False},
@@ -63,6 +63,28 @@ COMPONENTS: dict[str, dict[str, Any]] = {
     # Rejects pseudo-labels where H(p) > max_entropy (0.5 nats ≈ p>=0.77).
     # Prevents noisy borderline pseudo-labels from degrading transductive features.
     "uncertainty_entropy_filter": {"tier": "P0", "default": False},
+    # Phase 2A: Temporal sequence features from 707K raw events.
+    # Captures AML patterns invisible to 239-column aggregates:
+    # structuring (round deposits), layering (fiat→swap→crypto timing),
+    # burst patterns, IP diversity, cross-channel cycle speed.
+    # Expected AP contribution: +0.02-0.05. Label-free, pandas-only.
+    "temporal_sequence_features": {"tier": "D", "default": False},
+    # Phase 2A-2: Raw event sequence features — 20 novel features from 707K events.
+    # Distinct from temporal_features.py (window aggregates): these capture event-level
+    # patterns — min inter-deposit gap, 30min burst windows, identical-amount runs,
+    # precise chain latency, IP Shannon entropy, wallet HHI, night/weekend concentration.
+    # Estimated AP +0.02-0.05; no DL required (pure pandas).
+    "sequence_features":            {"tier": "D", "default": False},
+    # Phase 3: Transaction flow graph — direct user-to-user crypto transfer edges.
+    # Uses crypto_transfer.relation_user_id to build amount-weighted flow edges.
+    # Complements entity graph (IP/wallet sharing) with direct monetary flow signal.
+    # Expected to reconnect 44.8% isolated positives via their crypto counterparties.
+    "flow_graph_edges":             {"tier": "D", "default": False},
+    # v53: LR stacker — forces use_blend=False, using fold-by-fold LogisticRegression.
+    # Tests v13 hypothesis: LR can assign nonzero weight to weak graph signals (AP<0.08)
+    # that BlendEnsemble's hard threshold drops. V13 used LR and got F1=0.390 vs
+    # BlendEnsemble's ~0.382. Especially valuable when combined with graphsage_3layer=True.
+    "lr_stacker":               {"tier": "A", "default": False},
 }
 
 DEFAULT_CONFIG: dict[str, bool] = {name: comp["default"] for name, comp in COMPONENTS.items()}
@@ -510,6 +532,11 @@ def run_configurable_pipeline(
     graph_kwargs: dict[str, Any] = {}
     if cfg.get("hub_ip_pruning"):
         graph_kwargs["hub_ip_prune_above"] = 15
+    if cfg.get("edge_time_decay"):
+        graph_kwargs["use_time_decay"] = True
+        graph_kwargs["time_decay_half_life_days"] = float(cfg.get("time_decay_half_life_days", 90.0))
+    if cfg.get("flow_graph_edges"):
+        graph_kwargs["use_flow_edges"] = True
 
     graph = build_transductive_graph(dataset, edge_weights=edge_weights, **graph_kwargs)
 
@@ -546,6 +573,38 @@ def run_configurable_pipeline(
                     print(f"[configurable_pipeline] Community features (label-free): {label_free_comm_cols}")
         except Exception as e:
             print(f"[configurable_pipeline] community_features failed: {e}")
+
+    # ── Phase 2A-2: Raw event sequence features ───────────────────────────────
+    if cfg.get("sequence_features"):
+        try:
+            from official.sequence_features import build_sequence_features
+            seq_df = build_sequence_features(dataset)
+            if not seq_df.empty and len(seq_df.columns) > 1:
+                new_cols = [c for c in seq_df.columns if c != "user_id"]
+                dataset = dataset.merge(seq_df, on="user_id", how="left")
+                for col in new_cols:
+                    if col in dataset.columns:
+                        dataset[col] = dataset[col].fillna(0.0)
+                print(f"[configurable_pipeline] Sequence features: {len(new_cols)} cols added")
+        except Exception as e:
+            print(f"[configurable_pipeline] sequence_features failed: {e}")
+
+    # ── Phase 2A: Temporal sequence features ──────────────────────────────────
+    if cfg.get("temporal_sequence_features"):
+        try:
+            from official.temporal_features import build_temporal_features
+            # skip_layering=True for speed during ablation; set False for final run
+            _skip_layering = not cfg.get("temporal_layering", False)
+            temp_df = build_temporal_features(dataset, skip_layering=_skip_layering)
+            if not temp_df.empty and len(temp_df.columns) > 1:
+                new_cols = [c for c in temp_df.columns if c != "user_id"]
+                dataset = dataset.merge(temp_df, on="user_id", how="left")
+                for col in new_cols:
+                    if col in dataset.columns:
+                        dataset[col] = dataset[col].fillna(0.0)
+                print(f"[configurable_pipeline] Temporal features: {len(new_cols)} cols added")
+        except Exception as e:
+            print(f"[configurable_pipeline] temporal_sequence_features failed: {e}")
 
     # ── Tier D: lag/cross-channel correlation features ────────────────────────
     if cfg.get("lag_features"):
@@ -665,8 +724,12 @@ def run_configurable_pipeline(
     # ------------------------------------------------------------------
     # 8. Stacking
     # ------------------------------------------------------------------
+    # v53: lr_stacker flag forces use_blend=False — tests v13 hypothesis that
+    # LR stacker outperforms BlendEnsemble when GNN/C&S output is present.
+    # BlendEnsemble drops signals with AP<0.08; LR can weight weak signals positively.
+    _use_blend = not cfg.get("lr_stacker", False)
     oof_frame, stacker_model = build_stacker_oof(
-        oof_frame, primary_split, fold_column="primary_fold", use_blend=True,
+        oof_frame, primary_split, fold_column="primary_fold", use_blend=_use_blend,
     )
 
     # GBM stacker comparison
@@ -805,4 +868,19 @@ def run_configurable_pipeline(
     else:
         print(f"[configurable_pipeline] Result: F1={f1:.4f} P={prec:.4f} R={rec:.4f} AP={pr_auc:.4f} "
               f"thr={threshold:.4f} flagged={n_flagged} elapsed={elapsed:.0f}s")
+
+    # Save OOF probabilities for seed ensemble analysis.
+    try:
+        from pathlib import Path as _Path
+        _eval = oof_frame[oof_frame["user_id"].astype(int).isin(original_user_ids)].copy()
+        if "stacker_raw_probability" in _eval.columns and not _eval.empty:
+            _oof_path = _Path("artifacts/reports") / f"oof_{experiment_id}.npz"
+            _oof_path.parent.mkdir(parents=True, exist_ok=True)
+            np.savez(str(_oof_path),
+                     user_ids=_eval["user_id"].values,
+                     raw_probs=_eval["stacker_raw_probability"].values,
+                     labels=_eval["status"].astype(int).values)
+    except Exception:
+        pass
+
     return metrics

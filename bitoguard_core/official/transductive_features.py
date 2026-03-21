@@ -102,7 +102,7 @@ def _propagation_scores(
 def _edge_type_counts(graph: TransductiveGraph, positive_seed_users: set[int]) -> pd.DataFrame:
     rows: list[dict[str, float]] = []
     # v47: temporal_small/medium — users transacting in the same 15-minute window.
-    edge_types = ["relation", "wallet_small", "wallet_medium", "ip_small", "ip_medium", "temporal_small", "temporal_medium"]
+    edge_types = ["relation", "wallet_small", "wallet_medium", "ip_small", "ip_medium", "temporal_small", "temporal_medium", "flow"]
     positive_by_type = graph.neighbors_by_type
     for user_id in graph.user_ids:
         row: dict[str, float] = {"user_id": user_id}

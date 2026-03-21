@@ -6,6 +6,7 @@ from itertools import combinations
 from math import log1p
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from official.common import EVENT_TIME_COLUMNS, load_clean_table, to_utc_timestamp
@@ -223,6 +224,77 @@ def _temporal_cooccurrence_edges(
     )
 
 
+def _flow_user_edges(crypto: pd.DataFrame, allowed_users: set[int]) -> pd.DataFrame:
+    """Build amount-weighted direct flow edges from crypto_transfer.relation_user_id.
+
+    Captures ALL user-to-user crypto transfers (both internal and external) weighted
+    by log(1 + total_amount_transferred). Unlike the existing 'relation' edges (binary,
+    internal only), these provide the *amount dimension* of monetary flow between users.
+
+    Weight is normalized to [0, 0.8] range (below 'relation'=1.0 and 'wallet_small'=0.70).
+    """
+    if "relation_user_id" not in crypto.columns:
+        return pd.DataFrame(columns=["src_user_id", "dst_user_id", "edge_type", "weight"])
+
+    flow = crypto[crypto["relation_user_id"].notna()].copy()
+    if flow.empty:
+        return pd.DataFrame(columns=["src_user_id", "dst_user_id", "edge_type", "weight"])
+
+    flow["relation_user_id"] = pd.to_numeric(flow["relation_user_id"], errors="coerce")
+    flow = flow.dropna(subset=["relation_user_id"])
+    flow["user_id"] = pd.to_numeric(flow["user_id"], errors="coerce")
+    flow = flow.dropna(subset=["user_id"])
+    flow["user_id"] = flow["user_id"].astype(int)
+    flow["relation_user_id"] = flow["relation_user_id"].astype(int)
+
+    # Filter: both endpoints must be in the cohort
+    flow = flow[
+        flow["user_id"].isin(allowed_users) &
+        flow["relation_user_id"].isin(allowed_users) &
+        (flow["user_id"] != flow["relation_user_id"])
+    ]
+    if flow.empty:
+        return pd.DataFrame(columns=["src_user_id", "dst_user_id", "edge_type", "weight"])
+
+    # Aggregate total amount per directed pair, then symmetrize
+    amt_col = "amount" if "amount" in flow.columns else None
+    if amt_col:
+        flow[amt_col] = pd.to_numeric(flow[amt_col], errors="coerce").fillna(0.0).clip(0)
+        pair_agg = (
+            flow.groupby(["user_id", "relation_user_id"])[amt_col]
+            .sum()
+            .reset_index()
+        )
+    else:
+        pair_agg = (
+            flow.groupby(["user_id", "relation_user_id"])
+            .size()
+            .reset_index(name=amt_col or "count")
+        )
+        pair_agg.rename(columns={pair_agg.columns[-1]: "amount"}, inplace=True)
+        amt_col = "amount"
+
+    # Log-scale weight, normalize to [0, 0.8]
+    pair_agg["raw_w"] = np.log1p(pair_agg[amt_col].values).astype(float)
+    max_w = pair_agg["raw_w"].max()
+    if max_w > 0:
+        pair_agg["weight"] = (pair_agg["raw_w"] / max_w * 0.8).clip(0.05, 0.8)
+    else:
+        pair_agg["weight"] = 0.4
+
+    rows: list[dict[str, Any]] = []
+    for _, row in pair_agg.iterrows():
+        src, dst, wt = int(row["user_id"]), int(row["relation_user_id"]), float(row["weight"])
+        rows.append({"src_user_id": src, "dst_user_id": dst, "edge_type": "flow", "weight": wt})
+        rows.append({"src_user_id": dst, "dst_user_id": src, "edge_type": "flow", "weight": wt})
+
+    result = pd.DataFrame(rows)
+    result = result.drop_duplicates(subset=["src_user_id", "dst_user_id"])
+    print(f"  [flow_graph_edges] {len(result)//2} user pairs, "
+          f"{result['weight'].mean():.3f} mean weight")
+    return result
+
+
 def _component_id_map(user_ids: list[int], edges: pd.DataFrame) -> dict[int, int]:
     parent = {user_id: user_id for user_id in user_ids}
 
@@ -298,6 +370,9 @@ def build_transductive_graph(
     cutoff_ts: pd.Timestamp | None = None,
     edge_weights: dict[str, float] | None = None,
     hub_ip_prune_above: int | None = None,
+    use_time_decay: bool = False,
+    time_decay_half_life_days: float = 90.0,
+    use_flow_edges: bool = False,
 ) -> TransductiveGraph:
     """Build the full transductive user-user graph.
 
@@ -312,6 +387,13 @@ def build_transductive_graph(
             many unique users are pruned (dropped entirely) before building pairwise
             edges. This removes hub IPs (e.g. VPN exit nodes, corporate proxies) that
             create spurious connections. Default None = use MAX_IP_PAIRWISE_USERS (20).
+        use_time_decay: If True, downweight edges involving users who have been
+            inactive for longer. Uses per-user last-activity timestamp with
+            exponential decay (half-life = time_decay_half_life_days). Stale
+            connections (e.g. shared IP from 6 months ago) get lower weight than
+            recent ones, reducing noise from dormant-account pairings.
+        time_decay_half_life_days: Half-life for the exponential decay in days.
+            Default 90: weight halves for every 3 months of inactivity.
     """
     # v48: Merge supplied weights with defaults (supplied weights take precedence).
     w = {**DEFAULT_EDGE_WEIGHTS, **(edge_weights or {})}
@@ -406,10 +488,15 @@ def build_transductive_graph(
         weight_small_override=w["temporal_small"],
         weight_medium_override=w["temporal_medium"],
     )
-    collapsed_edges = pd.concat(
-        [relation_user_edges, wallet_user_edges, ip_user_edges, temporal_user_edges],
-        ignore_index=True,
-    )
+    # Phase 3: amount-weighted direct transfer flow edges
+    flow_user_edges = pd.DataFrame(columns=["src_user_id", "dst_user_id", "edge_type", "weight"])
+    if use_flow_edges:
+        flow_user_edges = _flow_user_edges(crypto, allowed_users)
+
+    _edge_frames = [relation_user_edges, wallet_user_edges, ip_user_edges, temporal_user_edges]
+    if use_flow_edges and not flow_user_edges.empty:
+        _edge_frames.append(flow_user_edges)
+    collapsed_edges = pd.concat(_edge_frames, ignore_index=True)
     if collapsed_edges.empty:
         collapsed_edges = pd.DataFrame(columns=["src_user_id", "dst_user_id", "edge_type", "weight"])
     else:
@@ -419,6 +506,40 @@ def build_transductive_graph(
             .sort_values(["src_user_id", "dst_user_id", "edge_type"])
             .reset_index(drop=True)
         )
+
+    # ── Edge time decay: downweight connections involving recently-inactive users ──
+    if use_time_decay and not collapsed_edges.empty:
+        _ts_frames: list[pd.DataFrame] = []
+        for _tbl in (twd, crypto, trade):
+            if "created_at" in _tbl.columns and "user_id" in _tbl.columns:
+                _sub = _tbl[["user_id", "created_at"]].copy()
+                _sub["user_id"] = pd.to_numeric(_sub["user_id"], errors="coerce")
+                _sub = _sub.dropna(subset=["user_id", "created_at"])
+                _sub["user_id"] = _sub["user_id"].astype(int)
+                _sub["created_at"] = pd.to_datetime(_sub["created_at"], utc=True, errors="coerce")
+                _sub = _sub.dropna(subset=["created_at"])
+                _ts_frames.append(_sub.rename(columns={"created_at": "ts"}))
+        if _ts_frames:
+            _all_ts = pd.concat(_ts_frames, ignore_index=True)
+            _last_active = _all_ts.groupby("user_id")["ts"].max()
+            _global_max = _last_active.max()
+            # days since each user's last event (0 = maximally recent, larger = more stale)
+            _days_ago = (_global_max - _last_active).dt.total_seconds() / 86400.0
+            _days_ago = _days_ago.clip(lower=0.0)
+            # exp decay: weight multiplier ∈ (0, 1], = 0.5 at half_life_days
+            _decay = np.exp(-np.log(2.0) * _days_ago / time_decay_half_life_days)
+            _decay_map: dict[int, float] = _decay.to_dict()
+            _src_d = collapsed_edges["src_user_id"].map(_decay_map).fillna(1.0).to_numpy()
+            _dst_d = collapsed_edges["dst_user_id"].map(_decay_map).fillna(1.0).to_numpy()
+            # Edge weight = base_weight × min(decay_src, decay_dst)
+            # min() ensures the edge is as stale as the stalest participant
+            collapsed_edges = collapsed_edges.copy()
+            collapsed_edges["weight"] = (
+                collapsed_edges["weight"].to_numpy() * np.minimum(_src_d, _dst_d)
+            ).astype("float32")
+            print(f"  [edge_time_decay] half_life={time_decay_half_life_days}d; "
+                  f"mean_decay={np.minimum(_src_d, _dst_d).mean():.3f} "
+                  f"(edges={len(collapsed_edges)})")
 
     component_id_by_user = _component_id_map(user_ids, collapsed_edges[["src_user_id", "dst_user_id"]].drop_duplicates())
     combined_neighbors, neighbors_by_type = _neighbor_maps(collapsed_edges)
