@@ -270,3 +270,6 @@ def score_latest_snapshot() -> pd.DataFrame:
 
 if __name__ == "__main__":
     print(score_latest_snapshot().head())
+
+# Alias for plan compatibility: score_latest_snapshot_v2 → score_latest_snapshot
+score_latest_snapshot_v2 = score_latest_snapshot

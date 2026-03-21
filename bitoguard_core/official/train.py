@@ -197,14 +197,24 @@ def run_transductive_oof_pipeline(
                 import warnings
                 warnings.warn(f"Base B fold {fold_id}: probabilities collapsed (mean={vb.mean():.6f}, max={vb.max():.6f})")
 
-        graph_fit = train_graphsage_model(
-            graph,
-            label_frame=label_frame,
-            train_user_ids=train_users,
-            valid_user_ids=valid_users,
-            max_epochs=graph_max_epochs,
-            hidden_dim=128,
-        )
+        import os as _gnn_os
+        if _gnn_os.environ.get("SKIP_GNN", "0") == "1":
+            from official.graph_model import GraphModelFitResult as _GFR
+            graph_fit = _GFR(
+                model_state={"metadata": {"user_ids": graph.user_ids, "max_epochs": 0, "hidden_dim": 128, "user_feature_columns": [], "best_epoch": 0}},
+                model_meta={"user_ids": graph.user_ids, "max_epochs": 0, "hidden_dim": 128, "user_feature_columns": [], "best_epoch": 0},
+                full_probabilities=np.zeros(len(graph.user_ids), dtype=np.float32),
+                validation_probabilities=np.zeros(len(valid_users)),
+            )
+        else:
+            graph_fit = train_graphsage_model(
+                graph,
+                label_frame=label_frame,
+                train_user_ids=train_users,
+                valid_user_ids=valid_users,
+                max_epochs=graph_max_epochs,
+                hidden_dim=128,
+            )
         try:
             import torch as _torch
             if _torch.cuda.is_available():
@@ -336,14 +346,24 @@ def train_official_model() -> dict[str, Any]:
     base_e_final = _base_e_finals[0]
 
     graph_epochs = int(np.median([item["graph_best_epoch"] + 1 for item in fold_training_meta])) if fold_training_meta else 40
-    graph_final = train_graphsage_model(
-        graph,
-        label_frame=label_frame,
-        train_user_ids=labeled_user_ids,
-        valid_user_ids=None,
-        max_epochs=max(FINAL_GRAPH_MIN_EPOCHS, graph_epochs),
-        hidden_dim=128,
-    )
+    import os as _gnn_os2
+    if _gnn_os2.environ.get("SKIP_GNN", "0") == "1":
+        from official.graph_model import GraphModelFitResult as _GFR2
+        graph_final = _GFR2(
+            model_state={"metadata": {"user_ids": graph.user_ids, "max_epochs": 0, "hidden_dim": 128, "user_feature_columns": [], "best_epoch": 0}},
+            model_meta={"user_ids": graph.user_ids, "max_epochs": 0, "hidden_dim": 128, "user_feature_columns": [], "best_epoch": 0},
+            full_probabilities=np.zeros(len(graph.user_ids), dtype=np.float32),
+            validation_probabilities=None,
+        )
+    else:
+        graph_final = train_graphsage_model(
+            graph,
+            label_frame=label_frame,
+            train_user_ids=labeled_user_ids,
+            valid_user_ids=None,
+            max_epochs=max(FINAL_GRAPH_MIN_EPOCHS, graph_epochs),
+            hidden_dim=128,
+        )
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     base_a_paths = [paths.model_dir / f"official_catboost_base_a_seed{seed}_{timestamp}.pkl" for seed in _BASE_A_SEEDS]
