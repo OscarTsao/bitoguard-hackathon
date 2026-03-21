@@ -41,12 +41,13 @@ LABEL_FREE_EXCLUDED_COLUMNS = {
     "top_reason_codes",
 }
 
+import os as _os
 # Multi-seed ensembles — averaging reduces prediction variance by 1/sqrt(n).
-# ABLATION_FAST: reduced seeds for faster ablation runs (~200s savings/exp).
-# Restore to [42,52,62,72] / [42,123,456] / [42,123] for final submission.
-_BASE_A_SEEDS = [42, 52]          # CatBoost: 2 seeds (ablation fast)
-_BASE_D_SEEDS = [42]              # LightGBM: 1 seed (ablation fast)
-_BASE_E_SEEDS = [42]              # XGBoost: 1 seed (ablation fast)
+# Set ABLATION_FAST=1 to use reduced seeds for quick screening (~300s/exp saved).
+_FAST = _os.environ.get("ABLATION_FAST", "0") == "1"
+_BASE_A_SEEDS = [42, 52] if _FAST else [42, 52, 62, 72]    # CatBoost: 2 (fast) / 4 (full)
+_BASE_D_SEEDS = [42] if _FAST else [42, 123, 456]           # LightGBM: 1 (fast) / 3 (full)
+_BASE_E_SEEDS = [42] if _FAST else [42, 123]                # XGBoost:  1 (fast) / 2 (full)
 
 PRIMARY_GRAPH_MAX_EPOCHS = 40
 FINAL_GRAPH_MIN_EPOCHS = 10
@@ -226,18 +227,28 @@ def run_transductive_oof_pipeline(
         _all_labeled_ids = set(train_users) | set(valid_users)
         _unlabeled_frame = label_free_frame[~label_free_frame["user_id"].astype(int).isin(_all_labeled_ids)]
         if len(_unlabeled_frame) > 0:
-            # ABLATION_FAST: use single model for C&S init (C&S smoothing averages out noise).
-            _unlabeled_a_probs = _base_a_models[0].predict_proba(_unlabeled_frame[base_a_feature_columns])[:, 1]
+            import os as _uf_os
+            if _uf_os.environ.get("ABLATION_FAST", "0") == "1":
+                # Fast mode: single model for C&S init (smoothing averages out noise).
+                _unlabeled_a_probs = _base_a_models[0].predict_proba(_unlabeled_frame[base_a_feature_columns])[:, 1]
+            else:
+                _unlabeled_a_probs = np.mean(
+                    [m.predict_proba(_unlabeled_frame[base_a_feature_columns])[:, 1] for m in _base_a_models],
+                    axis=0,
+                )
             for _uid, _prob in zip(_unlabeled_frame["user_id"].astype(int), _unlabeled_a_probs):
                 _cs_base_probs[int(_uid)] = float(_prob)
         _cs_train_labels: dict[int, float] = dict(zip(
             fold_train_labels["user_id"].astype(int),
             fold_train_labels["status"].astype(float),
         ))
+        import os as _cs_os
+        _cs_fast = _cs_os.environ.get("ABLATION_FAST", "0") == "1"
         _cs_result = correct_and_smooth(
             graph, _cs_train_labels, _cs_base_probs,
             alpha_correct=0.5, alpha_smooth=0.5,
-            n_correct_iter=30, n_smooth_iter=30,  # ABLATION_FAST: 30 iters sufficient (alpha=0.5 → 1e-9 residual)
+            n_correct_iter=30 if _cs_fast else 50,
+            n_smooth_iter=30 if _cs_fast else 50,
             restore_isolated_top_pct=cs_restore_top_pct,
         )
         _val_ids = valid_label_free["user_id"].astype(int).tolist()

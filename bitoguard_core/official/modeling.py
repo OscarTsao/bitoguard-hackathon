@@ -120,9 +120,11 @@ def fit_catboost(
         if runtime_params["task_type"] == "CPU":
             runtime_params.pop("devices", None)
             runtime_params["thread_count"] = hardware_profile().cpu_threads
-    _iters = int(hp.pop("iterations", 800))   # ABLATION_FAST: 800 (restore 1500 for final submission)
-    _esr = int(hp.pop("early_stopping_rounds", 50))   # ABLATION_FAST: 50 (restore 100 for final)
-    _depth = int(hp.pop("depth", 6))   # ABLATION_FAST: 6 (restore 7 for final; halves GPU tree cost)
+    import os as _cb_os
+    _cb_fast = _cb_os.environ.get("ABLATION_FAST", "0") == "1"
+    _iters = int(hp.pop("iterations", 800 if _cb_fast else 1500))
+    _esr = int(hp.pop("early_stopping_rounds", 50 if _cb_fast else 100))
+    _depth = int(hp.pop("depth", 6 if _cb_fast else 7))
     _lr = float(hp.pop("learning_rate", 0.05))
     _l2 = float(hp.pop("l2_leaf_reg", 3.0))
     _bc = int(hp.pop("border_count", 254))
