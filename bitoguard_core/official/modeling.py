@@ -120,11 +120,9 @@ def fit_catboost(
         if runtime_params["task_type"] == "CPU":
             runtime_params.pop("devices", None)
             runtime_params["thread_count"] = hardware_profile().cpu_threads
-    import os as _cb_os
-    _cb_fast = _cb_os.environ.get("ABLATION_FAST", "0") == "1"
-    _iters = int(hp.pop("iterations", 800 if _cb_fast else 1500))
-    _esr = int(hp.pop("early_stopping_rounds", 50 if _cb_fast else 100))
-    _depth = int(hp.pop("depth", 6 if _cb_fast else 7))
+    _iters = int(hp.pop("iterations", 1500))
+    _esr = int(hp.pop("early_stopping_rounds", 100))
+    _depth = int(hp.pop("depth", 7))
     _lr = float(hp.pop("learning_rate", 0.05))
     _l2 = float(hp.pop("l2_leaf_reg", 3.0))
     _bc = int(hp.pop("border_count", 254))
@@ -134,7 +132,6 @@ def fit_catboost(
         iterations=_iters,
         random_seed=random_seed,
         verbose=False,
-        max_ctr_complexity=1,  # Prevents expensive multi-feature CTR combos on GPU
         class_weights=[1.0, _weight_ratio],
         depth=_depth,
         learning_rate=_lr,
