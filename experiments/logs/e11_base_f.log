@@ -1,0 +1,597 @@
+/home/user/bitoguard-hackathon/bitoguard_core/official/features.py:320: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["twd_net_amount"] = features["twd_deposit_sum"] - features["twd_withdraw_sum"]
+/home/user/bitoguard-hackathon/bitoguard_core/official/features.py:321: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["twd_in_out_ratio"] = safe_ratio(features["twd_deposit_sum"], features["twd_withdraw_sum"])
+/home/user/bitoguard-hackathon/bitoguard_core/official/features.py:322: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["twd_withdraw_concentration"] = safe_ratio(features["twd_withdraw_max"], features["twd_withdraw_sum"])
+/home/user/bitoguard-hackathon/bitoguard_core/official/features.py:323: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["crypto_net_amount"] = features["crypto_deposit_sum"] - features["crypto_withdraw_sum"]
+/home/user/bitoguard-hackathon/bitoguard_core/official/features.py:324: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["crypto_in_out_ratio"] = safe_ratio(features["crypto_deposit_sum"], features["crypto_withdraw_sum"])
+/home/user/bitoguard-hackathon/bitoguard_core/official/features.py:325: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["relation_fan_out_ratio"] = safe_ratio(features["relation_unique_counterparty_count"], features["relation_transfer_count"])
+/home/user/bitoguard-hackathon/bitoguard_core/official/features.py:326: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["trade_buy_sell_ratio"] = safe_ratio(features["order_buy_sum"], features["order_sell_sum"])
+/home/user/bitoguard-hackathon/bitoguard_core/official/features.py:327: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["swap_buy_sell_ratio"] = safe_ratio(features["swap_buy_sum"], features["swap_sell_sum"])
+/home/user/bitoguard-hackathon/bitoguard_core/official/features.py:328: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["activity_days_total"] = features[["twd_active_days", "crypto_active_days", "trade_active_days", "swap_active_days"]].sum(axis=1)
+/home/user/bitoguard-hackathon/bitoguard_core/official/features.py:329: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["night_activity_ratio"] = (
+/home/user/bitoguard-hackathon/bitoguard_core/official/features.py:336: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["fast_cashout_24h_flag"] = (features["fast_cashout_24h_count"] > 0).astype(int)
+/home/user/bitoguard-hackathon/bitoguard_core/official/features.py:337: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["fast_cashout_72h_flag"] = (features["fast_cashout_72h_count"] > 0).astype(int)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:71: FutureWarning: Downcasting behavior in `replace` is deprecated and will be removed in a future version. To retain the old behavior, explicitly call `result.infer_objects(copy=False)`. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  return (numerator / denominator).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/features.py:352: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  features["xch_cashout_ratio_7d"] = safe_ratio(cwd_7d, dep_7d + 1.0)
+/home/user/bitoguard-hackathon/bitoguard_core/features/typology_features.py:34: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  return base[col].fillna(fill)
+/home/user/bitoguard-hackathon/bitoguard_core/features/typology_features.py:34: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  return base[col].fillna(fill)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+/home/user/bitoguard-hackathon/bitoguard_core/shared/aws_common.py:79: FutureWarning: The behavior of Index.insert with object-dtype is deprecated, in a future version this will return an object-dtype Index instead of inferring a non-object dtype. To retain the old behavior, do `idx.insert(loc, item).infer_objects(copy=False)`
+  encoded = pd.get_dummies(frame[columns].copy(), dummy_na=True)
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 15.5s
+[_load_dataset] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 9.5s
+[_load_dataset] Temporal features: 23 cols added
+[_load_dataset] Community features skipped: community disabled
+  [fold 0] Base F: 25 seq/temp features, val_mean=0.1643
+[fold 0] GNN skipped (SKIP_GNN=1)
+  [fold 1] Base F: 25 seq/temp features, val_mean=0.1810
+[fold 1] GNN skipped (SKIP_GNN=1)
+  [fold 2] Base F: 25 seq/temp features, val_mean=0.1785
+[fold 2] GNN skipped (SKIP_GNN=1)
+  [fold 3] Base F: 25 seq/temp features, val_mean=0.1803
+[fold 3] GNN skipped (SKIP_GNN=1)
+  [fold 4] Base F: 25 seq/temp features, val_mean=0.1730
+[fold 4] GNN skipped (SKIP_GNN=1)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:225: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:228: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.4261, weights={'base_e_probability': 0.25, 'base_c_s_probability': 0.10000000149011612, 'base_cs_x_anomaly': 0.6499999761581421}
+[stacker] CatBoost stacker peak OOF F1=0.4191
+[stacker] Selected BlendEnsemble (F1=0.4261)
+[final] GNN skipped (SKIP_GNN=1)
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 14.8s
+[_load_dataset] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 10.0s
+[_load_dataset] Temporal features: 23 cols added
+[_load_dataset] Community features skipped: community disabled
+  [fold 0] Base F: 25 seq/temp features, val_mean=0.1684
+[fold 0] GNN skipped (SKIP_GNN=1)
+  [fold 1] Base F: 25 seq/temp features, val_mean=0.1677
+[fold 1] GNN skipped (SKIP_GNN=1)
+  [fold 2] Base F: 25 seq/temp features, val_mean=0.1551
+[fold 2] GNN skipped (SKIP_GNN=1)
+  [fold 3] Base F: 25 seq/temp features, val_mean=0.1629
+[fold 3] GNN skipped (SKIP_GNN=1)
+  [fold 4] Base F: 25 seq/temp features, val_mean=0.2185
+[fold 4] GNN skipped (SKIP_GNN=1)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:225: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:228: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.4280, weights={'base_e_probability': 0.10000000149011612, 'base_d_probability': 0.20000000298023224, 'base_c_s_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.6499999761581421}
+[stacker] CatBoost stacker peak OOF F1=0.4026
+[stacker] Selected BlendEnsemble (F1=0.4280)
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 14.6s
+[_load_dataset] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 9.9s
+[_load_dataset] Temporal features: 23 cols added
+[_load_dataset] Community features skipped: community disabled
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/user/bitoguard-hackathon/bitoguard_core/official/pipeline.py", line 33, in <module>
+    main()
+    ~~~~^^
+  File "/home/user/bitoguard-hackathon/bitoguard_core/official/pipeline.py", line 29, in main
+    print(run_official_pipeline())
+          ~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/user/bitoguard-hackathon/bitoguard_core/official/pipeline.py", line 19, in run_official_pipeline
+    predictions = score_official_predict()
+  File "/home/user/bitoguard-hackathon/bitoguard_core/official/score.py", line 34, in score_official_predict
+    graph_model_state = load_graph_model(Path(bundle["graph_model_path"]))
+  File "/home/user/bitoguard-hackathon/bitoguard_core/official/graph_model.py", line 250, in load_graph_model
+    return torch.load(path, map_location="cpu")
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/miniconda3/envs/bitoguard/lib/python3.13/site-packages/torch/serialization.py", line 1484, in load
+    with _open_file_like(f, "rb") as opened_file:
+         ~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/home/user/miniconda3/envs/bitoguard/lib/python3.13/site-packages/torch/serialization.py", line 759, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+  File "/home/user/miniconda3/envs/bitoguard/lib/python3.13/site-packages/torch/serialization.py", line 740, in __init__
+    super().__init__(open(name, mode))
+                     ~~~~^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'models/official_graphsage_20260322T082802Z.pt'
+  File "<string>", line 10
+    print(f"E11 Primary  F1={m[\"f1\"]:.4f} AP={m[\"average_precision\"]:.4f}")
+                                ^
+SyntaxError: unexpected character after line continuation character
+  File "/home/user/bitoguard-hackathon/bitoguard_core/run_e11_score.py", line 13
+    print(f"E11 Primary  F1={m[\"f1\"]:.4f} AP={m[\"average_precision\"]:.4f}")
+                                ^
+SyntaxError: unexpected character after line continuation character
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 14.7s
+[_load_dataset] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 9.4s
+[_load_dataset] Temporal features: 23 cols added
+[_load_dataset] Community features skipped: community disabled
+Scored 12753 users
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 15.1s
+[_load_dataset] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 9.7s
+[_load_dataset] Temporal features: 23 cols added
+[_load_dataset] Community features skipped: community disabled
+  [fold 0] Base F: 25 seq/temp features, val_mean=0.1684
+[fold 0] GNN skipped (SKIP_GNN=1)
+  [fold 1] Base F: 25 seq/temp features, val_mean=0.1677
+[fold 1] GNN skipped (SKIP_GNN=1)
+  [fold 2] Base F: 25 seq/temp features, val_mean=0.1551
+[fold 2] GNN skipped (SKIP_GNN=1)
+  [fold 3] Base F: 25 seq/temp features, val_mean=0.1629
+[fold 3] GNN skipped (SKIP_GNN=1)
+  [fold 4] Base F: 25 seq/temp features, val_mean=0.2185
+[fold 4] GNN skipped (SKIP_GNN=1)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:225: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:228: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[stacker] BlendEnsemble peak OOF F1=0.4279, weights={'base_e_probability': 0.10000000149011612, 'base_d_probability': 0.20000000298023224, 'base_c_s_probability': 0.05000000074505806, 'base_cs_x_anomaly': 0.6499999761581421}
+[stacker] CatBoost stacker peak OOF F1=0.4033
+[stacker] Selected BlendEnsemble (F1=0.4279)
+E11 Primary  F1=0.4319 AP=0.3753
+E11 Secondary F1=0.3956

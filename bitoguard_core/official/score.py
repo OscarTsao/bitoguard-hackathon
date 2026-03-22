@@ -31,7 +31,12 @@ def score_official_predict() -> pd.DataFrame:
     base_a_paths = bundle["base_model_paths"].get("base_a_catboost_seeds") or [bundle["base_model_paths"]["base_a_catboost"]]
     base_a_models = [load_pickle(Path(p)) for p in base_a_paths]
     base_b_model = load_pickle(Path(bundle["base_model_paths"]["base_b_catboost"]))
-    graph_model_state = load_graph_model(Path(bundle["graph_model_path"]))
+    _skip_gnn = __import__("os").environ.get("SKIP_GNN", "0") == "1"
+    _graph_path = Path(bundle["graph_model_path"])
+    if _skip_gnn or not _graph_path.exists():
+        graph_model_state = None
+    else:
+        graph_model_state = load_graph_model(_graph_path)
     stacker_model = load_pickle(Path(bundle["stacker_path"]))
     calibrator = load_pickle(Path(bundle["calibrator"]["calibrator_path"]))
 
@@ -47,12 +52,11 @@ def score_official_predict() -> pd.DataFrame:
     # Base B: transductive CatBoost
     base_b_probability = base_b_model.predict_proba(scoring_transductive[base_b_cols])[:, 1]
 
-    # Base C: GraphSAGE (skipped when SKIP_GNN=1)
-    import os as _skip_gnn_os
-    if _skip_gnn_os.environ.get("SKIP_GNN", "0") == "1" or not graph_model_state.get("state_dict"):
-        graph_probability_frame = pd.DataFrame({"user_id": graph.user_ids, "graph_probability": np.zeros(len(graph.user_ids), dtype=np.float32)})
-    else:
+    # Base C: GraphSAGE
+    if graph_model_state is not None:
         graph_probability_frame = predict_graph_model(graph, graph_model_state)
+    else:
+        graph_probability_frame = pd.DataFrame({"user_id": scoring_label_free["user_id"], "graph_probability": 0.0})
 
     # Base D: LightGBM multi-seed
     base_d_paths = bundle["base_model_paths"].get("base_d_lgbm_seeds") or [bundle["base_model_paths"].get("base_d_lgbm")]
