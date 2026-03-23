@@ -158,6 +158,7 @@ def run_transductive_oof_pipeline(
     base_a_feature_columns: list[str],
     base_b_feature_columns: list[str] | None = None,
     graph_max_epochs: int = 40,
+    tx_user_scores: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
     label_frame = _label_frame(dataset)
     assignments = iter_fold_assignments(split_frame, fold_column)
@@ -304,6 +305,17 @@ def run_transductive_oof_pipeline(
         fold_frame["base_c_probability"] = np.asarray(graph_fit.validation_probabilities, dtype=float)
         fold_frame["base_d_probability"] = np.asarray(base_d_fit.validation_probabilities, dtype=float)
         fold_frame["base_e_probability"] = np.asarray(base_e_fit.validation_probabilities, dtype=float)
+        if tx_user_scores is not None and not tx_user_scores.empty:
+            _tx_cols_to_add = ["max_tx_risk", "mean_tx_risk", "p95_tx_risk", "high_risk_tx_ratio"]
+            _valid_uids = set(valid_label_free["user_id"].astype(int))
+            _tx_valid = tx_user_scores[tx_user_scores["user_id"].isin(_valid_uids)]
+            if not _tx_valid.empty:
+                _tx_map = _tx_valid.set_index("user_id")
+                for _col in _tx_cols_to_add:
+                    if _col in _tx_map.columns:
+                        fold_frame[_col] = fold_frame["user_id"].astype(int).map(_tx_map[_col]).fillna(0.0).values
+            if "max_tx_risk" in fold_frame.columns:
+                fold_frame["base_g_probability"] = fold_frame["max_tx_risk"]
         fold_frame["rule_score"] = pd.to_numeric(valid_label_free["rule_score"], errors="coerce").fillna(0.0).to_numpy() if "rule_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
         fold_frame["anomaly_score"] = pd.to_numeric(valid_label_free["anomaly_score"], errors="coerce").fillna(0.0).to_numpy() if "anomaly_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
         fold_frame["crypto_anomaly_score"] = pd.to_numeric(valid_label_free["crypto_anomaly_score"], errors="coerce").fillna(0.0).to_numpy() if "crypto_anomaly_score" in valid_label_free.columns else np.zeros(len(valid_label_free))
@@ -342,6 +354,24 @@ def train_official_model() -> dict[str, Any]:
     sample_transductive = build_transductive_feature_frame(graph, _label_frame(dataset))
     base_b_feature_columns = base_a_feature_columns + _transductive_feature_columns(sample_transductive)
 
+    # Base G: Transaction-level model (pre-compute OOF if ENABLE_TX_MODEL=1)
+    _tx_user_scores = None
+    if __import__("os").environ.get("ENABLE_TX_MODEL", "0") == "1":
+        try:
+            from official.tx_features import build_tx_features
+            from official.tx_model import train_tx_model_oof
+            _data_dir = Path(__import__("os").environ.get("BITOGUARD_AWS_EVENT_CLEAN_DIR", "data/aws_event/clean"))
+            print("[Base G] Building transaction features...", flush=True)
+            _tx_feats, _tx_cols = build_tx_features(_data_dir)
+            _tx_user_scores = train_tx_model_oof(
+                _tx_feats, _tx_cols, _label_frame(dataset), primary_split, "primary_fold"
+            )
+            print(f"[Base G] TX model: {len(_tx_user_scores)} user scores computed", flush=True)
+        except Exception as _tx_e:
+            import traceback
+            print(f"[Base G] TX model failed: {_tx_e}", flush=True)
+            traceback.print_exc()
+
     primary_oof, fold_training_meta = run_transductive_oof_pipeline(
         dataset,
         graph,
@@ -350,6 +380,7 @@ def train_official_model() -> dict[str, Any]:
         base_a_feature_columns=base_a_feature_columns,
         base_b_feature_columns=base_b_feature_columns,
         graph_max_epochs=PRIMARY_GRAPH_MAX_EPOCHS,
+        tx_user_scores=_tx_user_scores,
     )
     primary_oof, stacker_model = build_stacker_oof(primary_oof, primary_split, fold_column="primary_fold", use_blend=True)
     primary_oof.to_parquet(artifacts["oof"], index=False)

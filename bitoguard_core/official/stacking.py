@@ -46,6 +46,9 @@ STACKER_FEATURE_COLUMNS = [
     "cs_deficit",
     "base_cs_x_crypto_anomaly",
     "base_a_x_crypto_anomaly",
+    "base_g_probability",
+    "base_g_x_cs",
+    "base_g_x_anomaly",
 ]
 
 _BLEND_CANDIDATE_COLUMNS = [
@@ -59,11 +62,13 @@ _BLEND_CANDIDATE_COLUMNS = [
     "base_cs_x_anomaly",
     "base_cs_x_crypto_anomaly",
     "anomaly_score_segmented",
+    "base_g_probability",
 ]
 
 _BASE_PROB_COLUMNS = [
     "base_a_probability", "base_c_s_probability", "base_b_probability",
     "base_c_probability", "base_d_probability", "base_e_probability",
+    "base_g_probability",
 ]
 
 # Minimum AP threshold to include a model in the blend.
@@ -142,6 +147,9 @@ def _add_base_meta_features(frame: pd.DataFrame) -> pd.DataFrame:
     frame["cs_deficit"] = (a - cs).astype(np.float32)
     frame["base_cs_x_crypto_anomaly"] = (cs * crypto_anomaly).astype(np.float32)
     frame["base_a_x_crypto_anomaly"] = (a * crypto_anomaly).astype(np.float32)
+    g_prob = pd.to_numeric(frame.get("base_g_probability", pd.Series(0.0, index=frame.index)), errors="coerce").fillna(0.0)
+    frame["base_g_x_cs"] = (g_prob * cs).astype(np.float32)
+    frame["base_g_x_anomaly"] = (g_prob * anomaly).astype(np.float32)
     return frame
 
 
