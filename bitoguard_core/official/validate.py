@@ -90,13 +90,8 @@ def validate_official_model() -> dict[str, Any]:
         selected_threshold,
     )
 
-    # Load HPO params for secondary validation consistency with primary
+    # Bug fix: don't load stale HPO params - use same defaults as primary
     catboost_params = None
-    try:
-        from official.hpo import load_hpo_best_params
-        catboost_params = load_hpo_best_params()
-    except Exception:
-        pass
 
     # Release GPU memory from primary OOF training before secondary OOF to
     # prevent CatBoost CUDA OOM (GPU is saturated after primary + final training).
@@ -111,7 +106,7 @@ def validate_official_model() -> dict[str, Any]:
 
     # v34: Allow secondary OOF to use GPU — cuda.empty_cache() + gc.collect()
     # above releases primary training memory. GPU reduces secondary OOF from 45+ min to ~5 min.
-    secondary_catboost_params = dict(catboost_params or {})
+    # secondary uses same defaults as primary (bug fix)
 
     secondary_split = build_secondary_strict_splits(dataset, cutoff_tag="full", write_outputs=True)
     graph = build_transductive_graph(dataset)
@@ -125,7 +120,6 @@ def validate_official_model() -> dict[str, Any]:
         base_a_feature_columns=base_a_feature_columns,
         base_b_feature_columns=base_b_feature_columns,
         graph_max_epochs=PRIMARY_GRAPH_MAX_EPOCHS,
-        catboost_params=secondary_catboost_params,
     )
     secondary_oof, _ = build_stacker_oof(
         secondary_oof,
