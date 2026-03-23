@@ -110,7 +110,7 @@ def fit_catboost(
     # Solution: Logloss + class_weights handles imbalance cleanly.
     # focal_gamma param is accepted but ignored (kept for API compatibility).
     hp = dict(catboost_params or {})
-    _max_cw = hp.pop("max_class_weight", 10.0)
+    _max_cw = float(__import__("os").environ.get("CB_MAX_CLASS_WEIGHT", str(hp.pop("max_class_weight", 10.0))))
     _weight_ratio = min(negatives / positives, float(_max_cw))
     runtime_params = catboost_runtime_params()
     # Override task_type from catboost_params (e.g. force CPU for Base B).

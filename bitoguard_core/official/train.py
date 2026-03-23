@@ -132,7 +132,13 @@ def _label_frame(dataset: pd.DataFrame) -> pd.DataFrame:
 
 def _label_free_feature_columns(dataset: pd.DataFrame) -> list[str]:
     non_null = {col for col in dataset.columns if not dataset[col].isna().all()}
-    return [column for column in dataset.columns if column not in LABEL_FREE_EXCLUDED_COLUMNS and column in non_null]
+    cols = [column for column in dataset.columns if column not in LABEL_FREE_EXCLUDED_COLUMNS and column in non_null]
+    _prune = __import__("os").environ.get("PRUNE_FEATURES", "")
+    if _prune:
+        _exclude = set(_prune.split(","))
+        cols = [c for c in cols if c not in _exclude]
+        print(f"[features] Pruned {len(_exclude)} features, {len(cols)} remaining", flush=True)
+    return cols
 
 
 def _transductive_feature_columns(frame: pd.DataFrame) -> list[str]:
@@ -173,6 +179,23 @@ def run_transductive_oof_pipeline(
         train_transductive = with_transductive_frame[with_transductive_frame["user_id"].astype(int).isin(train_users)].copy()
         valid_transductive = with_transductive_frame[with_transductive_frame["user_id"].astype(int).isin(valid_users)].copy()
 
+
+        # ── Negative downsampling ──
+        import os as _ds_os
+        _ds_ratio = float(_ds_os.environ.get("NEG_DOWNSAMPLE_RATIO", "0"))
+        if _ds_ratio > 0:
+            _pos = train_label_free[train_label_free["status"].astype(int) == 1]
+            _neg = train_label_free[train_label_free["status"].astype(int) == 0]
+            _n_target = int(len(_pos) * _ds_ratio)
+            if _n_target < len(_neg):
+                _neg = _neg.sample(n=_n_target, random_state=42+fold_id)
+                train_label_free = pd.concat([_pos, _neg]).sort_values("user_id").reset_index(drop=True)
+                _ds_uids = set(train_label_free["user_id"].astype(int))
+                train_transductive = train_transductive[
+                    train_transductive["user_id"].astype(int).isin(_ds_uids)
+                ].copy()
+                print(f"  [fold {fold_id}] Downsampled: {len(_pos)}+ {len(_neg)}- (1:{_ds_ratio:.0f})", flush=True)
+
         # Multi-seed CatBoost ensemble for Base A (4 seeds, reduces variance ~50%).
         _base_a_val_probs = []
         _base_a_models = []
@@ -210,10 +233,12 @@ def run_transductive_oof_pipeline(
 
         # Multi-seed XGBoost ensemble for Base E (2 seeds).
         _base_e_val_probs = []
+        _base_e_models = []
         _base_e_fit = None
         for _seed_e in _BASE_E_SEEDS:
             _base_e_fit = fit_xgboost(train_label_free, valid_label_free, base_a_feature_columns, random_seed=_seed_e)
             _base_e_val_probs.append(_base_e_fit.validation_probabilities)
+            _base_e_models.append(_base_e_fit.model)
         base_e_fit = type(_base_e_fit)(
             model_name=_base_e_fit.model_name,
             model=_base_e_fit.model,
@@ -260,26 +285,56 @@ def run_transductive_oof_pipeline(
             except Exception:
                 pass
 
-        # Correct-and-Smooth (C&S): graph post-processing on Base A OOF probs.
-        _train_a_probs = np.mean(
-            [m.predict_proba(train_label_free[base_a_feature_columns])[:, 1] for m in _base_a_models],
-            axis=0,
-        )
+        # Correct-and-Smooth (C&S): graph post-processing.
+        # Always compute Base A val probs (needed for fold_frame regardless of C&S source)
         _val_a_probs = np.asarray(base_a_fit.validation_probabilities, dtype=float)
+        # E27: CS_SOURCE selects which base model feeds C&S (default: base_a)
+        import os as _cs_os
+        _cs_source = _cs_os.environ.get("CS_SOURCE", "base_a")
+        _cs_alpha_c = float(_cs_os.environ.get("CS_ALPHA_CORRECT", "0.5"))
+        _cs_alpha_s = float(_cs_os.environ.get("CS_ALPHA_SMOOTH", "0.5"))
+        _cs_n_correct = int(_cs_os.environ.get("CS_N_CORRECT", "50"))
+        _cs_n_smooth = int(_cs_os.environ.get("CS_N_SMOOTH", "50"))
+
+        if _cs_source == "base_e":
+            from official.common import encode_frame as _cs_encode
+            _cs_enc_cols = base_e_fit.encoded_columns
+            _cs_x_train, _ = _cs_encode(train_label_free, base_a_feature_columns, reference_columns=_cs_enc_cols)
+            _cs_train_probs = np.mean(
+                [m.predict_proba(_cs_x_train)[:, 1] for m in _base_e_models],
+                axis=0,
+            )
+            _cs_val_probs_raw = np.asarray(base_e_fit.validation_probabilities, dtype=float)
+            if fold_id == 0:
+                print(f"  C&S source: Base E (XGBoost, {len(_base_e_models)} seeds)", flush=True)
+        else:
+            _cs_train_probs = np.mean(
+                [m.predict_proba(train_label_free[base_a_feature_columns])[:, 1] for m in _base_a_models],
+                axis=0,
+            )
+            _cs_val_probs_raw = np.asarray(base_a_fit.validation_probabilities, dtype=float)
+
         _cs_base_probs: dict[int, float] = {}
-        for _uid, _prob in zip(train_label_free["user_id"].astype(int), _train_a_probs):
+        for _uid, _prob in zip(train_label_free["user_id"].astype(int), _cs_train_probs):
             _cs_base_probs[int(_uid)] = float(_prob)
-        for _uid, _prob in zip(valid_label_free["user_id"].astype(int), _val_a_probs):
+        for _uid, _prob in zip(valid_label_free["user_id"].astype(int), _cs_val_probs_raw):
             _cs_base_probs[int(_uid)] = float(_prob)
         # Include unlabeled users in C&S base_probs so their fraud signal propagates.
         _all_labeled_ids = set(train_users) | set(valid_users)
         _unlabeled_frame = label_free_frame[~label_free_frame["user_id"].astype(int).isin(_all_labeled_ids)]
         if len(_unlabeled_frame) > 0:
-            _unlabeled_a_probs = np.mean(
-                [m.predict_proba(_unlabeled_frame[base_a_feature_columns])[:, 1] for m in _base_a_models],
-                axis=0,
-            )
-            for _uid, _prob in zip(_unlabeled_frame["user_id"].astype(int), _unlabeled_a_probs):
+            if _cs_source == "base_e":
+                _cs_x_unlabeled, _ = _cs_encode(_unlabeled_frame, base_a_feature_columns, reference_columns=_cs_enc_cols)
+                _unlabeled_cs_probs = np.mean(
+                    [m.predict_proba(_cs_x_unlabeled)[:, 1] for m in _base_e_models],
+                    axis=0,
+                )
+            else:
+                _unlabeled_cs_probs = np.mean(
+                    [m.predict_proba(_unlabeled_frame[base_a_feature_columns])[:, 1] for m in _base_a_models],
+                    axis=0,
+                )
+            for _uid, _prob in zip(_unlabeled_frame["user_id"].astype(int), _unlabeled_cs_probs):
                 _cs_base_probs[int(_uid)] = float(_prob)
         _cs_train_labels: dict[int, float] = dict(zip(
             fold_train_labels["user_id"].astype(int),
@@ -287,12 +342,12 @@ def run_transductive_oof_pipeline(
         ))
         _cs_result = correct_and_smooth(
             graph, _cs_train_labels, _cs_base_probs,
-            alpha_correct=0.5, alpha_smooth=0.5,
-            n_correct_iter=50, n_smooth_iter=50,
+            alpha_correct=_cs_alpha_c, alpha_smooth=_cs_alpha_s,
+            n_correct_iter=_cs_n_correct, n_smooth_iter=_cs_n_smooth,
         )
         _val_ids = valid_label_free["user_id"].astype(int).tolist()
         _cs_val_probs = np.array(
-            [_cs_result.get(int(_uid), float(_p)) for _uid, _p in zip(_val_ids, _val_a_probs)],
+            [_cs_result.get(int(_uid), float(_p)) for _uid, _p in zip(_val_ids, _cs_val_probs_raw)],
             dtype=float,
         )
 
