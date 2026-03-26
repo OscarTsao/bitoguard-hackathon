@@ -1,0 +1,19 @@
+{
+  "description": "E15 honest evaluation — inner-fold selection eliminates blend/calibration/threshold in-sample bias",
+  "source_oof": "official_oof_predictions_e15.parquet (from user@140.123.102.5:~/bitoguard-hackathon/, Mar 25 10:37)",
+  "oof_rows": 51017,
+  "oof_positives": 1640,
+  "stacker_raw_best_f1": 0.4408,
+  "honest_f1": 0.4341,
+  "honest_precision": 0.4136,
+  "honest_recall": 0.4567,
+  "honest_ap": 0.3789,
+  "honest_threshold": 0.21,
+  "development_f1": 0.4408,
+  "bias": 0.0067,
+  "per_fold_thresholds": [0.19, 0.1793, 0.21, 0.23, 0.2143],
+  "per_fold_calibration_method": "isotonic",
+  "method": "inner_fold_selection.honest_oof_evaluation() — per-fold blend weight tuning + isotonic calibration + threshold search on train portion only",
+  "residual_bias_note": "XGBoost Base E uses HPO-tuned hyperparameters (commit d6d8197, 60 Optuna trials on primary OOF), introducing residual HPO selection bias estimated at ~0.001 F1. CatBoost and LightGBM use hand-tuned defaults.",
+  "evaluation_date": "2026-03-26"
+}
