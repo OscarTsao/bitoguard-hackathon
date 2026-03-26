@@ -1,0 +1,13 @@
+{
+  "outer_fold": 4,
+  "n_valid": 10203,
+  "n_positive": 328,
+  "best_f1": 0.35405405405405405,
+  "best_threshold": 0.18,
+  "precision": 0.3179611650485437,
+  "recall": 0.39939024390243905,
+  "auc_roc": 0.8772209015128125,
+  "average_precision": 0.3070254667451876,
+  "selection_threshold": 0.18,
+  "elapsed_s": 528.2
+}
