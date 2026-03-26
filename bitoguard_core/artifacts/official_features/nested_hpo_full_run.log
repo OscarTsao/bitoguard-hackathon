@@ -1,0 +1,1216 @@
+[nested_hpo 09:46:48] Loading dataset and building graph...
+[sequence_features] Building 20 features for 63770 users...
+[sequence_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[sequence_features] Done: 20 features, 727787 non-zero values, 12.2s
+[_load_dataset] Sequence features: 20 cols added
+[temporal_features] Building 23 features for 63770 users...
+[temporal_features] Loaded: twd=195601, crypto=239958, swap=53841, trade=217634
+[temporal_features] Done: 23 features, 7.8s
+[_load_dataset] Temporal features: 23 cols added
+[_load_dataset] Community features skipped: community disabled
+  [P0-2] entity filter: removed 0 sentinel edges, 18 mega-entities (>500 users)
+  [P0-2] entity filter: removed 46730 sentinel edges
+[nested_hpo 09:47:21] Loaded: 63770 users, 208 features (33s)
+[nested_hpo 09:47:21] Hardware: HardwareProfile(cpu_threads=20, gpu_available=True, gpu_enabled=True, gpu_count=1, gpu_device_id=0, gpu_name='NVIDIA GeForce RTX 5090', fold_workers=1, worker_cpu_threads=20)
+[nested_hpo 09:47:21] ============================================================
+[nested_hpo 09:47:21] Outer fold 0 starting
+[nested_hpo 09:47:21] ============================================================
+[nested_hpo 09:47:21] outer_train=40813, outer_valid=10204
+[nested_hpo 09:47:21] Stage 1: Inner folds + pre-cache...
+[nested_hpo 09:47:33]   Pre-cache inner fold 0...
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+[nested_hpo 09:49:38]   Pre-cache fold 0 done (126s)
+[nested_hpo 09:49:38]   Pre-cache inner fold 1...
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+[nested_hpo 09:51:44]   Pre-cache fold 1 done (126s)
+[nested_hpo 09:51:44] Stage 1 done (264s)
+[nested_hpo 09:51:44] Stage 2: Dual-stream HPO starting...
+[nested_hpo 09:51:44]   [GPU] CatBoost HPO starting...
+[nested_hpo 09:51:44]   [CPU] LightGBM HPO starting...
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[nested_hpo 10:07:54]   [GPU] CatBoost HPO done: F1=0.3686 (25 trials, 11 pruned, 970s)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[nested_hpo 10:09:25]   [CPU] LightGBM HPO done: F1=0.3657 (25 trials, 12 pruned, 1061s)
+[nested_hpo 10:09:25]   [GPU] XGBoost HPO skipped — locked to default params
+[nested_hpo 10:09:25] Stage 2 done (1061s)
+[nested_hpo 10:09:25] Stage 3: Final training starting...
+[nested_hpo 10:09:25]   3a: Inner 5-fold OOF on outer_train...
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+[nested_hpo 10:46:39]   3a done: inner OOF 40813 rows (2234s)
+[nested_hpo 10:46:39]   3b: Final multi-seed training...
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+[nested_hpo 11:01:40]   3b done (901s)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[nested_hpo 11:02:14] Stage 3 done: F1=0.3685 P=0.3278 R=0.4207 AP=0.2952 (3168s)
+[nested_hpo 11:02:14] Outer fold 0 done: F1=0.3685, total=4493s
+[nested_hpo 11:02:14] ============================================================
+[nested_hpo 11:02:14] Outer fold 1 starting
+[nested_hpo 11:02:14] ============================================================
+[nested_hpo 11:02:14] outer_train=40813, outer_valid=10204
+[nested_hpo 11:02:14] Stage 1: Inner folds + pre-cache...
+[nested_hpo 11:02:25]   Pre-cache inner fold 0...
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+[nested_hpo 11:04:32]   Pre-cache fold 0 done (126s)
+[nested_hpo 11:04:32]   Pre-cache inner fold 1...
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+/home/user/bitoguard-hackathon/bitoguard_core/official/nested_hpo.py:260: DeprecationWarning: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, pd.CategoricalDtype) instead
+  or pd.api.types.is_categorical_dtype(train_frame[column])
+[nested_hpo 11:06:46]   Pre-cache fold 1 done (134s)
+[nested_hpo 11:06:46] Stage 1 done (272s)
+[nested_hpo 11:06:46] Stage 2: Dual-stream HPO starting...
+[nested_hpo 11:06:46]   [GPU] CatBoost HPO starting...
+[nested_hpo 11:06:46]   [CPU] LightGBM HPO starting...
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
+[nested_hpo 11:22:41]   [GPU] CatBoost HPO done: F1=0.3712 (25 trials, 9 pruned, 955s)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:219: RuntimeWarning: invalid value encountered in divide
+  prec = np.where(denom_p > 0, tp / denom_p, 0.0)
+/home/user/bitoguard-hackathon/bitoguard_core/official/stacking.py:222: RuntimeWarning: invalid value encountered in divide
+  f1 = np.where(denom_f > 0, 2.0 * prec * rec / denom_f, 0.0)
