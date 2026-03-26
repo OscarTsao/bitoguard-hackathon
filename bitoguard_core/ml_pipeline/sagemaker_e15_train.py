@@ -55,8 +55,8 @@ def _setup_env() -> None:
     os.environ["SKIP_GNN"] = "1"
     # 跳過 secondary validation（省 ~50% 時間），後續可單獨跑
     os.environ["SKIP_SECONDARY_OOF"] = "1"
-    # 啟用平行化 multi-seed 訓練
-    os.environ["PARALLEL_SEEDS"] = "1"
+    # 停用平行化（128GB 不夠同時跑多個 model），用全部 32 cores 依序跑
+    os.environ["PARALLEL_SEEDS"] = "0"
 
     # 確保目錄存在
     for d in (SM_CLEAN_DIR, SM_ARTIFACT_DIR, SM_MODEL_DIR, SM_OUTPUT_DIR):
