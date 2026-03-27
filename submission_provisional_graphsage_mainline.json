@@ -1,0 +1,84 @@
+{
+  "status": "PROVISIONAL_SUBMISSION_READY",
+  "branch": "main",
+  "commit": "d505e4cd70d37579213b39686d46b8cba4ad9a06",
+  "repo_path": "/home/user/bitoguard-hackathon/bitoguard_core",
+  "config_source": "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/official_features/hybrid_primary_locked_eval_with_graphsage/hybrid_primary_locked_eval_with_graphsage_report.json",
+  "report_source": "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/official_features/hybrid_primary_locked_eval_with_graphsage/hybrid_primary_locked_eval_with_graphsage_report.json",
+  "oof_source": "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/official_features/hybrid_primary_locked_eval_with_graphsage/hybrid_primary_locked_eval_with_graphsage_oof.parquet",
+  "frozen_params": {
+    "catboost": {
+      "iterations": 1200,
+      "depth": 5,
+      "learning_rate": 0.037647189513935427,
+      "l2_leaf_reg": 2.597089614814559,
+      "border_count": 64,
+      "random_strength": 0.8495452568635251,
+      "bagging_temperature": 1.3270275178113875,
+      "min_data_in_leaf": 60,
+      "max_class_weight": 7.364605267632683
+    },
+    "lightgbm": {
+      "n_estimators": 700,
+      "learning_rate": 0.061848298636418164,
+      "num_leaves": 38,
+      "subsample": 0.8454020905192599,
+      "colsample_bytree": 0.5949555815942549,
+      "min_child_samples": 34,
+      "reg_alpha": 0.391183619017048,
+      "reg_lambda": 0.5829401059406771
+    },
+    "xgboost": {
+      "n_estimators": 1500,
+      "max_depth": 7,
+      "learning_rate": 0.05,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 5.0,
+      "min_child_weight": 5.0
+    }
+  },
+  "graphsage_enabled": true,
+  "threshold_used": 0.1735,
+  "train_rows": 51017,
+  "predict_rows": 12753,
+  "output_file_path": "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/submission_provisional_graphsage_mainline.csv",
+  "scores_path": "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/submission_provisional_graphsage_mainline_scores.parquet",
+  "generation_timestamp": "2026-03-27T01:50:51.346201+00:00",
+  "note": [
+    "THIS_IS_PROVISIONAL",
+    "XGB_GRID_FOLDS_2_3_4_STILL_PENDING_ON_OTHER_MACHINE"
+  ],
+  "validation": {
+    "row_count_ok": true,
+    "user_id_unique": true,
+    "no_nan_status": true,
+    "status_binary": true,
+    "columns": [
+      "user_id",
+      "status"
+    ]
+  },
+  "artifacts": {
+    "base_a_paths": [
+      "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/models/base_a_seed42.pkl",
+      "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/models/base_a_seed52.pkl",
+      "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/models/base_a_seed62.pkl",
+      "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/models/base_a_seed72.pkl"
+    ],
+    "base_b_path": "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/models/base_b.pkl",
+    "base_d_paths": [
+      "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/models/base_d_seed42.pkl",
+      "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/models/base_d_seed123.pkl",
+      "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/models/base_d_seed456.pkl"
+    ],
+    "base_e_paths": [
+      "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/models/base_e_seed42.pkl",
+      "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/models/base_e_seed123.pkl"
+    ],
+    "graph_path": "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/models/graphsage.pt",
+    "blend_path": "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/models/blend_model.pkl",
+    "calibrator_path": "/home/user/bitoguard-hackathon/bitoguard_core/artifacts/final_submission_current_mainline/models/calibrator.pkl"
+  }
+}

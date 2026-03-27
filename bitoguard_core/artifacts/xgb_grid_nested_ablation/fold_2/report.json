@@ -1,0 +1,14 @@
+{
+  "outer_fold": 2,
+  "best_f1": 0.3686598193101636,
+  "best_params": {
+    "n_estimators": 1500,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 5.0,
+    "min_child_weight": 5.0,
+    "max_depth": 6,
+    "learning_rate": 0.07
+  }
+}
